@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:flowable="http://flowable.org/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC" xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI" typeLanguage="http://www.w3.org/2001/XMLSchema" expressionLanguage="http://www.w3.org/1999/XPath" targetNamespace="http://www.flowable.org/processdef">
+  <process id="workforcePlanningProcess" name="Workforce Planning process" isExecutable="true">
+    <documentation>Automated workflow for employee staffing and project assignments</documentation>
+    <startEvent id="startEvent1" flowable:formFieldValidation="true"></startEvent>
+    <serviceTask id="autoSkillMatching" name="Auto Skill Matching" flowable:delegateExpression="${skillMatchingDelegate}">
+      <documentation>System automatically matches employees based on project requirements</documentation>
+    </serviceTask>
+    <sequenceFlow id="sid-1A0EBC8A-AD58-4E8D-8855-E189D8222CA6" sourceRef="startEvent1" targetRef="autoSkillMatching"></sequenceFlow>
+    <userTask id="reviewAndPropose" name="Review &amp; Propose Candidates" flowable:assignee="resourcePlanner" flowable:formFieldValidation="true">
+      <documentation>Resource Planner reviews automatically matched employees and proposes best candidates for the project</documentation>
+      <extensionElements>
+        <modeler:initiator-can-complete xmlns:modeler="http://flowable.org/modeler"><![CDATA[false]]></modeler:initiator-can-complete>
+      </extensionElements>
+    </userTask>
+    <userTask id="approveProposal" name="Approve/Reject Proposal" flowable:assignee="departmentHead" flowable:formFieldValidation="true">
+      <documentation>Department Head reviews and approves or rejects the proposed employee assignment</documentation>
+      <extensionElements>
+        <modeler:initiator-can-complete xmlns:modeler="http://flowable.org/modeler"><![CDATA[false]]></modeler:initiator-can-complete>
+      </extensionElements>
+    </userTask>
+    <sequenceFlow id="sid-B7FCECB0-D443-4092-AE54-89A9A5751646" sourceRef="reviewAndPropose" targetRef="approveProposal"></sequenceFlow>
+    <sequenceFlow id="sid-0FEED63F-6AA2-4007-8867-0FAFAF2E8A59" sourceRef="autoSkillMatching" targetRef="reviewAndPropose"></sequenceFlow>
+    <exclusiveGateway id="approvalGateway" name="Approved?"></exclusiveGateway>
+    <userTask id="assignEmployee" name="Assign Employee" flowable:assignee="resourcePlanner" flowable:formFieldValidation="true">
+      <documentation>Resource Planner officially assigns the approved employee to the project</documentation>
+      <extensionElements>
+        <modeler:initiator-can-complete xmlns:modeler="http://flowable.org/modeler"><![CDATA[false]]></modeler:initiator-can-complete>
+      </extensionElements>
+    </userTask>
+    <userTask id="notifyAndConfirm" name="Notify &amp; Confirm Assignment" flowable:assignee="${employeeEmail}" flowable:formFieldValidation="true">
+      <extensionElements>
+        <modeler:initiator-can-complete xmlns:modeler="http://flowable.org/modeler"><![CDATA[false]]></modeler:initiator-can-complete>
+      </extensionElements>
+    </userTask>
+    <sequenceFlow id="sid-7487E04A-9ADE-49FB-95B9-452C66992E7A" sourceRef="assignEmployee" targetRef="notifyAndConfirm"></sequenceFlow>
+    <serviceTask id="sendRejectionNotification" name="Send Rejection Notification" flowable:delegateExpression="${rejectionNotificationDelegate}">
+      <documentation>System sends rejection notification to Resource Planner</documentation>
+    </serviceTask>
+    <sequenceFlow id="sid-E427A376-83BB-42B4-A057-1876DEB020CA" name="Rejected" sourceRef="approvalGateway" targetRef="sendRejectionNotification">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${approved == false}]]></conditionExpression>
+    </sequenceFlow>
+    <endEvent id="endEventSuccess" name="Assignment Completed"></endEvent>
+    <endEvent id="endEventRejected" name="Proposal Rejected"></endEvent>
+    <sequenceFlow id="sid-4CEBB46C-84C8-4415-90F4-B6B209B36854" sourceRef="sendRejectionNotification" targetRef="endEventRejected"></sequenceFlow>
+    <sequenceFlow id="sid-C88F1F6A-2438-409B-AB6E-3116C4EBADCF" sourceRef="approveProposal" targetRef="approvalGateway"></sequenceFlow>
+    <sequenceFlow id="sid-164E726D-C9E7-47B5-A26A-F896E69C2507" sourceRef="notifyAndConfirm" targetRef="endEventSuccess"></sequenceFlow>
+    <sequenceFlow id="sid-2895FCF6-19F7-44BD-A0B8-7563E6167773" sourceRef="approvalGateway" targetRef="assignEmployee"></sequenceFlow>
+  </process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_workforcePlanningProcess">
+    <bpmndi:BPMNPlane bpmnElement="workforcePlanningProcess" id="BPMNPlane_workforcePlanningProcess">
+      <bpmndi:BPMNShape bpmnElement="startEvent1" id="BPMNShape_startEvent1">
+        <omgdc:Bounds height="30.0" width="30.0" x="100.0" y="163.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="autoSkillMatching" id="BPMNShape_autoSkillMatching">
+        <omgdc:Bounds height="80.0" width="100.0" x="285.0" y="138.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="reviewAndPropose" id="BPMNShape_reviewAndPropose">
+        <omgdc:Bounds height="80.0" width="100.0" x="450.0" y="138.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="approveProposal" id="BPMNShape_approveProposal">
+        <omgdc:Bounds height="80.0" width="100.0" x="615.0" y="138.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="approvalGateway" id="BPMNShape_approvalGateway">
+        <omgdc:Bounds height="40.0" width="40.0" x="795.0" y="150.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="assignEmployee" id="BPMNShape_assignEmployee">
+        <omgdc:Bounds height="80.0" width="100.0" x="915.0" y="135.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="notifyAndConfirm" id="BPMNShape_notifyAndConfirm">
+        <omgdc:Bounds height="80.0" width="100.0" x="1065.0" y="138.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sendRejectionNotification" id="BPMNShape_sendRejectionNotification">
+        <omgdc:Bounds height="80.0" width="100.0" x="765.0" y="275.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="endEventSuccess" id="BPMNShape_endEventSuccess">
+        <omgdc:Bounds height="28.0" width="28.0" x="1320.0" y="164.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="endEventRejected" id="BPMNShape_endEventRejected">
+        <omgdc:Bounds height="28.0" width="28.0" x="998.0" y="302.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge bpmnElement="sid-0FEED63F-6AA2-4007-8867-0FAFAF2E8A59" id="BPMNEdge_sid-0FEED63F-6AA2-4007-8867-0FAFAF2E8A59">
+        <omgdi:waypoint x="384.9499999999776" y="178.0"></omgdi:waypoint>
+        <omgdi:waypoint x="449.99999999996464" y="178.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="sid-2895FCF6-19F7-44BD-A0B8-7563E6167773" id="BPMNEdge_sid-2895FCF6-19F7-44BD-A0B8-7563E6167773">
+        <omgdi:waypoint x="833.6296146527116" y="171.31214285714287"></omgdi:waypoint>
+        <omgdi:waypoint x="914.9999999999998" y="174.955223880597"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="sid-7487E04A-9ADE-49FB-95B9-452C66992E7A" id="BPMNEdge_sid-7487E04A-9ADE-49FB-95B9-452C66992E7A">
+        <omgdi:waypoint x="1014.9499999999989" y="176.4836633663366"></omgdi:waypoint>
+        <omgdi:waypoint x="1065.0" y="177.97029702970298"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="sid-E427A376-83BB-42B4-A057-1876DEB020CA" id="BPMNEdge_sid-E427A376-83BB-42B4-A057-1876DEB020CA">
+        <omgdi:waypoint x="815.4095238095238" y="189.53113701236916"></omgdi:waypoint>
+        <omgdi:waypoint x="815.0045023696682" y="275.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="sid-C88F1F6A-2438-409B-AB6E-3116C4EBADCF" id="BPMNEdge_sid-C88F1F6A-2438-409B-AB6E-3116C4EBADCF">
+        <omgdi:waypoint x="714.9499999999872" y="178.0"></omgdi:waypoint>
+        <omgdi:waypoint x="755.0" y="178.0"></omgdi:waypoint>
+        <omgdi:waypoint x="755.0" y="170.0"></omgdi:waypoint>
+        <omgdi:waypoint x="795.333333333331" y="170.33333333333331"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="sid-B7FCECB0-D443-4092-AE54-89A9A5751646" id="BPMNEdge_sid-B7FCECB0-D443-4092-AE54-89A9A5751646">
+        <omgdi:waypoint x="549.95" y="178.0"></omgdi:waypoint>
+        <omgdi:waypoint x="615.0" y="178.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="sid-1A0EBC8A-AD58-4E8D-8855-E189D8222CA6" id="BPMNEdge_sid-1A0EBC8A-AD58-4E8D-8855-E189D8222CA6">
+        <omgdi:waypoint x="129.9499993749339" y="178.0"></omgdi:waypoint>
+        <omgdi:waypoint x="284.99999999995396" y="178.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="sid-4CEBB46C-84C8-4415-90F4-B6B209B36854" id="BPMNEdge_sid-4CEBB46C-84C8-4415-90F4-B6B209B36854">
+        <omgdi:waypoint x="864.9499999999935" y="315.25355329949235"></omgdi:waypoint>
+        <omgdi:waypoint x="998.000021613212" y="315.9289349069284"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="sid-164E726D-C9E7-47B5-A26A-F896E69C2507" id="BPMNEdge_sid-164E726D-C9E7-47B5-A26A-F896E69C2507">
+        <omgdi:waypoint x="1164.9499999999925" y="178.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1320.0" y="178.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</definitions>
