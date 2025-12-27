@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xmlns:flowable="http://flowable.org/bpmn"
+             targetNamespace="http://www.flowable.org/processdef">
+
+  <process id="workforcePlanningProcess"
+           name="Workforce Planning Process"
+           isExecutable="true">
+
+    <!-- START -->
+    <startEvent id="startEvent"/>
+
+    <!-- AUTO SKILL MATCH -->
+    <serviceTask id="autoSkillMatching"
+                 name="Auto Skill Matching"
+                 flowable:delegateExpression="${skillMatchingDelegate}"/>
+
+    <sequenceFlow sourceRef="startEvent" targetRef="autoSkillMatching"/>
+
+    <!-- REVIEW -->
+    <userTask id="reviewAndPropose"
+              name="Review &amp; Propose Candidates"
+              flowable:assignee="resourcePlanner"/>
+
+    <sequenceFlow sourceRef="autoSkillMatching" targetRef="reviewAndPropose"/>
+
+    <!-- APPROVAL -->
+    <userTask id="approveProposal"
+              name="Approve / Reject Proposal"
+              flowable:assignee="departmentHead"/>
+
+    <sequenceFlow sourceRef="reviewAndPropose" targetRef="approveProposal"/>
+
+    <!-- GATEWAY -->
+    <exclusiveGateway id="approvalGateway" name="Approved?"/>
+
+    <sequenceFlow sourceRef="approveProposal" targetRef="approvalGateway"/>
+
+    <!-- ASSIGN EMPLOYEE -->
+    <serviceTask id="assignEmployee"
+                 name="Assign Employee"
+                 flowable:delegateExpression="${assignmentDelegate}"/>
+
+    <sequenceFlow sourceRef="approvalGateway" targetRef="assignEmployee">
+      <conditionExpression xsi:type="tFormalExpression">
+        <![CDATA[${approved == true}]]>
+      </conditionExpression>
+    </sequenceFlow>
+
+    <!-- NOTIFY -->
+    <userTask id="notifyAndConfirm"
+              name="Notify &amp; Confirm Assignment"
+              flowable:assignee="${employeeEmail}"/>
+
+    <sequenceFlow sourceRef="assignEmployee" targetRef="notifyAndConfirm"/>
+
+    <!-- SUCCESS END -->
+    <endEvent id="endEventSuccess" name="Assignment Completed"/>
+
+    <sequenceFlow sourceRef="notifyAndConfirm" targetRef="endEventSuccess"/>
+
+    <!-- REJECTION -->
+    <serviceTask id="sendRejectionNotification"
+                 name="Send Rejection Notification"
+                 flowable:delegateExpression="${rejectionNotificationDelegate}"/>
+
+    <sequenceFlow sourceRef="approvalGateway" targetRef="sendRejectionNotification">
+      <conditionExpression xsi:type="tFormalExpression">
+        <![CDATA[${approved == false}]]>
+      </conditionExpression>
+    </sequenceFlow>
+
+    <endEvent id="endEventRejected" name="Proposal Rejected"/>
+
+    <sequenceFlow sourceRef="sendRejectionNotification" targetRef="endEventRejected"/>
+
+  </process>
+</definitions>

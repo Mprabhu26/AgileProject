@@ -1,0 +1,10 @@
+package com.workforce.workforceplanning.model;
+
+public enum ProjectStatus {
+    PENDING,           // Initial state, waiting for approval
+    APPROVED,          // Approved and ready for staff assignment
+    IN_PROGRESS,       // Staff assigned and work started
+    COMPLETED,         // Project finished
+    REJECTED,          // Request rejected
+    CANCELLED          // Project cancelled
+}
