@@ -1,10 +1,13 @@
 package com.workforce.workforceplanning.config;
 
 import com.workforce.workforceplanning.model.*;
-import com.workforce.workforceplanning.repository.*;
+import com.workforce.workforceplanning.repository.EmployeeRepository;
+import com.workforce.workforceplanning.repository.ProjectRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Set;
 
 @Component
@@ -21,16 +24,19 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        // Only load if database is empty
-        if (employeeRepository.count() == 0) {
+        if (employeeRepository.count() == 0 && projectRepository.count() == 0) {
             loadSampleData();
         }
     }
 
     private void loadSampleData() {
-        System.out.println("Loading sample data...");
 
-        // Create Employees
+        System.out.println("🚀 Loading sample data...");
+
+        // =========================
+        // EMPLOYEES
+        // =========================
+
         Employee emp1 = new Employee();
         emp1.setName("John Doe");
         emp1.setEmail("john@company.com");
@@ -55,21 +61,50 @@ public class DataInitializer implements CommandLineRunner {
         emp3.setAvailable(false);
         employeeRepository.save(emp3);
 
-        // Create Projects
-        Project proj1 = new Project();
-        proj1.setName("Website Redesign");
-        proj1.setDescription("Redesign company website");
-        proj1.setRequiredSkills(Set.of("React", "JavaScript"));
-        proj1.setStatus(ProjectStatus.PENDING);
-        projectRepository.save(proj1);
+        // =========================
+        // PROJECT 1 — BANKING
+        // =========================
 
-        Project proj2 = new Project();
-        proj2.setName("Mobile App Development");
-        proj2.setDescription("Create mobile app for customers");
-        proj2.setRequiredSkills(Set.of("Java", "Spring Boot"));
-        proj2.setStatus(ProjectStatus.PENDING);
-        projectRepository.save(proj2);
+        Project bankingProject = new Project();
+        bankingProject.setName("Banking Project");
+        bankingProject.setDescription("Core banking system");
+        bankingProject.setStatus(ProjectStatus.PENDING);
+        bankingProject.setStartDate(LocalDate.of(2025, 1, 15));
+        bankingProject.setEndDate(LocalDate.of(2025, 6, 30));
+        bankingProject.setBudget(new BigDecimal("1500000"));
+        bankingProject.setTotalEmployeesRequired(5);
 
-        System.out.println("✅ Sample data loaded: 3 employees, 2 projects");
+        bankingProject.getSkillRequirements().add(
+                new ProjectSkillRequirement(bankingProject, "Java", 2));
+        bankingProject.getSkillRequirements().add(
+                new ProjectSkillRequirement(bankingProject, "Python", 2));
+        bankingProject.getSkillRequirements().add(
+                new ProjectSkillRequirement(bankingProject, "React", 1));
+
+        projectRepository.save(bankingProject);
+
+        // =========================
+        // PROJECT 2 — IOT
+        // =========================
+
+        Project iotProject = new Project();
+        iotProject.setName("IoT Platform");
+        iotProject.setDescription("IoT analytics and monitoring platform");
+        iotProject.setStatus(ProjectStatus.PENDING);
+        iotProject.setStartDate(LocalDate.of(2025, 2, 1));
+        iotProject.setEndDate(LocalDate.of(2025, 9, 30));
+        iotProject.setBudget(new BigDecimal("2200000"));
+        iotProject.setTotalEmployeesRequired(4);
+
+        iotProject.getSkillRequirements().add(
+                new ProjectSkillRequirement(iotProject, "Java", 2));
+        iotProject.getSkillRequirements().add(
+                new ProjectSkillRequirement(iotProject, "Python", 1));
+        iotProject.getSkillRequirements().add(
+                new ProjectSkillRequirement(iotProject, "React", 1));
+
+        projectRepository.save(iotProject);
+
+        System.out.println("✅ Sample data loaded successfully");
     }
 }
