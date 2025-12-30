@@ -5,6 +5,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
+import org.springframework.context.annotation.Bean;
+import org.thymeleaf.extras.java8time.dialect.Java8TimeDialect;
 
 @SpringBootApplication
 @ComponentScan(basePackages = "com.workforce.workforceplanning")
@@ -14,5 +16,10 @@ public class WorkforcePlanningApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(WorkforcePlanningApplication.class, args);
+    }
+
+    @Bean
+    public Java8TimeDialect java8TimeDialect() {
+        return new Java8TimeDialect();
     }
 }
