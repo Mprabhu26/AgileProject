@@ -43,4 +43,34 @@ public class ProjectController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
+
+    // ✅ UPDATE PROJECT
+    @PutMapping("/{id}")
+    public ResponseEntity<Project> updateProject(
+            @PathVariable Long id,
+            @RequestBody Project project) {
+
+        return projectRepository.findById(id)
+                .map(existingProject -> {
+                    existingProject.setName(project.getName());
+                    existingProject.setDescription(project.getDescription());
+                    existingProject.setStartDate(project.getStartDate());
+                    existingProject.setEndDate(project.getEndDate());
+                    existingProject.setBudget(project.getBudget());
+                    existingProject.setTotalEmployeesRequired(project.getTotalEmployeesRequired());
+                    existingProject.setStatus(project.getStatus());
+                    return ResponseEntity.ok(projectRepository.save(existingProject));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // ✅ GET PROJECTS BY STATUS
+    @GetMapping("/status/{status}")
+    public ResponseEntity<List<Project>> getProjectsByStatus(@PathVariable String status) {
+        List<Project> projects = projectRepository.findAll().stream()
+                .filter(p -> p.getStatus() != null &&
+                        p.getStatus().name().equalsIgnoreCase(status))
+                .toList();
+        return ResponseEntity.ok(projects);
+    }
 }
