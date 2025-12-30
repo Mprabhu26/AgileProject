@@ -1,9 +1,8 @@
 package com.workforce.workforceplanning.dto;
 
 public class SkillRequirementDto {
-
     private String skill;
-    private Integer count;
+    private Integer requiredCount;  // Keep field name as requiredCount
 
     // Constructors
     public SkillRequirementDto() {
@@ -23,11 +22,18 @@ public class SkillRequirementDto {
         this.skill = skill;
     }
 
+    // ✅ Change from getRequiredCount() to getCount() to match controller calls
     public Integer getCount() {
-        return count;
+        return requiredCount;
     }
 
+    // ✅ Change from setRequiredCount() to setCount()
     public void setCount(Integer count) {
-        this.count = count;
+        this.requiredCount = count;
+    }
+
+    // Optional: Keep getRequiredCount() for clarity
+    public Integer getRequiredCount() {
+        return requiredCount;
     }
 }
