@@ -37,7 +37,7 @@ public class ProjectController {
         project.setStatus(ProjectStatus.PENDING);
         project.setCreatedBy(principal.getName());
 
-        // ✅ FIXED: Handle null skill requirements
+// ✅ FIXED: Handle null skill requirements
         if (request.getSkillRequirements() != null) {
             for (SkillRequirementDto dto : request.getSkillRequirements()) {
                 if (dto.getSkill() != null && !dto.getSkill().trim().isEmpty() &&
