@@ -3,6 +3,9 @@ package com.workforce.workforceplanning.controller;
 import org.flowable.engine.RuntimeService;
 import org.flowable.engine.TaskService;
 import org.flowable.task.api.Task;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -14,76 +17,141 @@ import java.util.stream.Collectors;
 @RequestMapping("/workflow")
 public class WorkflowController {
 
+    private static final Logger log = LoggerFactory.getLogger(WorkflowController.class);
+
     private final RuntimeService runtimeService;
     private final TaskService taskService;
 
-    public WorkflowController(RuntimeService runtimeService,
-                              TaskService taskService) {
+    public WorkflowController(RuntimeService runtimeService, TaskService taskService) {
         this.runtimeService = runtimeService;
         this.taskService = taskService;
     }
 
-    // 🔹 START WORKFLOW
+    // ▶ START WORKFLOW
     @PostMapping("/start/{projectId}")
-    public String startWorkflow(@PathVariable Long projectId) {
+    public ResponseEntity<Map<String, Object>> startWorkflow(@PathVariable Long projectId) {
 
         Map<String, Object> variables = new HashMap<>();
         variables.put("projectId", projectId);
-        variables.put("approved", false);
 
-        runtimeService.startProcessInstanceByKey(
+        var processInstance = runtimeService.startProcessInstanceByKey(
                 "workforcePlanningProcess",
                 variables
         );
 
-        return "Workflow started for project " + projectId;
+        log.info("✅ Workflow started | processInstanceId={} | projectId={}",
+                processInstance.getId(), projectId);
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Workflow started",
+                "processInstanceId", processInstance.getId(),
+                "projectId", projectId
+        ));
     }
 
-    // 🔹 GET ALL ACTIVE TASKS
+    // ▶ GET ALL ACTIVE TASKS
     @GetMapping("/tasks")
-    public List<TaskResponse> getAllTasks() {
+    public ResponseEntity<List<Map<String, Object>>> getTasks() {
 
-        return taskService.createTaskQuery()
-                .list()
-                .stream()
-                .map(task -> new TaskResponse(
-                        task.getId(),
-                        task.getName(),
-                        task.getAssignee(),
-                        task.getProcessInstanceId()
-                ))
-                .collect(Collectors.toList());
+        List<Task> tasks = taskService.createTaskQuery()
+                .active()
+                .list();
+
+        List<Map<String, Object>> response = tasks.stream().map(task -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("taskId", task.getId());
+            map.put("name", task.getName());
+            map.put("assignee", task.getAssignee());
+            map.put("processInstanceId", task.getProcessInstanceId());
+            return map;
+        }).collect(Collectors.toList());
+
+        return ResponseEntity.ok(response);
     }
 
-    // 🔹 COMPLETE TASK (APPROVE / REJECT)
+    // ▶ COMPLETE TASK (UNIVERSAL – WORKS FOR ALL USER TASKS)
     @PostMapping("/tasks/{taskId}/complete")
-    public String completeTask(
+    public ResponseEntity<Map<String, Object>> completeTask(
             @PathVariable String taskId,
-            @RequestParam boolean approved
+            @RequestParam(required = false) Boolean approved,
+            @RequestBody(required = false) Map<String, Object> requestBody
     ) {
-        Map<String, Object> variables = new HashMap<>();
-        variables.put("approved", approved);
 
-        taskService.complete(taskId, variables);
+        log.info("➡ Completing task {}", taskId);
 
-        return "Task " + taskId + " completed. Approved = " + approved;
+        Task task = taskService.createTaskQuery()
+                .taskId(taskId)
+                .singleResult();
+
+        if (task == null) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "error", "Task not found",
+                    "taskId", taskId
+            ));
+        }
+
+        String processInstanceId = task.getProcessInstanceId();
+
+        // 🔹 ALWAYS FETCH EXISTING VARIABLES
+        Map<String, Object> variables = new HashMap<>(
+                runtimeService.getVariables(processInstanceId)
+        );
+
+        // 🔹 ADD approved IF PRESENT
+        if (approved != null) {
+            variables.put("approved", approved);
+        }
+
+        // 🔹 ADD BODY VARIABLES (employeeIds etc.)
+        if (requestBody != null) {
+            variables.putAll(requestBody);
+        }
+
+        log.info("Final variables passed to Flowable: {}", variables);
+
+        try {
+            taskService.complete(taskId, variables);
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Task completed successfully",
+                    "taskId", taskId,
+                    "taskName", task.getName()
+            ));
+
+        } catch (Exception e) {
+            log.error("❌ Error completing task", e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "error", "Task completion failed",
+                    "message", e.getMessage()
+            ));
+        }
     }
 
-    // 🔹 RESPONSE DTO
-    static class TaskResponse {
-        public String taskId;
-        public String name;
-        public String assignee;
-        public String processInstanceId;
+    // ▶ GET SINGLE TASK DETAILS
+    @GetMapping("/tasks/{taskId}")
+    public ResponseEntity<Map<String, Object>> getTask(@PathVariable String taskId) {
 
-        public TaskResponse(String taskId,
-                            String name,
-                            String assignee,
-                            String processInstanceId) {
-            this.taskId = taskId;
-            this.name = name;
-            this.assignee = assignee;
-            this.processInstanceId = processInstanceId;
+        Task task = taskService.createTaskQuery()
+                .taskId(taskId)
+                .singleResult();
+
+        if (task == null) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "error", "Task not found"
+            ));
         }
+
+        Map<String, Object> variables =
+                runtimeService.getVariables(task.getProcessInstanceId());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("taskId", task.getId());
+        response.put("name", task.getName());
+        response.put("assignee", task.getAssignee());
+        response.put("processInstanceId", task.getProcessInstanceId());
+        response.put("variables", variables);
+
+        return ResponseEntity.ok(response);
     }
 }

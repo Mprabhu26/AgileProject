@@ -13,26 +13,30 @@ public class Employee {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
     private Long id;
 
     @NotBlank(message = "Name is required")
-    @Column(nullable = false)
+    @Column(name = "name", nullable = false)
     private String name;
 
     @Email(message = "Invalid email format")
     @NotBlank(message = "Email is required")
-    @Column(nullable = false, unique = true)
+    @Column(name = "email", nullable = false, unique = true)
     private String email;
 
     @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "employee_skills", joinColumns = @JoinColumn(name = "employee_id"))
+    @CollectionTable(
+            name = "employee_skills",
+            joinColumns = @JoinColumn(name = "employee_id", referencedColumnName = "id")
+    )
     @Column(name = "skill")
     private Set<String> skills = new HashSet<>();
 
-    @Column(nullable = false)
+    @Column(name = "department", nullable = false)
     private String department;
 
-    @Column(nullable = false)
+    @Column(name = "available", nullable = false)
     private Boolean available = true;
 
     @Column(name = "created_at")
@@ -43,25 +47,37 @@ public class Employee {
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now();
+        this.createdAt = now;
+        this.updatedAt = now;
+
+        // Ensure available is never null
+        if (this.available == null) {
+            this.available = true;
+        }
     }
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
     }
 
     // Constructors
     public Employee() {
+        // available already defaults to true
     }
 
     public Employee(String name, String email, Set<String> skills, String department) {
         this.name = name;
         this.email = email;
-        this.skills = skills;
+        this.skills = skills != null ? skills : new HashSet<>();
         this.department = department;
-        this.available = true;
+        // available defaults to true
+    }
+
+    public Employee(String name, String email, Set<String> skills, String department, Boolean available) {
+        this(name, email, skills, department);
+        this.available = available != null ? available : true;
     }
 
     // Getters and Setters
@@ -90,11 +106,12 @@ public class Employee {
     }
 
     public Set<String> getSkills() {
-        return skills;
+        // Return defensive copy or unmodifiable set
+        return new HashSet<>(skills);
     }
 
     public void setSkills(Set<String> skills) {
-        this.skills = skills;
+        this.skills = skills != null ? new HashSet<>(skills) : new HashSet<>();
     }
 
     public String getDepartment() {
@@ -110,7 +127,7 @@ public class Employee {
     }
 
     public void setAvailable(Boolean available) {
-        this.available = available;
+        this.available = available != null ? available : true;
     }
 
     public LocalDateTime getCreatedAt() {
@@ -129,6 +146,36 @@ public class Employee {
         this.updatedAt = updatedAt;
     }
 
+    // Helper methods
+    public void addSkill(String skill) {
+        if (skill != null && !skill.trim().isEmpty()) {
+            this.skills.add(skill.trim());
+        }
+    }
+
+    public void addSkills(Set<String> newSkills) {
+        if (newSkills != null) {
+            for (String skill : newSkills) {
+                addSkill(skill);
+            }
+        }
+    }
+
+    public void removeSkill(String skill) {
+        if (skill != null && this.skills != null) {
+            this.skills.remove(skill);
+        }
+    }
+
+    public boolean hasSkill(String skill) {
+        return skill != null && this.skills != null && this.skills.contains(skill);
+    }
+
+    // Business logic method
+    public boolean isAvailableForProject() {
+        return Boolean.TRUE.equals(available);
+    }
+
     @Override
     public String toString() {
         return "Employee{" +
@@ -138,6 +185,25 @@ public class Employee {
                 ", skills=" + skills +
                 ", department='" + department + '\'' +
                 ", available=" + available +
+                ", createdAt=" + createdAt +
+                ", updatedAt=" + updatedAt +
                 '}';
+    }
+
+    // Equals and hashCode (important for collections and JPA)
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Employee employee = (Employee) o;
+
+        // Use email for equality since it's unique
+        return email != null ? email.equals(employee.email) : employee.email == null;
+    }
+
+    @Override
+    public int hashCode() {
+        return email != null ? email.hashCode() : 0;
     }
 }
