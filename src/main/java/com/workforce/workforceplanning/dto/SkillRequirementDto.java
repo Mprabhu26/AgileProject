@@ -10,7 +10,7 @@ public class SkillRequirementDto {
 
     public SkillRequirementDto(String skill, Integer count) {
         this.skill = skill;
-        this.count = count;
+        this.requiredCount = count;
     }
 
     // Getters and Setters
