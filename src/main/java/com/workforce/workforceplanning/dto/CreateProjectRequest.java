@@ -14,6 +14,11 @@ public class CreateProjectRequest {
     private Integer totalEmployeesRequired;
     private List<SkillRequirementDto> skillRequirements;
 
+    // Constructors
+    public CreateProjectRequest() {
+    }
+
+    // Getters and Setters
     public String getName() {
         return name;
     }
