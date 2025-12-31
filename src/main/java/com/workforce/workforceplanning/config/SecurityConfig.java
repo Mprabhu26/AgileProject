@@ -24,6 +24,9 @@ public class SecurityConfig {
 
                         // UI endpoints
                         .requestMatchers("/ui/projects/**").hasRole("PROJECT_MANAGER")
+                        .requestMatchers("/ui/department-head/**").hasRole("DEPARTMENT_HEAD")
+                        .requestMatchers("/ui/resource-planner/**").hasRole("RESOURCE_PLANNER")
+
 
                         // API endpoints
                         .requestMatchers("/projects/**").hasRole("PROJECT_MANAGER")
@@ -33,7 +36,22 @@ public class SecurityConfig {
                 )
                 .formLogin(form -> form
                         .loginPage("/login")
-                        .defaultSuccessUrl("/ui/projects", true)
+                        .successHandler((request, response, authentication) -> {
+                            var roles = authentication.getAuthorities().stream()
+                                    .map(a -> a.getAuthority())
+                                    .toList();
+
+                            if (roles.contains("ROLE_PROJECT_MANAGER")) {
+                                response.sendRedirect("/ui/projects");
+                            } else if (roles.contains("ROLE_DEPARTMENT_HEAD")) {
+                                response.sendRedirect("/ui/department-head/dashboard");
+                            } else if (roles.contains("ROLE_RESOURCE_PLANNER")) {
+                                response.sendRedirect("/ui/resource-planner/dashboard");
+                            } else {
+                                response.sendRedirect("/login?error=true");
+                            }
+                        })
+
                         .failureUrl("/login?error=true")
                         .permitAll()
                 )
