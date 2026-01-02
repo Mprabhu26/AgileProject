@@ -4,16 +4,6 @@ public class SkillRequirementDto {
     private String skill;
     private Integer requiredCount;  // Keep field name as requiredCount
 
-    // Constructors
-    public SkillRequirementDto() {
-    }
-
-    public SkillRequirementDto(String skill, Integer count) {
-        this.skill = skill;
-        this.requiredCount = count;
-    }
-
-    // Getters and Setters
     public String getSkill() {
         return skill;
     }
@@ -35,5 +25,9 @@ public class SkillRequirementDto {
     // Optional: Keep getRequiredCount() for clarity
     public Integer getRequiredCount() {
         return requiredCount;
+    }
+
+    public void setRequiredCount(Integer requiredCount) {
+        this.requiredCount = requiredCount;
     }
 }

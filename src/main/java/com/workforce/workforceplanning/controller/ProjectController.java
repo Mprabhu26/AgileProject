@@ -1,17 +1,16 @@
 package com.workforce.workforceplanning.controller;
 
-
-import java.security.Principal;
 import com.workforce.workforceplanning.dto.CreateProjectRequest;
 import com.workforce.workforceplanning.dto.SkillRequirementDto;
 import com.workforce.workforceplanning.model.Project;
 import com.workforce.workforceplanning.model.ProjectStatus;
 import com.workforce.workforceplanning.model.ProjectSkillRequirement;
 import com.workforce.workforceplanning.repository.ProjectRepository;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.security.Principal;
 import java.util.List;
+import java.util.ArrayList;
 
 @RestController
 @RequestMapping("/projects")
@@ -23,9 +22,8 @@ public class ProjectController {
         this.projectRepository = projectRepository;
     }
 
-    // ✅ SIMPLIFIED CREATE PROJECT (No DTOs needed!)
+    // ✅ FIXED: Ensure skill requirements are saved properly
     @PostMapping
-
     public ResponseEntity<?> createProject(
             @RequestBody CreateProjectRequest request,
             Principal principal
@@ -40,28 +38,40 @@ public class ProjectController {
         project.setStatus(ProjectStatus.PENDING);
         project.setCreatedBy(principal.getName());
 
-// ✅ FIXED: Handle null skill requirements
+        // ✅ IMPORTANT: Initialize the list
+        project.setSkillRequirements(new ArrayList<>());
+
+        // ✅ FIXED: Properly handle skill requirements
         if (request.getSkillRequirements() != null) {
             for (SkillRequirementDto dto : request.getSkillRequirements()) {
-                if (dto.getSkill() != null && !dto.getSkill().trim().isEmpty() &&
-                        dto.getCount() != null && dto.getRequiredCount() > 0) {
-                    project.getSkillRequirements().add(
-                            new ProjectSkillRequirement(project, dto.getSkill(), dto.getRequiredCount())
-                    );
+                // Validate the DTO
+                if (dto != null &&
+                        dto.getSkill() != null &&
+                        !dto.getSkill().trim().isEmpty() &&
+                        dto.getRequiredCount() != null &&
+                        dto.getRequiredCount() > 0) {
+
+                    ProjectSkillRequirement requirement = new ProjectSkillRequirement();
+                    requirement.setSkill(dto.getSkill().trim());
+                    requirement.setRequiredCount(dto.getRequiredCount());
+                    requirement.setProject(project); // ✅ Set the bidirectional relationship
+
+                    // Add to project
+                    project.getSkillRequirements().add(requirement);
                 }
             }
         }
 
-        return ResponseEntity.ok(projectRepository.save(project));
+        // ✅ Save and return
+        Project savedProject = projectRepository.save(project);
+        return ResponseEntity.ok(savedProject);
     }
 
-    // ✅ GET ALL PROJECTS
     @GetMapping
     public ResponseEntity<List<Project>> getAllProjects() {
         return ResponseEntity.ok(projectRepository.findAll());
     }
 
-    // ✅ GET PROJECT BY ID
     @GetMapping("/{id}")
     public ResponseEntity<Project> getProjectById(@PathVariable Long id) {
         return projectRepository.findById(id)
