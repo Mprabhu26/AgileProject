@@ -55,6 +55,16 @@ public class Project {
     @JsonManagedReference
     private List<ProjectSkillRequirement> skillRequirements = new ArrayList<>();
 
+    // NEW: Publishing fields
+    @Column(name = "published")
+    private Boolean published = false;
+
+    @Column(name = "published_at")
+    private LocalDateTime publishedAt;
+
+    @Column(name = "visible_to_all")
+    private Boolean visibleToAll = false;
+
     // ===== Constructors =====
     public Project() {}
 
@@ -153,6 +163,34 @@ public class Project {
         this.skillRequirements = skillRequirements;
     }
 
+    // ===== New Getters & Setters =====
+    public Boolean getPublished() {
+        return published;
+    }
+
+    public void setPublished(Boolean published) {
+        this.published = published;
+        if (published && this.publishedAt == null) {
+            this.publishedAt = LocalDateTime.now();
+        }
+    }
+
+    public LocalDateTime getPublishedAt() {
+        return publishedAt;
+    }
+
+    public void setPublishedAt(LocalDateTime publishedAt) {
+        this.publishedAt = publishedAt;
+    }
+
+    public Boolean getVisibleToAll() {
+        return visibleToAll;
+    }
+
+    public void setVisibleToAll(Boolean visibleToAll) {
+        this.visibleToAll = visibleToAll;
+    }
+
     // ===== Helper Methods =====
     public void addSkillRequirement(ProjectSkillRequirement requirement) {
         skillRequirements.add(requirement);
@@ -170,6 +208,7 @@ public class Project {
                 "id=" + id +
                 ", name='" + name + '\'' +
                 ", status=" + status +
+                ", published=" + published +
                 ", createdBy='" + createdBy + '\'' +
                 ", totalEmployeesRequired=" + totalEmployeesRequired +
                 '}';

@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Resource Planner Dashboard</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(90deg, #10b981, #059669);
+            color: white;
+            padding: 25px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .header h2 {
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-buttons {
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+            border: none;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .btn-refresh {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-refresh:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-logout {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-logout:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Main Content */
+        .content {
+            padding: 30px;
+        }
+
+        /* Stats Bar */
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #10b981;
+        }
+
+        .stat-card h3 {
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        /* Sections */
+        .section {
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .section-title {
+            font-size: 18px;
+            color: #1e293b;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+        }
+
+        /* Tables */
+        .table-container {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: #f1f5f9;
+        }
+
+        th {
+            padding: 16px 20px;
+            text-align: left;
+            color: #475569;
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        td {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            color: #1e293b;
+        }
+
+        tr:hover {
+            background: #f8fafc;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Skill Tags */
+        .skill-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .skill-tag {
+            background: #e0e7ff;
+            color: #4f46e5;
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .employee-skill-tag {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+        }
+
+        /* Status Badges */
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .status-available {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-unavailable {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-approved {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        /* Actions */
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .assign-btn {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .assign-btn:hover {
+            background: #2563eb;
+        }
+
+        .view-btn {
+            background: #8b5cf6;
+            color: white;
+        }
+
+        .view-btn:hover {
+            background: #7c3aed;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .empty-state i {
+            font-size: 60px;
+            color: #cbd5e1;
+            margin-bottom: 20px;
+        }
+
+        .empty-state h3 {
+            color: #475569;
+            margin-bottom: 10px;
+            font-size: 20px;
+        }
+
+        .empty-state p {
+            color: #94a3b8;
+            margin-bottom: 25px;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <h2><i class="fas fa-users-cog"></i> Resource Planner Dashboard</h2>
+        </div>
+
+        <div class="header-buttons">
+            <a th:href="@{/ui/resource-planner/dashboard}" class="btn btn-refresh">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </a>
+
+            <form th:action="@{/logout}" method="post" style="margin: 0;">
+                <button type="submit" class="btn btn-logout">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="content">
+        <!-- Statistics Bar - SIMPLIFIED -->
+        <div class="stats-bar">
+            <div class="stat-card">
+                <h3><i class="fas fa-project-diagram"></i> Available Projects</h3>
+                <div class="value">
+                    <span th:text="${availableProjects != null ? availableProjects.size() : 0}">0</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <h3><i class="fas fa-user-check"></i> Available Employees</h3>
+                <div class="value">
+                    <span th:text="${availableEmployees != null ? availableEmployees.size() : 0}">0</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <h3><i class="fas fa-code"></i> Total Skills</h3>
+                <div class="value">
+                    <!-- Simple count - will show 0 for now -->
+                    <span>0</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <h3><i class="fas fa-users"></i> Total Positions</h3>
+                <div class="value">
+                    <!-- Simple count - will show 0 for now -->
+                    <span>0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Available Projects Section -->
+        <div class="section">
+            <div class="section-title">
+                <i class="fas fa-project-diagram"></i> Available Projects for Staffing
+                <span class="status-badge status-approved" style="margin-left: auto;">
+                    Published & Approved
+                </span>
+            </div>
+
+            <div class="table-container">
+                <table th:if="${availableProjects != null and not availableProjects.isEmpty()}">
+                    <thead>
+                    <tr>
+                        <th>Project Name</th>
+                        <th>Description</th>
+                        <th>Required Skills</th>
+                        <th>Team Size</th>
+                        <th>Budget</th>
+                        <th>Timeline</th>
+                        <th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="project : ${availableProjects}">
+                        <td>
+                            <div style="font-weight: 600;" th:text="${project.name}"></div>
+                        </td>
+                        <td th:text="${project.description} ?: 'No description'"></td>
+                        <td>
+                            <div class="skill-tags">
+                                <span th:each="skill : ${project.skillRequirements}" class="skill-tag">
+                                    <i class="fas fa-tag"></i>
+                                    <span th:text="${skill.skill}"></span>
+                                    (<span th:text="${skill.requiredCount}"></span>)
+                                </span>
+                            </div>
+                        </td>
+                        <td th:text="${project.totalEmployeesRequired} + ' people'"></td>
+                        <td>
+                            €<span th:text="${project.budget}"></span>
+                        </td>
+                        <td>
+                            <div>
+                                <div><i class="fas fa-play" style="color: #10b981;"></i>
+                                    <span th:text="${project.startDate}"></span>
+                                </div>
+                                <div><i class="fas fa-flag-checkered" style="color: #ef4444;"></i>
+                                    <span th:text="${project.endDate}"></span>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="actions">
+                                <a th:href="@{'/ui/resource-planner/projects/' + ${project.id} + '/staff'}"
+                                   class="action-btn assign-btn">
+                                    <i class="fas fa-user-plus"></i> Assign
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+
+                <div th:if="${availableProjects == null or availableProjects.isEmpty()}" class="empty-state">
+                    <i class="fas fa-inbox"></i>
+                    <h3>No Projects Available</h3>
+                    <p>There are no published and approved projects available for staffing.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Available Employees Section -->
+        <div class="section">
+            <div class="section-title">
+                <i class="fas fa-user-check"></i> Available Employees
+            </div>
+
+            <div class="table-container">
+                <table th:if="${availableEmployees != null and not availableEmployees.isEmpty()}">
+                    <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Department</th>
+                        <th>Skills</th>
+                        <th>Status</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="employee : ${availableEmployees}">
+                        <td th:text="${employee.name}"></td>
+                        <td th:text="${employee.email}"></td>
+                        <td th:text="${employee.department}"></td>
+                        <td>
+                            <div class="skill-tags">
+                                <span th:each="skill : ${employee.skills}" class="employee-skill-tag">
+                                    <i class="fas fa-star"></i>
+                                    <span th:text="${skill}"></span>
+                                </span>
+                            </div>
+                        </td>
+                        <td>
+                            <span th:if="${employee.available}" class="status-badge status-available">
+                                Available
+                            </span>
+                            <span th:unless="${employee.available}" class="status-badge status-unavailable">
+                                Unavailable
+                            </span>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+
+                <div th:if="${availableEmployees == null or availableEmployees.isEmpty()}" class="empty-state">
+                    <i class="fas fa-user-slash"></i>
+                    <h3>No Available Employees</h3>
+                    <p>All employees are currently assigned to projects or marked as unavailable.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
