@@ -1,56 +1,48 @@
 package com.workforce.workforceplanning.workflow;
 
-import com.workforce.workforceplanning.model.Project;
-import com.workforce.workforceplanning.model.ProjectStatus;
-import com.workforce.workforceplanning.repository.ProjectRepository;
 import org.flowable.engine.delegate.DelegateExecution;
 import org.flowable.engine.delegate.JavaDelegate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Component; // ADD THIS
 
-@Component("projectStartDelegate")
+@Component("projectStartDelegate") // ADD THIS
 public class ProjectStartDelegate implements JavaDelegate {
 
     private static final Logger log = LoggerFactory.getLogger(ProjectStartDelegate.class);
-
-    private final ProjectRepository projectRepository;
-
-    public ProjectStartDelegate(ProjectRepository projectRepository) {
-        this.projectRepository = projectRepository;
-    }
 
     @Override
     public void execute(DelegateExecution execution) {
         log.info("=== PROJECT WORKFLOW STARTED ===");
 
         try {
-            // Get project ID from workflow variables
-            Long projectId = (Long) execution.getVariable("projectId");
-            String projectName = (String) execution.getVariable("projectName");
+            Object projectIdObj = execution.getVariable("projectId");
+            Object projectNameObj = execution.getVariable("projectName");
 
-            log.info("Project: {} (ID: {})", projectName, projectId);
+            log.info("projectIdObj type: {}", projectIdObj != null ? projectIdObj.getClass().getName() : "null");
+            log.info("projectIdObj value: {}", projectIdObj);
+
+            if (projectIdObj == null) {
+                throw new RuntimeException("projectId is null in workflow variables");
+            }
+
+            Long projectId;
+            if (projectIdObj instanceof Number) {
+                projectId = ((Number) projectIdObj).longValue();
+            } else {
+                projectId = Long.parseLong(projectIdObj.toString());
+            }
+
+            String projectName = projectNameObj != null ? projectNameObj.toString() : "Unknown";
+
+            log.info("✅ ProjectStartDelegate executed for project: {} (ID: {})", projectName, projectId);
             log.info("Workflow Instance ID: {}", execution.getProcessInstanceId());
-
-            // Find project in database
-            Project project = projectRepository.findById(projectId)
-                    .orElseThrow(() -> new RuntimeException("Project not found: " + projectId));
-
-            // Update project workflow status
-            project.setWorkflowStatus("IN_PROGRESS");
-            projectRepository.save(project);
-
-            // Log all workflow variables for debugging
-            log.info("Workflow Variables:");
-            execution.getVariables().forEach((key, value) -> {
-                log.info("  {} = {}", key, value);
-            });
 
             log.info("=== PROJECT WORKFLOW STARTED SUCCESSFULLY ===");
 
         } catch (Exception e) {
             log.error("❌ Error in project start delegate", e);
-            throw e; // Re-throw to let Flowable handle the error
+            throw e;
         }
     }
 }

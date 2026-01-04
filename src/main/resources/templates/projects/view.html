@@ -498,7 +498,9 @@
         </div>
 
         <div class="header-buttons">
-            <a th:href="@{'/ui/projects/' + ${project.id} + '/edit'}" class="btn btn-edit">
+            <a th:href="@{'/ui/projects/' + ${project.id} + '/edit'}"
+               class="btn btn-edit"
+               th:unless="${project.published}">
                 <i class="fas fa-edit"></i> Edit Project
             </a>
             <a th:href="@{/ui/projects}" class="btn btn-back">
@@ -582,11 +584,9 @@
                     <div class="stat-value" th:text="${project.totalEmployeesRequired} + ' people'">5 people</div>
                 </div>
 
-                <div class="stat-card">
-                    <div class="stat-label">
-                        <i class="fas fa-calendar-alt"></i> Duration
-                    </div>
-                    <div class="stat-value" th:text="${#temporals.dayOfYear(project.endDate) - #temporals.dayOfYear(project.startDate)} + ' days'">165 days</div>
+                <div class="stat-value"
+                     th:text="${project.endDate.toEpochDay() - project.startDate.toEpochDay()} + ' days'">
+                    165 days
                 </div>
 
                 <div class="stat-card">

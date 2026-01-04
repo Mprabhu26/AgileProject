@@ -560,15 +560,30 @@
                             </form>
 
                             <!-- Existing buttons -->
-                            <a href="#" class="action-btn view-btn">
+                            <a th:href="@{/ui/projects/{id}(id=${project.id})}"
+                               class="action-btn view-btn"
+                               title="View project details">
                                 <i class="fas fa-eye"></i> View
                             </a>
-                            <a href="#" class="action-btn edit-btn">
+
+                            <a th:href="@{/ui/projects/{id}/edit(id=${project.id})}"
+                               class="action-btn edit-btn"
+                               th:if="${project.status.name() == 'PENDING' or project.status.name() == 'APPROVED'}"
+                               title="Edit project details">
                                 <i class="fas fa-edit"></i> Edit
                             </a>
-                            <a href="#" class="action-btn delete-btn">
-                                <i class="fas fa-trash"></i>
-                            </a>
+
+                            <form th:action="@{/ui/projects/{id}/delete(id=${project.id})}"
+                                  method="post"
+                                  style="display: inline;"
+                                  th:if="${project.status.name() == 'PENDING' or project.status.name() == 'APPROVED'}">
+                                <button type="submit"
+                                        class="action-btn delete-btn"
+                                        title="Delete project"
+                                        onclick="return confirm('Are you sure you want to delete this project?')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
                         </div>
                     </td>
                 </tr>

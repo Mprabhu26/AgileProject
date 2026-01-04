@@ -416,8 +416,7 @@
                     <div class="info-item">
                         <div class="info-label">Status</div>
                         <div class="info-value">
-                            <span th:if="${projectForm?.status}" th:text="${projectForm.status}">PENDING</span>
-                            <span th:unless="${projectForm?.status}">PENDING</span>
+                            <span th:text="${projectForm?.status ?: 'PENDING'}">PENDING</span>
                         </div>
                     </div>
                     <div class="info-item">
@@ -559,7 +558,7 @@
                                 <i class="fas fa-tools"></i> Secondary Skill (Optional)
                             </div>
                             <input type="text" name="skillRequirements[1].skill"
-                                   th:value="${projectForm.skillRequirements != null and projectForm.skillRequirements[1] != null ? projectForm.skillRequirements[1].skill : ''}"
+                                   th:value="${(projectForm.skillRequirements != null and projectForm.skillRequirements.size() > 1) ? projectForm.skillRequirements[1].skill : ''}"
                                    placeholder="e.g., Database, Testing, UI/UX">
                         </div>
                         <div>
@@ -567,7 +566,7 @@
                                 <i class="fas fa-user-plus"></i> Number Required
                             </div>
                             <input type="number" name="skillRequirements[1].requiredCount"
-                                   th:value="${projectForm.skillRequirements != null and projectForm.skillRequirements[1] != null ? projectForm.skillRequirements[1].requiredCount : ''}"
+                                   th:value="${(projectForm.skillRequirements != null and projectForm.skillRequirements.size() > 1) ? projectForm.skillRequirements[1].requiredCount : ''}"
                                    placeholder="Count" min="1">
                         </div>
                     </div>
@@ -579,7 +578,7 @@
                                 <i class="fas fa-tools"></i> Additional Skill (Optional)
                             </div>
                             <input type="text" name="skillRequirements[2].skill"
-                                   th:value="${projectForm.skillRequirements != null and projectForm.skillRequirements[2] != null ? projectForm.skillRequirements[2].skill : ''}"
+                                   th:value="${(projectForm.skillRequirements != null and projectForm.skillRequirements.size() > 2) ? projectForm.skillRequirements[2].skill : ''}"
                                    placeholder="e.g., Security, Cloud, Mobile">
                         </div>
                         <div>
@@ -587,7 +586,7 @@
                                 <i class="fas fa-user-plus"></i> Number Required
                             </div>
                             <input type="number" name="skillRequirements[2].requiredCount"
-                                   th:value="${projectForm.skillRequirements != null and projectForm.skillRequirements[2] != null ? projectForm.skillRequirements[2].requiredCount : ''}"
+                                   th:value="${(projectForm.skillRequirements != null and projectForm.skillRequirements.size() > 2) ? projectForm.skillRequirements[2].requiredCount : ''}"
                                    placeholder="Count" min="1">
                         </div>
                     </div>

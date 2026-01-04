@@ -5,24 +5,28 @@ import com.workforce.workforceplanning.model.ProjectStatus;
 import com.workforce.workforceplanning.repository.ProjectRepository;
 import org.flowable.engine.delegate.DelegateExecution;
 import org.flowable.engine.delegate.JavaDelegate;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component("projectCompletionDelegate")
 public class ProjectCompletionDelegate implements JavaDelegate {
 
-    private final ProjectRepository projectRepository;
-
-    public ProjectCompletionDelegate(ProjectRepository projectRepository) {
-        this.projectRepository = projectRepository;
-    }
+    @Autowired
+    private ProjectRepository projectRepository;
 
     @Override
     public void execute(DelegateExecution execution) {
+        Object projectIdObj = execution.getVariable("projectId");
 
-        Long projectId = (Long) execution.getVariable("projectId");
-
-        if (projectId == null) {
+        if (projectIdObj == null) {
             throw new RuntimeException("❌ projectId missing");
+        }
+
+        Long projectId;
+        if (projectIdObj instanceof Number) {
+            projectId = ((Number) projectIdObj).longValue();
+        } else {
+            projectId = Long.parseLong(projectIdObj.toString());
         }
 
         Project project = projectRepository.findById(projectId)

@@ -178,6 +178,7 @@ public class ProjectUiController {
         form.setEndDate(project.getEndDate());
         form.setBudget(project.getBudget());
         form.setTotalEmployeesRequired(project.getTotalEmployeesRequired());
+        form.setStatus(project.getStatus().toString());
 
         // Convert skill requirements to DTOs
         List<SkillRequirementDto> skillDtos = new ArrayList<>();
@@ -224,7 +225,14 @@ public class ProjectUiController {
             project.setTotalEmployeesRequired(form.getTotalEmployeesRequired());
 
             // Clear and update skill requirements
+            // 1. Detach all skills from project first
+            project.getSkillRequirements().forEach(skill -> skill.setProject(null));
             project.getSkillRequirements().clear();
+
+            // 2. Save to database (this should delete the old skills)
+            projectRepository.saveAndFlush(project);  // Use saveAndFlush to force immediate save
+
+            // 3. Now add new skills
             if (form.getSkillRequirements() != null) {
                 for (SkillRequirementDto dto : form.getSkillRequirements()) {
                     if (dto != null && dto.getSkill() != null && !dto.getSkill().trim().isEmpty()) {

@@ -12,6 +12,7 @@ public class CreateProjectForm {
     private BigDecimal budget;
     private Integer totalEmployeesRequired;
     private List<SkillRequirementDto> skillRequirements;
+    private String status;
 
     // ✅ ADD ALL GETTERS AND SETTERS
     public String getName() {
@@ -68,5 +69,13 @@ public class CreateProjectForm {
 
     public void setSkillRequirements(List<SkillRequirementDto> skillRequirements) {
         this.skillRequirements = skillRequirements;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 }

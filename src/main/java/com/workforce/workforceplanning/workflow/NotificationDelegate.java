@@ -15,7 +15,6 @@ public class NotificationDelegate implements JavaDelegate {
     public void execute(DelegateExecution execution) {
         log.info("🔥 NotificationDelegate EXECUTED");
 
-        // Get variables from execution
         Object employeeEmailObj = execution.getVariable("employeeEmail");
         Object employeeNameObj = execution.getVariable("employeeName");
         Object projectNameObj = execution.getVariable("projectName");
@@ -24,12 +23,16 @@ public class NotificationDelegate implements JavaDelegate {
         String employeeEmail = employeeEmailObj != null ? employeeEmailObj.toString() : "unknown";
         String employeeName = employeeNameObj != null ? employeeNameObj.toString() : "unknown";
         String projectName = projectNameObj != null ? projectNameObj.toString() : "unknown";
-        Long projectId = projectIdObj != null ? Long.valueOf(projectIdObj.toString()) : 0L;
+
+        Long projectId = 0L;
+        if (projectIdObj instanceof Number) {
+            projectId = ((Number) projectIdObj).longValue();
+        } else if (projectIdObj != null) {
+            projectId = Long.parseLong(projectIdObj.toString());
+        }
 
         log.info("📧 Sending notification to: {} <{}>", employeeName, employeeEmail);
         log.info("📋 About project: {} (ID: {})", projectName, projectId);
-
-        // In a real application, you would send email/notification here
 
         log.info("✅ Notification sent successfully");
     }
