@@ -16,41 +16,31 @@
     <serviceTask id="projectStartTask"
                  name="Initialize Project Workflow"
                  flowable:class="com.workforce.workforceplanning.workflow.ProjectStartDelegate" />
-    <sequenceFlow id="flow2" sourceRef="projectStartTask" targetRef="resourcePlannerTask" />
+    <sequenceFlow id="flow2" sourceRef="projectStartTask" targetRef="departmentApprovalTask" />
 
-    <!-- 2. Resource Planner Task (FIND EMPLOYEES) -->
-    <userTask id="resourcePlannerTask"
-              name="Find Suitable Employees"
-              flowable:candidateGroups="ResourcePlanner">
-      <documentation>
-        Search for employees with matching skills and propose them for the project
-      </documentation>
-    </userTask>
-    <sequenceFlow id="flow3" sourceRef="resourcePlannerTask" targetRef="departmentApprovalTask" />
-
-    <!-- 3. Department Head Approval (APPROVE EMPLOYEES) -->
+    <!-- 2. Department Head Approval (APPROVE PROJECT REQUEST) -->
     <userTask id="departmentApprovalTask"
-              name="Approve Employee Assignments"
+              name="Approve Project Request"
               flowable:candidateGroups="DepartmentHead">
       <documentation>
-        Review and approve/reject employees proposed by Resource Planner
+        Department Head reviews and approves/rejects the project staffing request
       </documentation>
     </userTask>
-    <sequenceFlow id="flow4" sourceRef="departmentApprovalTask" targetRef="projectApprovalTask" />
+    <sequenceFlow id="flow3" sourceRef="departmentApprovalTask" targetRef="projectApprovalTask" />
 
-    <!-- 3b. Process the approval decision -->
+    <!-- 3. Process Department Head Decision -->
     <serviceTask id="projectApprovalTask"
-                 name="Process Approval Decision"
-                 flowable:class="com.workforce.workforceplanning.workflow.ProjectApprovalDelegate" />
-    <sequenceFlow id="flow5" sourceRef="projectApprovalTask" targetRef="approvalGateway" />
+                 name="Process Department Approval"
+                 flowable:delegateExpression="${projectApprovalDelegate}" />
+    <sequenceFlow id="flow4" sourceRef="projectApprovalTask" targetRef="approvalGateway" />
 
     <!-- 4. Approval Decision Gateway -->
     <exclusiveGateway id="approvalGateway" name="Approval Decision" />
 
-    <!-- Approved path -->
+    <!-- Approved path → Resource Planner finds employees -->
     <sequenceFlow id="approvedFlow"
                   sourceRef="approvalGateway"
-                  targetRef="assignmentTask">
+                  targetRef="resourcePlannerTask">
       <conditionExpression xsi:type="tFormalExpression">
         ${approved == true}
       </conditionExpression>
@@ -65,19 +55,60 @@
       </conditionExpression>
     </sequenceFlow>
 
-    <!-- 5. Assign Employees (if approved) -->
+    <!-- 5. Resource Planner Task (FIND EMPLOYEES) -->
+    <userTask id="resourcePlannerTask"
+              name="Find Suitable Employees"
+              flowable:candidateGroups="ResourcePlanner">
+      <documentation>
+        Search for employees with matching skills and propose them for the project
+      </documentation>
+    </userTask>
+    <sequenceFlow id="flow5" sourceRef="resourcePlannerTask" targetRef="employeeConfirmationTask" />
+
+    <!-- 6. Employee Confirmation (NEW - according to requirements) -->
+    <userTask id="employeeConfirmationTask"
+              name="Confirm Assignment"
+              flowable:candidateGroups="Employee">
+      <documentation>
+        Employee confirms or rejects the assignment
+      </documentation>
+    </userTask>
+    <sequenceFlow id="flow6" sourceRef="employeeConfirmationTask" targetRef="employeeDecisionGateway" />
+
+    <!-- 7. Employee Decision Gateway -->
+    <exclusiveGateway id="employeeDecisionGateway" name="Employee Decision" />
+
+    <!-- Employee confirms → Assign employees -->
+    <sequenceFlow id="employeeConfirmedFlow"
+                  sourceRef="employeeDecisionGateway"
+                  targetRef="assignmentTask">
+      <conditionExpression xsi:type="tFormalExpression">
+        ${employeeConfirmed == true}
+      </conditionExpression>
+    </sequenceFlow>
+
+    <!-- Employee rejects → Go back to Resource Planner -->
+    <sequenceFlow id="employeeRejectedFlow"
+                  sourceRef="employeeDecisionGateway"
+                  targetRef="resourcePlannerTask">
+      <conditionExpression xsi:type="tFormalExpression">
+        ${employeeConfirmed == false}
+      </conditionExpression>
+    </sequenceFlow>
+
+    <!-- 8. Assign Employees (if employee confirms) -->
     <serviceTask id="assignmentTask"
                  name="Assign Employees to Project"
                  flowable:class="com.workforce.workforceplanning.workflow.AssignmentDelegate" />
     <sequenceFlow id="flow7" sourceRef="assignmentTask" targetRef="notificationTask" />
 
-    <!-- 6. Send Notifications -->
+    <!-- 9. Send Notifications -->
     <serviceTask id="notificationTask"
                  name="Send Assignment Notifications"
                  flowable:class="com.workforce.workforceplanning.workflow.NotificationDelegate" />
     <sequenceFlow id="flow8" sourceRef="notificationTask" targetRef="projectCompletionTask" />
 
-    <!-- 7. Complete Project Setup -->
+    <!-- 10. Complete Project Setup -->
     <serviceTask id="projectCompletionTask"
                  name="Complete Project Setup"
                  flowable:class="com.workforce.workforceplanning.workflow.ProjectCompletionDelegate" />

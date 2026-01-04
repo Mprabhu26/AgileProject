@@ -1,11 +1,11 @@
 package com.workforce.workforceplanning.config;
 
-import org.flowable.engine.impl.delegate.invocation.DefaultDelegateInterceptor;
 import org.flowable.spring.SpringProcessEngineConfiguration;
 import org.flowable.spring.boot.EngineConfigurationConfigurer;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.HashMap;
@@ -23,26 +23,33 @@ public class FlowableConfig implements EngineConfigurationConfigurer<SpringProce
 
     @Override
     public void configure(SpringProcessEngineConfiguration configuration) {
-        // For older Flowable versions, use a Map for beans
+        // Create a beans map for Flowable
         Map<Object, Object> beans = new HashMap<>();
 
-        // Manually register your delegate beans
-        beans.put("projectStartDelegate",
-                applicationContext.getBean("projectStartDelegate"));
-        beans.put("projectApprovalDelegate",
-                applicationContext.getBean("projectApprovalDelegate"));
-        beans.put("assignmentDelegate",
-                applicationContext.getBean("assignmentDelegate"));
-        beans.put("projectCompletionDelegate",
-                applicationContext.getBean("projectCompletionDelegate"));
-        beans.put("notificationDelegate",
-                applicationContext.getBean("notificationDelegate"));
+        // MANUALLY register your delegate beans
+        try {
+            // Get the delegate bean by name
+            Object projectApprovalDelegate = applicationContext.getBean("projectApprovalDelegate");
+            beans.put("projectApprovalDelegate", projectApprovalDelegate);
+            System.out.println("✅ FlowableConfig: Registered projectApprovalDelegate bean");
+            System.out.println("   Bean class: " + projectApprovalDelegate.getClass().getName());
+
+            // Check if dependencies are injected
+            if (projectApprovalDelegate instanceof com.workforce.workforceplanning.workflow.ProjectApprovalDelegate) {
+                var delegate = (com.workforce.workforceplanning.workflow.ProjectApprovalDelegate) projectApprovalDelegate;
+                // You can't check private fields here, but logging will show in delegate constructor
+            }
+
+        } catch (Exception e) {
+            System.err.println("❌ FlowableConfig: Failed to get projectApprovalDelegate bean: " + e.getMessage());
+        }
 
         // Set the beans map
         configuration.setBeans(beans);
 
-        // Basic configuration
-        configuration.setDatabaseSchemaUpdate("true");
-        configuration.setAsyncExecutorActivate(true);
+        // Enable Spring dependency injection for delegates
+        configuration.setEnableProcessDefinitionInfoCache(true);
+
+        System.out.println("✅ FlowableConfig: Configuration completed");
     }
 }

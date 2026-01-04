@@ -1,33 +1,133 @@
 package com.workforce.workforceplanning.workflow;
 
+import com.workforce.workforceplanning.model.*;
+import com.workforce.workforceplanning.repository.*;
 import org.flowable.engine.delegate.DelegateExecution;
 import org.flowable.engine.delegate.JavaDelegate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Component("assignmentDelegate")
-public class AssignmentDelegate implements JavaDelegate { // NO @Component
+public class AssignmentDelegate implements JavaDelegate {
 
     private static final Logger log = LoggerFactory.getLogger(AssignmentDelegate.class);
 
+    private final AssignmentRepository assignmentRepository;
+    private final EmployeeRepository employeeRepository;
+    private final ProjectRepository projectRepository;
+
+    // ✅ FIXED: Constructor injection
+    public AssignmentDelegate(
+            AssignmentRepository assignmentRepository,
+            EmployeeRepository employeeRepository,
+            ProjectRepository projectRepository) {
+        this.assignmentRepository = assignmentRepository;
+        this.employeeRepository = employeeRepository;
+        this.projectRepository = projectRepository;
+        log.info("✅ AssignmentDelegate initialized with repositories");
+    }
+
     @Override
+    @Transactional
     public void execute(DelegateExecution execution) {
-        log.info("=== ASSIGNMENT DELEGATE EXECUTED ===");
+        log.info("=== ASSIGNING EMPLOYEES TO PROJECT ===");
 
         try {
+            // ✅ Check if repositories are initialized
+            if (assignmentRepository == null || employeeRepository == null || projectRepository == null) {
+                log.error("❌ One or more repositories are null in AssignmentDelegate!");
+                throw new RuntimeException("Repositories not initialized in AssignmentDelegate");
+            }
+
+            // 1. Get project ID from workflow
             Object projectIdObj = execution.getVariable("projectId");
-            Object employeeIdsObj = execution.getVariable("employeeIds");
+            Long projectId = parseLong(projectIdObj);
+            log.info("Project ID from workflow: {}", projectId);
 
-            log.info("Assignment for project: {}", projectIdObj);
-            log.info("Employees to assign: {}", employeeIdsObj);
+            // 2. Get approved employee IDs
+            Object employeeIdsObj = execution.getVariable("approvedEmployeeIds");
+            List<Long> employeeIds = parseEmployeeIds(employeeIdsObj);
+            log.info("Employee IDs from workflow: {}", employeeIds);
 
-            // Just log - database updates will be handled elsewhere
-            log.info("✅ Assignment delegate executed successfully");
+            // 3. Get project from database
+            Project project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> {
+                        log.error("❌ Project not found in database: {}", projectId);
+                        return new RuntimeException("Project not found: " + projectId);
+                    });
+            log.info("Found project: {}", project.getName());
+
+            // 4. Create assignments for each approved employee
+            int assignedCount = 0;
+            for (Long employeeId : employeeIds) {
+                Employee employee = employeeRepository.findById(employeeId)
+                        .orElseThrow(() -> {
+                            log.error("❌ Employee not found: {}", employeeId);
+                            return new RuntimeException("Employee not found: " + employeeId);
+                        });
+
+                // Check if already assigned
+                boolean alreadyAssigned = assignmentRepository.findAll().stream()
+                        .anyMatch(a -> a.getProject() != null &&
+                                a.getProject().getId().equals(projectId) &&
+                                a.getEmployee() != null &&
+                                a.getEmployee().getId().equals(employeeId));
+
+                if (!alreadyAssigned) {
+                    // Create new assignment
+                    Assignment assignment = new Assignment(project, employee, AssignmentStatus.ASSIGNED);
+                    assignmentRepository.save(assignment);
+
+                    // Update employee availability
+                    employee.setAvailable(false);
+                    employeeRepository.save(employee);
+
+                    assignedCount++;
+                    log.info("✅ Assigned employee {} to project {}", employee.getName(), project.getName());
+                } else {
+                    log.info("⚠️ Employee {} already assigned to project {}", employee.getName(), project.getName());
+                }
+            }
+
+            // 5. Update project status
+            project.setStatus(ProjectStatus.IN_PROGRESS);
+            projectRepository.save(project);
+
+            log.info("✅ Successfully assigned {} employees. Project {} moved to IN_PROGRESS",
+                    assignedCount, project.getName());
 
         } catch (Exception e) {
-            log.error("❌ Error in assignment delegate", e);
+            log.error("❌ Failed to assign employees", e);
             throw e;
         }
+    }
+
+    private Long parseLong(Object obj) {
+        if (obj instanceof Number) {
+            return ((Number) obj).longValue();
+        } else if (obj != null) {
+            try {
+                return Long.parseLong(obj.toString());
+            } catch (NumberFormatException e) {
+                log.error("❌ Cannot parse projectId: {}", obj);
+                throw new RuntimeException("Invalid projectId: " + obj);
+            }
+        }
+        throw new RuntimeException("Project ID is null");
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Long> parseEmployeeIds(Object obj) {
+        if (obj instanceof List) {
+            return (List<Long>) obj;
+        } else if (obj != null) {
+            log.warn("⚠️ employeeIds is not a List, type: {}", obj.getClass().getName());
+        }
+        log.info("⚠️ No employeeIds found in workflow variables");
+        return List.of();
     }
 }

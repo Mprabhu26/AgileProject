@@ -1,20 +1,493 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Department Head Dashboard</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .navbar-brand {
+            font-weight: bold;
+            font-size: 1.5rem;
+        }
+        .dashboard-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .stat-card {
+            transition: transform 0.3s;
+            border: none;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+        }
+        .stat-card i {
+            font-size: 2.5rem;
+            opacity: 0.8;
+        }
+        .task-card {
+            border-left: 4px solid #0d6efd;
+            transition: all 0.3s;
+        }
+        .task-card:hover {
+            background-color: #f8f9fa;
+            transform: translateX(5px);
+        }
+        .task-urgent {
+            border-left-color: #dc3545;
+        }
+        .task-high {
+            border-left-color: #fd7e14;
+        }
+        .task-medium {
+            border-left-color: #ffc107;
+        }
+        .task-low {
+            border-left-color: #20c997;
+        }
+        .badge-custom {
+            font-size: 0.8rem;
+            padding: 0.4em 0.8em;
+        }
+        .btn-action {
+            min-width: 100px;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #6c757d;
+        }
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+        .recent-task {
+            border-bottom: 1px solid #dee2e6;
+            padding: 0.75rem 0;
+        }
+        .recent-task:last-child {
+            border-bottom: none;
+        }
+        .logout-btn {
+            border-color: rgba(255,255,255,0.5);
+            transition: all 0.3s;
+        }
+        .logout-btn:hover {
+            background-color: rgba(255,255,255,0.1);
+            border-color: white;
+        }
+    </style>
 </head>
 <body>
+<!-- Navigation Bar -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/">
+            <i class="fas fa-users-cog me-2"></i>Workforce Planning
+        </a>
+        <div class="d-flex align-items-center">
+            <div class="navbar-text text-light me-3">
+                <i class="fas fa-user-tie me-1"></i>
+                <strong th:text="${username}">Department Head</strong>
+                <span class="ms-2 badge bg-info">Department Head</span>
+            </div>
+            <button type="button" class="btn btn-outline-light btn-sm logout-btn" data-bs-toggle="modal" data-bs-target="#logoutModal">
+                <i class="fas fa-sign-out-alt me-1"></i>Logout
+            </button>
+        </div>
+    </div>
+</nav>
 
-<h1>Department Head Dashboard</h1>
+<!-- Main Container -->
+<div class="container-fluid mt-4">
+    <!-- Flash Messages -->
+    <div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="fas fa-check-circle me-2"></i>
+        <span th:text="${successMessage}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-circle me-2"></i>
+        <span th:text="${errorMessage}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
 
-<p>Welcome, Department Head!</p>
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="display-6 mb-3">
+                    <i class="fas fa-tachometer-alt me-2"></i>Department Head Dashboard
+                </h1>
+                <p class="lead mb-0">
+                    Review project requests, approve staffing, and monitor department resources.
+                </p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <a href="/ui/department-head/history" class="btn btn-outline-light btn-lg">
+                    <i class="fas fa-history me-2"></i>View Approval History
+                </a>
+            </div>
+        </div>
+    </div>
 
-<ul>
-    <li>View employee profiles</li>
-    <li>Review project requests</li>
-    <li>Approve or reject participation</li>
-    <li>Monitor department resources</li>
-</ul>
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Pending Approvals</h6>
+                            <h2 class="card-title" th:text="${pendingCount}">0</h2>
+                        </div>
+                        <i class="fas fa-clock"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Recently Approved</h6>
+                            <h2 class="card-title" th:text="${recentTasks != null ? recentTasks.size() : 0}">0</h2>
+                        </div>
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Active Projects</h6>
+                            <h2 class="card-title">--</h2>
+                        </div>
+                        <i class="fas fa-project-diagram"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card bg-warning text-dark">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Team Members</h6>
+                            <h2 class="card-title">--</h2>
+                        </div>
+                        <i class="fas fa-users"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
+    <div class="row">
+        <!-- Pending Approvals Section -->
+        <div class="col-lg-8 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white border-bottom-0 pb-0">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-tasks text-primary me-2"></i>
+                        Pending Project Approvals
+                        <span class="badge bg-primary ms-2" th:text="${pendingCount}">0</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Empty State -->
+                    <div th:if="${pendingTasks.isEmpty()}" class="empty-state">
+                        <i class="fas fa-check-circle text-success"></i>
+                        <h4 class="mt-3">All Caught Up!</h4>
+                        <p class="text-muted">No pending approvals at the moment.</p>
+                    </div>
+
+                    <!-- Task List -->
+                    <div th:unless="${pendingTasks == null or pendingTasks.size() == 0}">
+                        <div th:each="task : ${pendingTasks}" class="card task-card mb-3 shadow-sm">
+                            <div class="card-body">
+                                <div class="row align-items-center">
+                                    <div class="col-md-8">
+                                        <h6 class="card-title mb-1">
+                                            <i class="fas fa-file-alt me-2 text-primary"></i>
+                                            <span th:text="${task.name}">Approve Project Request</span>
+                                        </h6>
+                                        <p class="card-text text-muted small mb-2">
+                                            <i class="fas fa-calendar-alt me-1"></i>
+                                            Created:
+                                            <span th:text="${#dates.format(task.createTime, 'MMM dd, yyyy HH:mm')}">
+                                                    Jan 01, 2024 10:00
+                                                </span>
+                                        </p>
+                                        <p class="card-text small mb-0">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Process Instance:
+                                            <code th:text="${task.processInstanceId}">PROC_123</code>
+                                        </p>
+                                    </div>
+                                    <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                                        <div class="d-grid gap-2 d-md-block">
+                                            <a th:href="@{'/ui/department-head/tasks/' + ${task.id}}"
+                                               class="btn btn-primary btn-action mb-2">
+                                                <i class="fas fa-eye me-1"></i>Review
+                                            </a>
+                                            <form th:action="@{'/ui/department-head/tasks/' + ${task.id} + '/approve'}"
+                                                  method="post" class="d-inline">
+                                                <!-- CSRF Token with fallback -->
+                                                <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                                <button type="submit" class="btn btn-success btn-action mb-2">
+                                                    <i class="fas fa-check me-1"></i>Approve
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity & Quick Actions -->
+        <div class="col-lg-4 mb-4">
+            <!-- Recent Decisions -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-history text-success me-2"></i>
+                        Recent Decisions
+                    </h6>
+                </div>
+                <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+                    <div th:if="${recentTasks == null or recentTasks.size() == 0}" class="empty-state py-3">
+                        <i class="fas fa-history text-muted"></i>
+                        <p class="text-muted small mt-2 mb-0">No recent decisions</p>
+                    </div>
+                    <div th:each="task : ${recentTasks}" class="recent-task">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <p class="mb-1 small">
+                                    <strong th:text="${task.name}">Project Approval</strong>
+                                </p>
+                                <p class="mb-0 text-muted small">
+                                    <i class="fas fa-clock me-1"></i>
+                                    <span th:text="${#dates.format(task.endTime, 'MMM dd HH:mm')}">
+                                            Jan 01 10:00
+                                        </span>
+                                </p>
+                            </div>
+                            <span th:if="${task.deleteReason != null}"
+                                  class="badge bg-danger badge-custom">Rejected</span>
+                            <span th:unless="${task.deleteReason != null}"
+                                  class="badge bg-success badge-custom">Approved</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-bolt text-warning me-2"></i>
+                        Quick Actions
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="/ui/projects" class="btn btn-outline-primary">
+                            <i class="fas fa-search me-2"></i>Browse All Projects
+                        </a>
+                        <a href="/ui/employees" class="btn btn-outline-info">
+                            <i class="fas fa-user-friends me-2"></i>View Team Members
+                        </a>
+                        <button class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#bulkApproveModal">
+                            <i class="fas fa-layer-group me-2"></i>Bulk Approve
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Logout Confirmation Modal -->
+<div class="modal fade" id="logoutModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-sign-out-alt text-warning me-2"></i>
+                    Confirm Logout
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to logout?</p>
+                <p class="text-muted small mb-0">
+                    <i class="fas fa-info-circle me-1"></i>
+                    You will need to login again to access the dashboard.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form action="/logout" method="post" class="d-inline">
+                    <!-- CSRF Token with fallback -->
+                    <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-sign-out-alt me-1"></i>Logout
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Approve Modal -->
+<div class="modal fade" id="bulkApproveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-layer-group me-2"></i>Bulk Approve Projects
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/ui/department-head/bulk-approve" method="post">
+                <!-- CSRF Token with fallback -->
+                <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Select Projects to Approve</label>
+                        <div th:if="${pendingTasks == null or pendingTasks.size() == 0}" class="alert alert-info">
+                            No pending projects to approve.
+                        </div>
+                        <div th:unless="${pendingTasks == null or pendingTasks.size() == 0}" class="list-group">
+                            <div th:each="task : ${pendingTasks}" class="list-group-item">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox"
+                                           th:id="'task_' + ${task.id}"
+                                           th:value="${task.id}" name="taskIds">
+                                    <label class="form-check-label" th:for="'task_' + ${task.id}">
+                                        <span th:text="${task.name}">Project Approval</span>
+                                        <<small class="text-muted d-block">
+                                        Created: <span th:text="${#dates.format(task.createTime, 'MMM dd, yyyy HH:mm')}"></span>
+                                    </small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="bulkNotes" class="form-label">Approval Notes (Optional)</label>
+                        <textarea class="form-control" id="bulkNotes" name="bulkNotes"
+                                  rows="3" placeholder="Add notes for all selected approvals..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check-circle me-2"></i>Approve Selected
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Footer -->
+<footer class="mt-5 py-3 bg-dark text-white text-center">
+    <div class="container">
+        <p class="mb-0">
+            <i class="fas fa-users-cog me-2"></i>
+            Workforce Planning System | Department Head Portal
+            <span class="mx-2">•</span>
+            <span th:text="${#dates.year(#dates.createNow())}">2024</span>
+        </p>
+    </div>
+</footer>
+
+<!-- Bootstrap JS Bundle with Popper -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // Auto-dismiss alerts after 5 seconds
+    setTimeout(() => {
+        const alerts = document.querySelectorAll('.alert');
+        alerts.forEach(alert => {
+            const bsAlert = new bootstrap.Alert(alert);
+            bsAlert.close();
+        });
+    }, 5000);
+
+    // Select all checkboxes in bulk modal
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectAllBtn = document.createElement('button');
+        selectAllBtn.type = 'button';
+        selectAllBtn.className = 'btn btn-sm btn-outline-secondary mb-2';
+        selectAllBtn.innerHTML = '<i class="fas fa-check-double me-1"></i>Select All';
+
+        const bulkModal = document.getElementById('bulkApproveModal');
+        const checkboxGroup = bulkModal?.querySelector('.list-group');
+
+        if (checkboxGroup) {
+            checkboxGroup.parentNode.insertBefore(selectAllBtn, checkboxGroup);
+
+            selectAllBtn.addEventListener('click', function() {
+                const checkboxes = checkboxGroup.querySelectorAll('input[type="checkbox"]');
+                const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+
+                checkboxes.forEach(cb => {
+                    cb.checked = !allChecked;
+                });
+
+                selectAllBtn.innerHTML = allChecked ?
+                    '<i class="fas fa-check-double me-1"></i>Select All' :
+                    '<i class="fas fa-times me-1"></i>Deselect All';
+            });
+        }
+
+        // Auto-focus on first checkbox in bulk modal when opened
+        bulkModal?.addEventListener('shown.bs.modal', function() {
+            const firstCheckbox = this.querySelector('input[type="checkbox"]');
+            if (firstCheckbox) {
+                firstCheckbox.focus();
+            }
+        });
+
+        // Handle logout confirmation
+        const logoutForm = document.querySelector('#logoutModal form');
+        if (logoutForm) {
+            logoutForm.addEventListener('submit', function(e) {
+                const logoutBtn = this.querySelector('button[type="submit"]');
+                logoutBtn.disabled = true;
+                logoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Logging out...';
+            });
+        }
+    });
+</script>
 </body>
 </html>

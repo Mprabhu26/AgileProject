@@ -153,7 +153,9 @@ public class ProjectPublishController {
                     if (project.getStatus() == ProjectStatus.STAFFING) {
                         project.setStatus(ProjectStatus.PENDING); // CHANGED FROM APPROVED
                     } else if (project.getStatus() == ProjectStatus.IN_PROGRESS) {
-                        project.setStatus(ProjectStatus.CANCELLED);
+                        project.setStatus(ProjectStatus.PENDING);
+                    }else if (project.getStatus() == ProjectStatus.APPROVED) {
+                        project.setStatus(ProjectStatus.PENDING);
                     }
 
                     // 2. Unpublish flags
