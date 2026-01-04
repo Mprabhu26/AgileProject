@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title th:text="${project.name} + ' - Assignments | Workforce Planning'">Project Assignments</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(90deg, #8b5cf6, #7c3aed);
+            color: white;
+            padding: 25px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .header h2 {
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .header-buttons {
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+            border: none;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .btn-back {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-back:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-view {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+        }
+
+        .btn-view:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        /* Main Content */
+        .content {
+            padding: 30px;
+        }
+
+        /* Project Header */
+        .project-header {
+            background: linear-gradient(90deg, #f8fafc, #f1f5f9);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .project-title {
+            font-size: 24px;
+            color: #1e293b;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .project-meta {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        .meta-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .meta-label {
+            font-size: 12px;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .meta-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        /* Progress Section */
+        .progress-section {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .progress-title {
+            font-size: 18px;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .progress-stats {
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .progress-bar-container {
+            height: 12px;
+            background: #e2e8f0;
+            border-radius: 6px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #059669);
+            border-radius: 6px;
+            transition: width 0.5s ease;
+        }
+
+        .progress-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        /* Two Column Layout */
+        .two-column-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 1200px) {
+            .two-column-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .column {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .column-title {
+            font-size: 18px;
+            color: #1e293b;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+        }
+
+        /* Tables */
+        .table-container {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: #f1f5f9;
+        }
+
+        th {
+            padding: 16px 20px;
+            text-align: left;
+            color: #475569;
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        td {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            color: #1e293b;
+        }
+
+        tr:hover {
+            background: #f8fafc;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Status Badges */
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-assigned { background: #dbeafe; color: #1e40af; }
+        .status-in_progress { background: #e0e7ff; color: #4f46e5; }
+        .status-completed { background: #d1fae5; color: #065f46; }
+        .status-cancelled { background: #f3f4f6; color: #6b7280; }
+
+        /* Skill Tags */
+        .skill-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .skill-tag {
+            background: #e0e7ff;
+            color: #4f46e5;
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .employee-skill-tag {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .action-btn {
+            padding: 6px 12px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .remove-btn {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .remove-btn:hover {
+            background: #fecaca;
+        }
+
+        .assign-btn {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .assign-btn:hover {
+            background: #2563eb;
+        }
+
+        .view-btn {
+            background: #8b5cf6;
+            color: white;
+        }
+
+        .view-btn:hover {
+            background: #7c3aed;
+        }
+
+        /* Employee Cards for Available Section */
+        .employee-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 15px;
+        }
+
+        .employee-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s;
+        }
+
+        .employee-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            border-color: #c7d2fe;
+        }
+
+        .employee-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .employee-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .employee-info h4 {
+            font-size: 16px;
+            color: #1e293b;
+            margin-bottom: 4px;
+        }
+
+        .employee-info p {
+            font-size: 13px;
+            color: #64748b;
+        }
+
+        .employee-skills {
+            margin: 15px 0;
+        }
+
+        .employee-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #94a3b8;
+        }
+
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            color: #475569;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .empty-state p {
+            margin-bottom: 20px;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Search Bar */
+        .search-section {
+            margin-bottom: 25px;
+        }
+
+        .search-box {
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 14px 20px 14px 45px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #8b5cf6;
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+        }
+
+        /* Bulk Actions */
+        .bulk-actions {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 30px;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .bulk-info {
+            font-size: 14px;
+            color: #475569;
+        }
+
+        .bulk-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .bulk-btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .confirm-btn {
+            background: #10b981;
+            color: white;
+        }
+
+        .confirm-btn:hover {
+            background: #059669;
+        }
+
+        .clear-btn {
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        .clear-btn:hover {
+            background: #e2e8f0;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                gap: 20px;
+                text-align: center;
+            }
+
+            .header-buttons {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .project-meta {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .table-container {
+                overflow-x: auto;
+            }
+
+            table {
+                min-width: 800px;
+            }
+
+            .employee-cards {
+                grid-template-columns: 1fr;
+            }
+
+            .bulk-actions {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+
+            .bulk-buttons {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .bulk-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <h2><i class="fas fa-users"></i> Project Assignments</h2>
+            <div class="user-info">
+                <i class="fas fa-user-circle"></i>
+                <span th:text="${username} ?: 'Guest'">User</span>
+            </div>
+        </div>
+
+        <div class="header-buttons">
+            <a th:href="@{'/ui/projects/' + ${project.id}}" class="btn btn-view">
+                <i class="fas fa-eye"></i> View Project
+            </a>
+            <a th:href="@{/ui/projects}" class="btn btn-back">
+                <i class="fas fa-arrow-left"></i> Back to Projects
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="content">
+        <!-- Project Header -->
+        <div class="project-header">
+            <div class="project-title">
+                <span th:text="${project.name}">Project Name</span>
+                <span class="status-badge"
+                      th:class="'status-' + ${project.status.name().toLowerCase().replace('_', '-')}"
+                      th:text="${project.status}">
+                    STAFFING
+                </span>
+            </div>
+            <div class="project-meta">
+                <div class="meta-item">
+                    <div class="meta-label">Required Team Size</div>
+                    <div class="meta-value" th:text="${project.totalEmployeesRequired} + ' people'">5 people</div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">Timeline</div>
+                    <div class="meta-value">
+                        <span th:text="${#temporals.format(project.startDate, 'MMM dd, yyyy')}">Jan 15, 2025</span> -
+                        <span th:text="${#temporals.format(project.endDate, 'MMM dd, yyyy')}">Jun 30, 2025</span>
+                    </div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">Budget</div>
+                    <div class="meta-value">
+                        €<span th:text="${#numbers.formatDecimal(project.budget, 0, 'COMMA', 2, 'POINT')}">1,500,000.00</span>
+                    </div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">Created By</div>
+                    <div class="meta-value" th:text="${project.createdBy}">pm</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Section -->
+        <div class="progress-section">
+            <div class="progress-header">
+                <div class="progress-title">
+                    <i class="fas fa-chart-line"></i> Staffing Progress
+                </div>
+                <div class="progress-stats">
+                    <span th:text="${assignments != null ? assignments.size() : 0}">2</span> /
+                    <span th:text="${project.totalEmployeesRequired}">5</span> positions filled
+                </div>
+            </div>
+
+            <div class="progress-bar-container">
+                <div class="progress-bar" th:style="'width: ' +
+                    ${assignments != null ? (assignments.size() / project.totalEmployeesRequired * 100) : 0} + '%;'">
+                </div>
+            </div>
+
+            <div class="progress-labels">
+                <span>0%</span>
+                <span>50%</span>
+                <span>100%</span>
+            </div>
+
+            <div style="margin-top: 15px; font-size: 14px; color: #64748b;">
+                <i class="fas fa-info-circle"></i>
+                <span th:if="${assignments != null and assignments.size() < project.totalEmployeesRequired}">
+                    Need <span th:text="${project.totalEmployeesRequired - assignments.size()}">3</span> more employees to complete staffing
+                </span>
+                <span th:if="${assignments != null and assignments.size() >= project.totalEmployeesRequired}">
+                    Staffing complete! All positions are filled.
+                </span>
+            </div>
+        </div>
+
+        <!-- Two Column Layout -->
+        <div class="two-column-layout">
+            <!-- Current Assignments Column -->
+            <div class="column">
+                <div class="column-title">
+                    <i class="fas fa-user-check"></i> Current Assignments
+                    <span style="font-size: 14px; color: #64748b; margin-left: auto;">
+                        (<span th:text="${assignments != null ? assignments.size() : 0}">0</span>)
+                    </span>
+                </div>
+
+                <div class="table-container">
+                    <table th:if="${assignments != null and not assignments.isEmpty()}">
+                        <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Department</th>
+                            <th>Skills</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="assignment : ${assignments}">
+                            <td>
+                                <div style="font-weight: 600;" th:text="${assignment.employee.name}">John Doe</div>
+                                <div style="font-size: 13px; color: #64748b;" th:text="${assignment.employee.email}">john@example.com</div>
+                            </td>
+                            <td th:text="${assignment.employee.department}">Engineering</td>
+                            <td>
+                                <div class="skill-tags">
+                                        <span th:each="skill : ${assignment.employee.skills}" class="employee-skill-tag">
+                                            <i class="fas fa-star"></i>
+                                            <span th:text="${skill}">Java</span>
+                                        </span>
+                                    <span th:if="${assignment.employee.skills == null or assignment.employee.skills.isEmpty()}"
+                                          style="color: #94a3b8; font-style: italic; font-size: 12px;">
+                                            No skills
+                                        </span>
+                                </div>
+                            </td>
+                            <td>
+                                    <span class="status-badge"
+                                          th:class="'status-' + ${assignment.status.name().toLowerCase().replace('_', '-')}"
+                                          th:text="${assignment.status}">
+                                        ASSIGNED
+                                    </span>
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    <form th:action="@{'/ui/projects/assignments/' + ${assignment.id} + '/remove'}"
+                                          method="post" style="display: inline;">
+                                        <button type="submit" class="action-btn remove-btn"
+                                                onclick="return confirm('Remove ' + '${assignment.employee.name}' + ' from project?');">
+                                            <i class="fas fa-user-minus"></i> Remove
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+
+                    <div th:if="${assignments == null or assignments.isEmpty()}" class="empty-state">
+                        <i class="fas fa-user-slash"></i>
+                        <h3>No Employees Assigned</h3>
+                        <p>Assign employees using the form on the right.</p>
+                    </div>
+                </div>
+
+                <!-- Assignment Statistics -->
+                <div th:if="${assignments != null and not assignments.isEmpty()}"
+                     style="margin-top: 20px; padding: 15px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-chart-pie" style="color: #3b82f6;"></i>
+                        <span style="font-weight: 600; color: #1e293b;">Assignment Statistics</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px;">
+                        <div>
+                            <div style="font-size: 12px; color: #64748b;">Total Assigned</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #3b82f6;">
+                                <span th:text="${assignments.size()}">0</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="font-size: 12px; color: #64748b;">By Department</div>
+                            <div style="font-size: 14px; color: #475569;">
+                                <!-- Simple loop without complex expressions -->
+                                <div th:each="assignment : ${assignments}" th:if="${assignmentStat.index < 3}">
+                                    <span th:text="${assignment.employee.department}">Engineering</span>
+                                    <span th:if="${assignmentStat.index == 2 and assignments.size() > 3}"> (+<span th:text="${assignments.size() - 3}">0</span> more)</span>
+                                </div>
+                                <div th:if="${assignments == null or assignments.isEmpty()}" style="color: #94a3b8; font-style: italic;">
+                                    No departments
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Assign New Employees Column -->
+            <div class="column">
+                <div class="column-title">
+                    <i class="fas fa-user-plus"></i> Available Employees
+                    <span style="font-size: 14px; color: #64748b; margin-left: auto;">
+                        (<span th:text="${availableEmployees != null ? availableEmployees.size() : 0}">0</span> available)
+                    </span>
+                </div>
+
+                <!-- Search Bar -->
+                <div class="search-section">
+                    <div class="search-box">
+                        <input type="text" class="search-input" id="employeeSearch"
+                               placeholder="Search employees by name, skills, or department...">
+                        <i class="fas fa-search search-icon"></i>
+                    </div>
+                </div>
+
+                <!-- Employee Cards -->
+                <div class="employee-cards" id="employeeCards">
+                    <div th:each="employee : ${availableEmployees}" class="employee-card"
+                         th:attr="data-employee-name=${employee.name},
+                                  data-employee-skills=${#strings.listJoin(employee.skills, ',')},
+                                  data-employee-department=${employee.department}">
+                        <div class="employee-header">
+                            <div class="employee-avatar" th:text="${#strings.substring(employee.name, 0, 1)}">J</div>
+                            <div class="employee-info">
+                                <h4 th:text="${employee.name}">John Doe</h4>
+                                <p>
+                                    <i class="fas fa-building"></i>
+                                    <span th:text="${employee.department}">Engineering</span>
+                                    •
+                                    <i class="fas fa-envelope"></i>
+                                    <span th:text="${employee.email}">john@example.com</span>
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="employee-skills">
+                            <div style="font-size: 12px; color: #64748b; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                                <i class="fas fa-code-branch"></i> Skills
+                            </div>
+                            <div class="skill-tags">
+                                <span th:each="skill : ${employee.skills}" class="skill-tag">
+                                    <i class="fas fa-star"></i>
+                                    <span th:text="${skill}">Java</span>
+                                </span>
+                                <span th:if="${employee.skills == null or employee.skills.isEmpty()}"
+                                      style="color: #94a3b8; font-style: italic; font-size: 12px;">
+                                    No skills listed
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="employee-actions">
+                            <form th:action="@{'/ui/projects/' + ${project.id} + '/assignments/create'}"
+                                  method="post" style="flex: 1;">
+                                <input type="hidden" name="employeeId" th:value="${employee.id}">
+                                <button type="submit" class="action-btn assign-btn" style="width: 100%;">
+                                    <i class="fas fa-user-plus"></i> Assign to Project
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Empty State for Available Employees -->
+                    <div th:if="${availableEmployees == null or availableEmployees.isEmpty()}" class="empty-state" style="grid-column: 1 / -1;">
+                        <i class="fas fa-user-check"></i>
+                        <h3>No Available Employees</h3>
+                        <p>All employees are currently assigned to projects.</p>
+                        <div style="margin-top: 15px;">
+                            <a th:href="@{'/ui/projects/' + ${project.id} + '/external-search'}"
+                               class="action-btn view-btn" style="padding: 10px 20px;">
+                                <i class="fas fa-search"></i> Trigger External Search
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Assign Section -->
+                <div style="margin-top: 25px; padding: 20px; background: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-bolt" style="color: #f59e0b;"></i>
+                        <span style="font-weight: 600; color: #92400e;">Quick Assign by Skills</span>
+                    </div>
+                    <div style="color: #92400e; margin-bottom: 15px; font-size: 14px;">
+                        Match employees to required project skills:
+                    </div>
+                    <div class="skill-tags">
+                        <span th:each="skill : ${project.skillRequirements}" class="skill-tag">
+                            <i class="fas fa-tag"></i>
+                            <span th:text="${skill.skill}">Java</span>
+                            <span style="background: #4f46e5; color: white; padding: 2px 6px; border-radius: 10px; font-size: 11px; margin-left: 4px;"
+                                  th:text="${skill.requiredCount}">2</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bulk Actions -->
+        <div class="bulk-actions">
+            <div class="bulk-info">
+                <i class="fas fa-users"></i>
+                <span th:text="${assignments != null ? assignments.size() : 0}">0</span> employees assigned •
+                <span th:text="${project.totalEmployeesRequired - (assignments != null ? assignments.size() : 0)}">5</span> more needed
+            </div>
+            <div class="bulk-buttons">
+                <button class="bulk-btn clear-btn" onclick="clearAllAssignments()">
+                    <i class="fas fa-trash"></i> Clear All Assignments
+                </button>
+                <button class="bulk-btn confirm-btn" onclick="confirmStaffing()">
+                    <i class="fas fa-check-double"></i> Confirm Staffing Complete
+                </button>
+            </div>
+        </div>
+
+        <!-- Help Section -->
+        <div style="margin-top: 30px; padding: 20px; background: #f0f9ff; border-radius: 10px; border-left: 4px solid #3b82f6;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                <i class="fas fa-info-circle" style="color: #3b82f6; font-size: 20px;"></i>
+                <h3 style="color: #1e293b; margin: 0;">Assignment Management Guide</h3>
+            </div>
+            <div style="color: #475569; line-height: 1.6;">
+                <p><strong>How to assign employees:</strong></p>
+                <ol style="margin-top: 10px; padding-left: 20px;">
+                    <li>Browse available employees in the right column</li>
+                    <li>Click "Assign to Project" on suitable candidates</li>
+                    <li>Check skills match with project requirements</li>
+                    <li>Monitor staffing progress in the progress bar</li>
+                    <li>Click "Confirm Staffing Complete" when all positions are filled</li>
+                </ol>
+                <p style="margin-top: 15px; font-style: italic;">
+                    <i class="fas fa-lightbulb"></i>
+                    Tip: Use the search bar to filter employees by specific skills or departments.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Search functionality
+        const searchInput = document.getElementById('employeeSearch');
+        const employeeCards = document.querySelectorAll('.employee-card');
+
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+
+            employeeCards.forEach(card => {
+                const employeeName = card.getAttribute('data-employee-name')?.toLowerCase() || '';
+                const employeeSkills = card.getAttribute('data-employee-skills')?.toLowerCase() || '';
+                const employeeDepartment = card.getAttribute('data-employee-department')?.toLowerCase() || '';
+
+                const matchesSearch = !searchTerm ||
+                    employeeName.includes(searchTerm) ||
+                    employeeSkills.includes(searchTerm) ||
+                    employeeDepartment.includes(searchTerm);
+
+                if (matchesSearch) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+
+        // Assignment progress calculation
+        function updateProgressBar() {
+            const assignmentsCount = parseInt(document.querySelector('[th\\:text*="assignments.size"]')?.textContent || '0');
+            const requiredCount = parseInt(document.querySelector('[th\\:text*="totalEmployeesRequired"]')?.textContent || '0');
+
+            if (requiredCount > 0) {
+                const progress = (assignmentsCount / requiredCount) * 100;
+                const progressBar = document.querySelector('.progress-bar');
+                if (progressBar) {
+                    progressBar.style.width = Math.min(progress, 100) + '%';
+                }
+            }
+        }
+
+        updateProgressBar();
+
+        // Bulk actions
+        window.clearAllAssignments = function() {
+            if (confirm('Are you sure you want to remove ALL employees from this project? This action cannot be undone.')) {
+                // In a real implementation, this would make an AJAX call
+                alert('This would remove all assignments. In a real app, this would call: POST /ui/projects/' + projectId + '/assignments/clear');
+                // Example: fetch('/ui/projects/' + projectId + '/assignments/clear', { method: 'POST' })
+                //   .then(() => window.location.reload());
+            }
+        };
+
+        window.confirmStaffing = function() {
+            const assignmentsCount = parseInt(document.querySelector('[th\\:text*="assignments.size"]')?.textContent || '0');
+            const requiredCount = parseInt(document.querySelector('[th\\:text*="totalEmployeesRequired"]')?.textContent || '0');
+
+            if (assignmentsCount < requiredCount) {
+                alert(`You need ${requiredCount - assignmentsCount} more employees to complete staffing.`);
+                return;
+            }
+
+            if (confirm('Confirm that staffing is complete and ready for project to begin?')) {
+                // In a real implementation, this would update project status
+                alert('Staffing confirmed! Project status would be updated to IN_PROGRESS.');
+                // Example: fetch('/ui/projects/' + projectId + '/staffing/complete', { method: 'POST' })
+                //   .then(() => window.location.reload());
+            }
+        };
+
+        // Auto-refresh progress every 30 seconds (if page stays open)
+        setInterval(updateProgressBar, 30000);
+    });
+</script>
+
+</body>
+</html>
