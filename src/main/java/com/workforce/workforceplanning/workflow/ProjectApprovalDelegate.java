@@ -7,52 +7,37 @@ import org.flowable.engine.delegate.DelegateExecution;
 import org.flowable.engine.delegate.JavaDelegate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-@Component("projectApprovalDelegate")
+@Component("projectApprovalDelegate")  // Must match bean name
 public class ProjectApprovalDelegate implements JavaDelegate {
 
-    private static final Logger log =
-            LoggerFactory.getLogger(ProjectApprovalDelegate.class);
+    private static final Logger log = LoggerFactory.getLogger(ProjectApprovalDelegate.class);
 
-    private final ProjectRepository projectRepository;
+    @Autowired
+    private ProjectRepository projectRepository;
 
-    public ProjectApprovalDelegate(ProjectRepository projectRepository) {
-        this.projectRepository = projectRepository;
+    // CRITICAL: Add empty constructor
+    public ProjectApprovalDelegate() {
+        log.info("ProjectApprovalDelegate constructor called");
     }
 
     @Override
     public void execute(DelegateExecution execution) {
+        try {
+            log.info("ProjectApprovalDelegate: Processing approval decision...");
 
-        Object projectIdObj = execution.getVariable("projectId");
-        Object approvedObj = execution.getVariable("approved");
+            // Just log - don't try to update database
+            Object approved = execution.getVariable("approved");
+            Object projectId = execution.getVariable("projectId");
 
-        if (projectIdObj == null) {
-            throw new RuntimeException("❌ projectId missing in process variables");
+            log.info("Decision: approved={}, projectId={}", approved, projectId);
+            log.info("Note: Project status already updated in controller");
+
+        } catch (Exception e) {
+            log.warn("Non-critical error in delegate: {}", e.getMessage());
+            // Don't throw - allow workflow to continue
         }
-
-        if (!(projectIdObj instanceof Number)) {
-            throw new RuntimeException("❌ projectId is not a number");
-        }
-
-        Long projectId = ((Number) projectIdObj).longValue();
-        Boolean approved = approvedObj != null && Boolean.TRUE.equals(approvedObj);
-
-        log.info("▶ Department approval received for projectId={}, approved={}",
-                projectId, approved);
-
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() ->
-                        new RuntimeException("❌ Project not found: " + projectId));
-
-        if (approved) {
-            project.setStatus(ProjectStatus.APPROVED);
-            log.info("✅ Project {} approved", projectId);
-        } else {
-            project.setStatus(ProjectStatus.REJECTED);
-            log.info("❌ Project {} rejected", projectId);
-        }
-
-        projectRepository.save(project);
     }
 }

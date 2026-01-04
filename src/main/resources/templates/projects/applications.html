@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title th:text="${project.name} + ' - Applications | Workforce Planning'">Project Applications</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(90deg, #10b981, #059669);
+            color: white;
+            padding: 25px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .header h2 {
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .header-buttons {
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+            border: none;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .btn-back {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-back:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-view {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+        }
+
+        .btn-view:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        /* Main Content */
+        .content {
+            padding: 30px;
+        }
+
+        /* Project Header */
+        .project-header {
+            background: linear-gradient(90deg, #f8fafc, #f1f5f9);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .project-info h3 {
+            font-size: 20px;
+            color: #1e293b;
+            margin-bottom: 5px;
+        }
+
+        .project-info p {
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        .stats-badge {
+            background: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            text-align: center;
+        }
+
+        .stats-label {
+            font-size: 12px;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stats-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #10b981;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 5px;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: #f1f5f9;
+            border: none;
+            border-radius: 8px 8px 0 0;
+            font-weight: 600;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tab.active {
+            background: #10b981;
+            color: white;
+        }
+
+        .tab:hover:not(.active) {
+            background: #e2e8f0;
+        }
+
+        .tab-badge {
+            background: rgba(255, 255, 255, 0.3);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+
+        /* Application Cards */
+        .applications-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
+            gap: 25px;
+        }
+
+        @media (max-width: 1100px) {
+            .applications-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .application-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s;
+        }
+
+        .application-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .application-header {
+            background: #f8fafc;
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .employee-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .employee-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .employee-details h4 {
+            font-size: 18px;
+            color: #1e293b;
+            margin-bottom: 4px;
+        }
+
+        .employee-details p {
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .application-status {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-approved {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-rejected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .application-body {
+            padding: 20px;
+        }
+
+        .application-message {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #10b981;
+        }
+
+        .message-label {
+            font-size: 12px;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .message-content {
+            color: #1e293b;
+            line-height: 1.5;
+        }
+
+        .skills-section {
+            margin-bottom: 20px;
+        }
+
+        .skills-label {
+            font-size: 14px;
+            color: #475569;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+
+        .skill-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .skill-tag {
+            background: #e0e7ff;
+            color: #4f46e5;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 13px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .application-footer {
+            padding: 15px 20px;
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .application-date {
+            font-size: 13px;
+            color: #64748b;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .application-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .approve-btn {
+            background: #10b981;
+            color: white;
+        }
+
+        .approve-btn:hover {
+            background: #059669;
+        }
+
+        .reject-btn {
+            background: #ef4444;
+            color: white;
+        }
+
+        .reject-btn:hover {
+            background: #dc2626;
+        }
+
+        .view-btn {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .view-btn:hover {
+            background: #2563eb;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            grid-column: 1 / -1;
+        }
+
+        .empty-state i {
+            font-size: 60px;
+            color: #cbd5e1;
+            margin-bottom: 20px;
+        }
+
+        .empty-state h3 {
+            color: #475569;
+            margin-bottom: 10px;
+            font-size: 20px;
+        }
+
+        .empty-state p {
+            color: #94a3b8;
+            margin-bottom: 25px;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Filter Bar */
+        .filter-bar {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .filter-options {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .filter-select {
+            padding: 8px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            background: white;
+            font-size: 14px;
+            color: #475569;
+        }
+
+        .search-box {
+            position: relative;
+            flex: 1;
+            max-width: 300px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 10px 40px 10px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .search-icon {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+        }
+
+        /* Help Section */
+        .help-section {
+            margin-top: 40px;
+            padding: 20px;
+            background: #f0f9ff;
+            border-radius: 10px;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .help-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            color: #1e293b;
+        }
+
+        .help-content {
+            color: #475569;
+            line-height: 1.6;
+        }
+
+        .help-list {
+            margin-top: 10px;
+            padding-left: 20px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                gap: 20px;
+                text-align: center;
+            }
+
+            .header-buttons {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .project-header {
+                flex-direction: column;
+                gap: 20px;
+                text-align: center;
+            }
+
+            .tabs {
+                overflow-x: auto;
+                flex-wrap: nowrap;
+            }
+
+            .tab {
+                white-space: nowrap;
+            }
+
+            .filter-bar {
+                flex-direction: column;
+                gap: 15px;
+                align-items: stretch;
+            }
+
+            .search-box {
+                max-width: none;
+            }
+
+            .application-actions {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .action-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <h2><i class="fas fa-file-alt"></i> Project Applications</h2>
+            <div class="user-info">
+                <i class="fas fa-user-circle"></i>
+                <span th:text="${username} ?: 'Guest'">User</span>
+            </div>
+        </div>
+
+        <div class="header-buttons">
+            <a th:href="@{'/ui/projects/' + ${project.id}}" class="btn btn-view">
+                <i class="fas fa-eye"></i> View Project
+            </a>
+            <a th:href="@{/ui/projects}" class="btn btn-back">
+                <i class="fas fa-arrow-left"></i> Back to Projects
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="content">
+        <!-- Project Header -->
+        <div class="project-header">
+            <div class="project-info">
+                <h3 th:text="${project.name}">Project Name</h3>
+                <p>
+                    <i class="fas fa-calendar-alt"></i>
+                    <span th:text="${#temporals.format(project.startDate, 'MMM dd, yyyy')}">Jan 15, 2025</span> -
+                    <span th:text="${#temporals.format(project.endDate, 'MMM dd, yyyy')}">Jun 30, 2025</span>
+                    •
+                    <i class="fas fa-users"></i>
+                    <span th:text="${project.totalEmployeesRequired}">5</span> positions needed
+                </p>
+            </div>
+            <div class="stats-badge">
+                <div class="stats-label">Applications</div>
+                <div class="stats-value" th:text="${applications != null ? applications.size() : 0}">12</div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs" id="statusTabs">
+            <button class="tab active" data-status="all">
+                <i class="fas fa-list"></i> All Applications
+                <span class="tab-badge" th:text="${applications != null ? applications.size() : 0}">0</span>
+            </button>
+            <button class="tab" data-status="PENDING">
+                <i class="fas fa-clock"></i> Pending
+                <span class="tab-badge" th:text="${#lists.size(#lists.select(applications, 'a -> a.status.name() == ''PENDING'''))}">0</span>
+            </button>
+            <button class="tab" data-status="APPROVED">
+                <i class="fas fa-check-circle"></i> Approved
+                <span class="tab-badge" th:text="${#lists.size(#lists.select(applications, 'a -> a.status.name() == ''APPROVED'''))}">0</span>
+            </button>
+            <button class="tab" data-status="REJECTED">
+                <i class="fas fa-times-circle"></i> Rejected
+                <span class="tab-badge" th:text="${#lists.size(#lists.select(applications, 'a -> a.status.name() == ''REJECTED'''))}">0</span>
+            </button>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+            <div class="filter-options">
+                <select class="filter-select" id="sortSelect">
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="name">Employee Name (A-Z)</option>
+                </select>
+                <div class="search-box">
+                    <input type="text" class="search-input" id="searchInput" placeholder="Search employees or skills...">
+                    <i class="fas fa-search search-icon"></i>
+                </div>
+            </div>
+            <div>
+                <button class="action-btn view-btn" onclick="exportApplications()">
+                    <i class="fas fa-download"></i> Export CSV
+                </button>
+            </div>
+        </div>
+
+        <!-- Applications Container -->
+        <div class="applications-container" id="applicationsList">
+            <!-- Pending Applications -->
+            <div th:each="application : ${applications}"
+                 th:if="${application.status.name() == 'PENDING'}"
+                 class="application-card"
+                 data-status="PENDING"
+                 th:attr="data-employee-name=${application.employee.name},
+                          data-employee-skills=${#strings.listJoin(application.employee.skills, ',')}">
+                <div class="application-header">
+                    <div class="employee-info">
+                        <div class="employee-avatar" th:text="${#strings.substring(application.employee.name, 0, 1)}">J</div>
+                        <div class="employee-details">
+                            <h4 th:text="${application.employee.name}">John Doe</h4>
+                            <p>
+                                <i class="fas fa-envelope"></i>
+                                <span th:text="${application.employee.email}">john@example.com</span>
+                                •
+                                <i class="fas fa-building"></i>
+                                <span th:text="${application.employee.department}">Engineering</span>
+                            </p>
+                        </div>
+                    </div>
+                    <span class="application-status status-pending" th:text="${application.status}">PENDING</span>
+                </div>
+
+                <div class="application-body">
+                    <!-- Application Message -->
+                    <div class="application-message" th:if="${application.message}">
+                        <div class="message-label">
+                            <i class="fas fa-comment"></i> Application Message
+                        </div>
+                        <div class="message-content" th:text="${application.message}">
+                            I'm very interested in this project and believe my skills are a perfect match...
+                        </div>
+                    </div>
+
+                    <!-- Employee Skills -->
+                    <div class="skills-section">
+                        <div class="skills-label">
+                            <i class="fas fa-code-branch"></i> Employee Skills
+                        </div>
+                        <div class="skill-tags">
+                            <span th:each="skill : ${application.employee.skills}" class="skill-tag">
+                                <i class="fas fa-star"></i>
+                                <span th:text="${skill}">Java</span>
+                            </span>
+                            <span th:if="${application.employee.skills == null or application.employee.skills.isEmpty()}"
+                                  style="color: #94a3b8; font-style: italic;">
+                                No skills listed
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="application-footer">
+                    <div class="application-date">
+                        <i class="fas fa-clock"></i>
+                        Applied on <span th:text="${#temporals.format(application.appliedAt, 'MMM dd, yyyy HH:mm')}">Jan 15, 2025</span>
+                    </div>
+                    <div class="application-actions">
+                        <form th:action="@{'/ui/projects/applications/' + ${application.id} + '/approve'}"
+                              method="post" style="display: inline;">
+                            <button type="submit" class="action-btn approve-btn"
+                                    onclick="return confirm('Approve this application?');">
+                                <i class="fas fa-check"></i> Approve
+                            </button>
+                        </form>
+                        <form th:action="@{'/ui/projects/applications/' + ${application.id} + '/reject'}"
+                              method="post" style="display: inline;">
+                            <button type="submit" class="action-btn reject-btn"
+                                    onclick="return confirm('Reject this application?');">
+                                <i class="fas fa-times"></i> Reject
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Approved Applications -->
+            <div th:each="application : ${applications}"
+                 th:if="${application.status.name() == 'APPROVED'}"
+                 class="application-card"
+                 data-status="APPROVED">
+                <div class="application-header">
+                    <div class="employee-info">
+                        <div class="employee-avatar" th:text="${#strings.substring(application.employee.name, 0, 1)}">J</div>
+                        <div class="employee-details">
+                            <h4 th:text="${application.employee.name}">Jane Smith</h4>
+                            <p>
+                                <i class="fas fa-envelope"></i>
+                                <span th:text="${application.employee.email}">jane@example.com</span>
+                            </p>
+                        </div>
+                    </div>
+                    <span class="application-status status-approved" th:text="${application.status}">APPROVED</span>
+                </div>
+
+                <div class="application-body">
+                    <div class="application-message" th:if="${application.message}">
+                        <div class="message-content" th:text="${application.message}"></div>
+                    </div>
+                    <div class="skills-section">
+                        <div class="skill-tags">
+                            <span th:each="skill : ${application.employee.skills}" class="skill-tag">
+                                <i class="fas fa-star"></i>
+                                <span th:text="${skill}">React</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="application-footer">
+                    <div class="application-date">
+                        <i class="fas fa-check-circle"></i>
+                        Approved on <span th:text="${#temporals.format(application.reviewedAt, 'MMM dd, yyyy')}">Jan 18, 2025</span>
+                    </div>
+                    <div class="application-actions">
+                        <a th:href="@{'/ui/projects/' + ${project.id} + '/assignments'}" class="action-btn view-btn">
+                            <i class="fas fa-user-plus"></i> Assign to Project
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rejected Applications -->
+            <div th:each="application : ${applications}"
+                 th:if="${application.status.name() == 'REJECTED'}"
+                 class="application-card"
+                 data-status="REJECTED">
+                <div class="application-header">
+                    <div class="employee-info">
+                        <div class="employee-avatar" th:text="${#strings.substring(application.employee.name, 0, 1)}">R</div>
+                        <div class="employee-details">
+                            <h4 th:text="${application.employee.name}">Robert Johnson</h4>
+                            <p>
+                                <i class="fas fa-envelope"></i>
+                                <span th:text="${application.employee.email}">robert@example.com</span>
+                            </p>
+                        </div>
+                    </div>
+                    <span class="application-status status-rejected" th:text="${application.status}">REJECTED</span>
+                </div>
+
+                <div class="application-body">
+                    <div class="application-message">
+                        <div class="message-label">
+                            <i class="fas fa-comment"></i> Application Feedback
+                        </div>
+                        <div class="message-content" th:text="${application.feedback} ?: 'No feedback provided'">
+                            Skills do not match project requirements at this time.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="application-footer">
+                    <div class="application-date">
+                        <i class="fas fa-times-circle"></i>
+                        Rejected on <span th:text="${#temporals.format(application.reviewedAt, 'MMM dd, yyyy')}">Jan 17, 2025</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div th:if="${applications == null or applications.isEmpty()}" class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <h3>No Applications Yet</h3>
+                <p>No employees have applied to this project yet. Applications will appear here when employees submit them.</p>
+                <div style="margin-top: 20px;">
+                    <a th:href="@{'/ui/projects/' + ${project.id} + '/assignments'}" class="action-btn view-btn">
+                        <i class="fas fa-user-plus"></i> Assign Employees Manually
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Help Section -->
+        <div class="help-section">
+            <div class="help-title">
+                <i class="fas fa-question-circle"></i>
+                <h3>How to Review Applications</h3>
+            </div>
+            <div class="help-content">
+                <p>As a Project Manager, you should review each application carefully:</p>
+                <ul class="help-list">
+                    <li><strong>Check skills match</strong> - Compare employee skills with project requirements</li>
+                    <li><strong>Review availability</strong> - Ensure the employee is available during project timeline</li>
+                    <li><strong>Consider experience</strong> - Look at the employee's background and past projects</li>
+                    <li><strong>Approval workflow</strong> - Approved applications need final approval from Department Head</li>
+                    <li><strong>Provide feedback</strong> - Always provide constructive feedback for rejected applications</li>
+                </ul>
+                <p style="margin-top: 15px; font-style: italic;">
+                    <i class="fas fa-lightbulb"></i>
+                    Tip: You can also manually assign employees from the "Assignments" page if needed.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Tab functionality
+        const tabs = document.querySelectorAll('.tab');
+        const applications = document.querySelectorAll('.application-card');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                // Remove active class from all tabs
+                tabs.forEach(t => t.classList.remove('active'));
+                // Add active class to clicked tab
+                this.classList.add('active');
+
+                const status = this.getAttribute('data-status');
+                filterApplications(status);
+            });
+        });
+
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        searchInput.addEventListener('input', function() {
+            filterApplications();
+        });
+
+        // Sort functionality
+        const sortSelect = document.getElementById('sortSelect');
+        sortSelect.addEventListener('change', function() {
+            sortApplications(this.value);
+        });
+
+        function filterApplications(status = null) {
+            const searchTerm = searchInput.value.toLowerCase();
+            const activeTab = document.querySelector('.tab.active');
+            const activeStatus = status || activeTab.getAttribute('data-status');
+
+            applications.forEach(card => {
+                const cardStatus = card.getAttribute('data-status');
+                const employeeName = card.getAttribute('data-employee-name')?.toLowerCase() || '';
+                const employeeSkills = card.getAttribute('data-employee-skills')?.toLowerCase() || '';
+
+                // Check if card matches current filter
+                const matchesStatus = activeStatus === 'all' || cardStatus === activeStatus;
+                const matchesSearch = !searchTerm ||
+                    employeeName.includes(searchTerm) ||
+                    employeeSkills.includes(searchTerm);
+
+                if (matchesStatus && matchesSearch) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+
+            // Show empty state if no cards visible
+            const visibleCards = Array.from(applications).filter(card => card.style.display !== 'none');
+            const emptyState = document.querySelector('.empty-state');
+            if (emptyState && visibleCards.length === 0 && applications.length > 0) {
+                emptyState.style.display = 'block';
+            } else if (emptyState) {
+                emptyState.style.display = 'none';
+            }
+        }
+
+        function sortApplications(sortBy) {
+            const container = document.getElementById('applicationsList');
+            const cards = Array.from(container.querySelectorAll('.application-card'));
+
+            cards.sort((a, b) => {
+                if (sortBy === 'newest') {
+                    // For demo - in real app, sort by application date
+                    return 0;
+                } else if (sortBy === 'oldest') {
+                    return 0;
+                } else if (sortBy === 'name') {
+                    const nameA = a.getAttribute('data-employee-name') || '';
+                    const nameB = b.getAttribute('data-employee-name') || '';
+                    return nameA.localeCompare(nameB);
+                }
+                return 0;
+            });
+
+            // Reorder cards in container
+            cards.forEach(card => container.appendChild(card));
+        }
+
+        function exportApplications() {
+            alert('Export functionality would generate a CSV file with all application data.');
+            // In a real implementation, this would call a backend endpoint
+            // window.location.href = '/ui/projects/' + projectId + '/applications/export';
+        }
+
+        // Initialize
+        filterApplications();
+    });
+</script>
+
+</body>
+</html>

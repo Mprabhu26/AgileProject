@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "project_skill_requirements")
+@Table(name = "project_skill_requirements")  // Remove unique constraint if present
 public class ProjectSkillRequirement {
 
     @Id
@@ -19,8 +19,8 @@ public class ProjectSkillRequirement {
     @Column(nullable = false)
     private String skill;
 
-    @Column(nullable = false)
-    private Integer requiredCount;
+    @Column(name = "required_count", nullable = false)
+    private Integer requiredCount = 1;  // Add default value
 
     // ===== Constructors =====
     public ProjectSkillRequirement() {}
@@ -64,7 +64,6 @@ public class ProjectSkillRequirement {
         this.requiredCount = requiredCount;
     }
 
-    // ✅ Add toString for debugging
     @Override
     public String toString() {
         return "ProjectSkillRequirement{" +

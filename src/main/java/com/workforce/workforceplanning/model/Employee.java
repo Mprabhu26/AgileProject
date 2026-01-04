@@ -146,6 +146,7 @@ public class Employee {
         this.updatedAt = updatedAt;
     }
 
+
     // Helper methods
     public void addSkill(String skill) {
         if (skill != null && !skill.trim().isEmpty()) {
