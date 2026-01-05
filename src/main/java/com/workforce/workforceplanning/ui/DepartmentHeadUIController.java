@@ -8,6 +8,7 @@ import org.flowable.engine.TaskService;
 import org.flowable.task.api.Task;
 import org.flowable.task.api.history.HistoricTaskInstance;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
@@ -17,6 +18,7 @@ import java.util.*;
 
 @Controller
 @RequestMapping("/ui/department-head")
+@Transactional
 public class DepartmentHeadUIController {
 
     private final TaskService taskService;
@@ -117,55 +119,41 @@ public class DepartmentHeadUIController {
     }
 
     // ==================== APPROVE PROJECT REQUEST ====================
-    @PostMapping("/tasks/{taskId}/approve")
+        @PostMapping("/tasks/{taskId}/approve")
     public String approveTask(
             @PathVariable String taskId,
             @RequestParam(required = false) String approvalNotes,
-            @RequestParam(required = false, defaultValue = "false") Boolean urgent,
-            @RequestParam(required = false) Integer priority,
             RedirectAttributes redirectAttributes,
             Principal principal) {
 
         try {
             String approver = principal != null ? principal.getName() : "DepartmentHead";
 
-            // Get current variables to preserve them
+            // Get the task
             Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
-            Map<String, Object> currentVariables = runtimeService.getVariables(task.getProcessInstanceId());
-
-            // === UPDATE PROJECT STATUS DIRECTLY IN CONTROLLER ===
-            Long projectId = null;
-            if (currentVariables.containsKey("projectId")) {
-                projectId = ((Number) currentVariables.get("projectId")).longValue();
-                Project project = projectRepository.findById(projectId).orElse(null);
-                if (project != null) {
-                    project.setStatus(ProjectStatus.APPROVED);
-                    projectRepository.save(project);
-                    System.out.println("✅ Project " + projectId + " approved directly in controller");
-                }
+            if (task == null) {
+                redirectAttributes.addFlashAttribute("errorMessage", "Task not found");
+                return "redirect:/ui/department-head/dashboard";
             }
-            // === END DIRECT UPDATE ===
 
-            // Create approval variables
-            Map<String, Object> variables = new HashMap<>(currentVariables);
+            String processInstanceId = task.getProcessInstanceId();
+
+            // Set approval variables - The delegate will handle status update
+            Map<String, Object> variables = new HashMap<>();
             variables.put("approved", true);
             variables.put("approvalNotes", approvalNotes != null ? approvalNotes : "Approved by " + approver);
             variables.put("approvedBy", approver);
             variables.put("approvalTime", new Date());
-            variables.put("urgent", urgent != null ? urgent : false);
-            variables.put("priority", priority != null ? priority : 3);
-            variables.put("approvedEmployeeIds", new ArrayList<>());
 
-            // Complete the task - this triggers ProjectApprovalDelegate
+            // Complete the task - This will trigger ProjectApprovalDelegate
             taskService.complete(taskId, variables);
 
-            // Log for debugging
-            System.out.println("✅ Project approved by Department Head: " + approver);
+            System.out.println("✅ Approval task completed. Delegate will update project status.");
             System.out.println("   Task ID: " + taskId);
-            System.out.println("   Process Instance: " + task.getProcessInstanceId());
+            System.out.println("   Process Instance: " + processInstanceId);
 
             redirectAttributes.addFlashAttribute("successMessage",
-                    "✅ Project request approved successfully. Resource Planner will now find suitable employees.");
+                    "✅ Project request approved successfully. Workflow will update status.");
 
         } catch (Exception e) {
             System.err.println("❌ Error approving project: " + e.getMessage());
@@ -177,28 +165,39 @@ public class DepartmentHeadUIController {
         return "redirect:/ui/department-head/dashboard";
     }
 
-    // ==================== REJECT PROJECT REQUEST ====================
+    // In DepartmentHeadUIController - REJECT method simplified
     @PostMapping("/tasks/{taskId}/reject")
     public String rejectTask(
             @PathVariable String taskId,
             @RequestParam(required = false) String rejectionReason,
-            @RequestParam(required = false) String alternativeSuggestions,
             RedirectAttributes redirectAttributes,
             Principal principal) {
 
         try {
             String rejector = principal != null ? principal.getName() : "DepartmentHead";
 
+            // Get the task
+            Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
+            if (task == null) {
+                redirectAttributes.addFlashAttribute("errorMessage", "Task not found");
+                return "redirect:/ui/department-head/dashboard";
+            }
+
+            String processInstanceId = task.getProcessInstanceId();
+
+            // Set rejection variables - The delegate will handle status update
             Map<String, Object> variables = new HashMap<>();
             variables.put("approved", false);
             variables.put("rejectionReason", rejectionReason != null ? rejectionReason : "Rejected by " + rejector);
             variables.put("rejectedBy", rejector);
             variables.put("rejectionTime", new Date());
-            variables.put("alternativeSuggestions", alternativeSuggestions);
 
+            // Complete the task - This will trigger ProjectApprovalDelegate
             taskService.complete(taskId, variables);
 
-            System.out.println("❌ Project rejected by Department Head: " + rejector);
+            System.out.println("❌ Rejection task completed. Delegate will update project status.");
+            System.out.println("   Task ID: " + taskId);
+            System.out.println("   Process Instance: " + processInstanceId);
             System.out.println("   Reason: " + rejectionReason);
 
             redirectAttributes.addFlashAttribute("successMessage",
@@ -206,6 +205,7 @@ public class DepartmentHeadUIController {
 
         } catch (Exception e) {
             System.err.println("❌ Error rejecting project: " + e.getMessage());
+            e.printStackTrace();
             redirectAttributes.addFlashAttribute("errorMessage",
                     "❌ Error rejecting project: " + e.getMessage());
         }
@@ -225,15 +225,29 @@ public class DepartmentHeadUIController {
         try {
             String deferrer = principal != null ? principal.getName() : "DepartmentHead";
 
-            // Instead of completing, we add a comment/note and reassign or leave pending
-            Map<String, Object> variables = new HashMap<>();
-            variables.put("infoRequested", infoRequested);
-            variables.put("requestedBy", deferrer);
-            variables.put("requestTime", new Date());
-            variables.put("deadline", deadline);
+            // Get the task
+            Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
+            if (task == null) {
+                redirectAttributes.addFlashAttribute("errorMessage", "Task not found");
+                return "redirect:/ui/department-head/dashboard";
+            }
 
-            // Add these as local task variables (not process variables)
-            taskService.setVariablesLocal(taskId, variables);
+            String processInstanceId = task.getProcessInstanceId();
+
+            // Instead of completing, we add a comment/note and reassign or leave pending
+            Map<String, Object> processVariables = new HashMap<>();
+            processVariables.put("infoRequested", infoRequested);
+            processVariables.put("requestedBy", deferrer);
+            processVariables.put("requestTime", new Date());
+            processVariables.put("deadline", deadline);
+            processVariables.put("workflowStatus", "DEFERRED");
+            processVariables.put("processStatus", "AWAITING_MORE_INFO");
+
+            // Set as process variables for workflow tracking
+            runtimeService.setVariables(processInstanceId, processVariables);
+
+            // Also set as local task variables
+            taskService.setVariablesLocal(taskId, processVariables);
 
             // Add a comment to the task
             taskService.addComment(taskId, null,
@@ -241,6 +255,9 @@ public class DepartmentHeadUIController {
 
             System.out.println("⏸️ Decision deferred by " + deferrer);
             System.out.println("   Info requested: " + infoRequested);
+            System.out.println("   Task ID: " + taskId);
+            System.out.println("   Process Instance: " + processInstanceId);
+            System.out.println("   workflowStatus: DEFERRED");
 
             redirectAttributes.addFlashAttribute("successMessage",
                     "⏸️ Decision deferred. Additional information has been requested.");
@@ -297,47 +314,193 @@ public class DepartmentHeadUIController {
         return "department-head/history";
     }
 
+    // ==================== VIEW SPECIFIC HISTORY TASK ====================
+    @GetMapping("/history/task/{taskId}")
+    public String viewHistoryTask(@PathVariable String taskId, Model model, Principal principal) {
+        String username = principal != null ? principal.getName() : "Guest";
+
+        // Get historical task
+        HistoricTaskInstance task = historyService.createHistoricTaskInstanceQuery()
+                .taskId(taskId)
+                .finished()
+                .singleResult();
+
+        if (task == null) {
+            return "redirect:/ui/department-head/history?error=Task+not+found+in+history";
+        }
+
+        // Get historical variables
+        Map<String, Object> variables = historyService.createHistoricVariableInstanceQuery()
+                .processInstanceId(task.getProcessInstanceId())
+                .list()
+                .stream()
+                .collect(HashMap::new, (m, v) -> m.put(v.getVariableName(), v.getValue()), HashMap::putAll);
+
+        // Get project details
+        Long projectId = null;
+        Project project = null;
+        if (variables.containsKey("projectId")) {
+            projectId = ((Number) variables.get("projectId")).longValue();
+            project = projectRepository.findById(projectId).orElse(null);
+        }
+
+        model.addAttribute("username", username);
+        model.addAttribute("task", task);
+        model.addAttribute("variables", variables);
+        model.addAttribute("project", project);
+        model.addAttribute("projectId", projectId);
+
+        return "department-head/history-detail";
+    }
+
     // ==================== BULK ACTIONS ====================
     @PostMapping("/bulk-approve")
     public String bulkApprove(
-            @RequestParam List<String> taskIds,
+            @RequestParam(value = "taskIds", required = false) List<String> taskIds,
             @RequestParam(required = false) String bulkNotes,
             RedirectAttributes redirectAttributes,
             Principal principal) {
 
         try {
             String approver = principal != null ? principal.getName() : "DepartmentHead";
+
+            if (taskIds == null || taskIds.isEmpty()) {
+                redirectAttributes.addFlashAttribute("errorMessage", "❌ No tasks selected for bulk approval");
+                return "redirect:/ui/department-head/dashboard";
+            }
+
+            System.out.println("=== BULK APPROVAL STARTED ===");
+            System.out.println("Tasks to approve: " + taskIds.size());
+            System.out.println("Task IDs: " + taskIds);
+
             int successCount = 0;
             int errorCount = 0;
+            List<String> errorMessages = new ArrayList<>();
 
             for (String taskId : taskIds) {
                 try {
-                    Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
-                    if (task != null) {
-                        Map<String, Object> currentVariables = runtimeService.getVariables(task.getProcessInstanceId());
-                        Map<String, Object> variables = new HashMap<>(currentVariables);
-                        variables.put("approved", true);
-                        variables.put("approvalNotes", "Bulk approved by " + approver + ": " + bulkNotes);
-                        variables.put("approvedBy", approver);
-                        variables.put("approvedEmployeeIds", new ArrayList<>());
+                    System.out.println("\n--- Processing Task: " + taskId + " ---");
 
-                        taskService.complete(taskId, variables);
-                        successCount++;
-                    } else {
+                    Task task = taskService.createTaskQuery()
+                            .taskId(taskId.trim())  // Trim whitespace
+                            .singleResult();
+
+                    if (task == null) {
+                        System.err.println("❌ Task not found: " + taskId);
                         errorCount++;
+                        errorMessages.add("Task not found: " + taskId);
+                        continue;
                     }
+
+                    System.out.println("✅ Task found: " + task.getName());
+                    System.out.println("   Process Instance: " + task.getProcessInstanceId());
+
+                    String processInstanceId = task.getProcessInstanceId();
+                    Map<String, Object> currentVariables = runtimeService.getVariables(processInstanceId);
+
+                    // Get project ID for logging
+                    Long projectId = null;
+                    if (currentVariables.containsKey("projectId")) {
+                        projectId = ((Number) currentVariables.get("projectId")).longValue();
+                        System.out.println("   Project ID: " + projectId);
+                    }
+
+                    // Set approval variables - The delegate will handle status update
+                    Map<String, Object> variables = new HashMap<>();
+                    variables.put("approved", true);
+                    variables.put("approvalNotes", "Bulk approved by " + approver +
+                            (bulkNotes != null && !bulkNotes.isEmpty() ? ": " + bulkNotes : ""));
+                    variables.put("approvedBy", approver);
+                    variables.put("approvalTime", new Date());
+                    variables.put("approvedEmployeeIds", new ArrayList<>());
+
+                    // Optional: Set workflow status variables
+                    variables.put("workflowStatus", "APPROVED");
+                    variables.put("departmentHeadDecision", "APPROVED");
+                    variables.put("decisionTimestamp", new Date());
+                    variables.put("processStatus", "DEPARTMENT_HEAD_APPROVED");
+
+                    // Complete the task - This will trigger ProjectApprovalDelegate
+                    taskService.complete(taskId, variables);
+
+                    System.out.println("✅ Task completed successfully: " + taskId);
+
+                    // Verify completion
+                    Task completedTask = taskService.createTaskQuery().taskId(taskId).singleResult();
+                    if (completedTask == null) {
+                        System.out.println("✅ Task successfully removed from active tasks");
+                    }
+
+                    successCount++;
+
                 } catch (Exception e) {
                     errorCount++;
-                    System.err.println("Error approving task " + taskId + ": " + e.getMessage());
+                    String errorMsg = "Task " + taskId + ": " + e.getMessage();
+                    System.err.println("❌ Error: " + errorMsg);
+                    e.printStackTrace();
+                    errorMessages.add(errorMsg);
                 }
             }
 
-            String message = "✅ Bulk approval completed: " + successCount + " approved, " + errorCount + " failed.";
-            redirectAttributes.addFlashAttribute("successMessage", message);
+            System.out.println("\n=== BULK APPROVAL SUMMARY ===");
+            System.out.println("Total tasks: " + taskIds.size());
+            System.out.println("Successfully approved: " + successCount);
+            System.out.println("Failed: " + errorCount);
+
+            // Prepare result message
+            if (errorCount == 0) {
+                String message = "✅ Successfully approved " + successCount + " project(s)";
+                if (bulkNotes != null && !bulkNotes.isEmpty()) {
+                    message += " with notes: " + bulkNotes;
+                }
+                redirectAttributes.addFlashAttribute("successMessage", message);
+            } else if (successCount > 0) {
+                String message = "⚠️ Partially completed: " + successCount + " approved, " + errorCount + " failed";
+                redirectAttributes.addFlashAttribute("warningMessage", message);
+                redirectAttributes.addFlashAttribute("errorDetails", String.join("<br>", errorMessages));
+            } else {
+                redirectAttributes.addFlashAttribute("errorMessage",
+                        "❌ Failed to approve any projects. All " + errorCount + " attempts failed.");
+                redirectAttributes.addFlashAttribute("errorDetails", String.join("<br>", errorMessages));
+            }
 
         } catch (Exception e) {
+            System.err.println("❌ General error in bulk approval: " + e.getMessage());
+            e.printStackTrace();
             redirectAttributes.addFlashAttribute("errorMessage",
                     "❌ Error in bulk approval: " + e.getMessage());
+        }
+
+        return "redirect:/ui/department-head/dashboard";
+    }
+    // ==================== CHECK WORKFLOW STATUS ====================
+    @GetMapping("/check-status/{taskId}")
+    public String checkWorkflowStatus(
+            @PathVariable String taskId,
+            RedirectAttributes redirectAttributes) {
+
+        try {
+            Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
+            if (task != null) {
+                String processInstanceId = task.getProcessInstanceId();
+                Map<String, Object> variables = runtimeService.getVariables(processInstanceId);
+
+                System.out.println("🔍 CHECKING WORKFLOW STATUS FOR TASK: " + taskId);
+                System.out.println("   Process Instance: " + processInstanceId);
+                System.out.println("   All Variables: " + variables);
+                System.out.println("   workflowStatus: " + variables.get("workflowStatus"));
+                System.out.println("   projectStatus: " + variables.get("projectStatus"));
+                System.out.println("   approved: " + variables.get("approved"));
+
+                redirectAttributes.addFlashAttribute("infoMessage",
+                        "Workflow status checked. See console for details.");
+            } else {
+                redirectAttributes.addFlashAttribute("errorMessage", "Task not found");
+            }
+        } catch (Exception e) {
+            System.err.println("❌ Error checking status: " + e.getMessage());
+            redirectAttributes.addFlashAttribute("errorMessage",
+                    "Error checking status: " + e.getMessage());
         }
 
         return "redirect:/ui/department-head/dashboard";
