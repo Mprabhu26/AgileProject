@@ -2,124 +2,122 @@
 <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
              xmlns:flowable="http://flowable.org/bpmn"
-             targetNamespace="http://www.flowable.org/processdef">
+             targetNamespace="http://www.workforce.com">
 
   <process id="workforcePlanningProcess"
            name="Workforce Planning Process"
            isExecutable="true">
 
-    <!-- ========================= -->
-    <!-- START -->
-    <!-- ========================= -->
-    <startEvent id="startEvent"/>
+    <!-- Start -->
+    <startEvent id="startEvent" name="Start" />
+    <sequenceFlow id="flow1" sourceRef="startEvent" targetRef="projectStartTask" />
 
-    <!-- ========================= -->
-    <!-- DEPARTMENT HEAD APPROVAL -->
-    <!-- ========================= -->
-    <userTask id="departmentApproval"
-              name="Department Approval"
-              flowable:assignee="departmentHead">
-      <extensionElements>
-        <flowable:formProperty id="approved"
-                               name="Approve Project?"
-                               type="boolean"
-                               required="true"/>
-      </extensionElements>
+    <!-- 1. Project Initialization -->
+    <serviceTask id="projectStartTask"
+                 name="Initialize Project Workflow"
+                 flowable:class="com.workforce.workforceplanning.workflow.ProjectStartDelegate" />
+    <sequenceFlow id="flow2" sourceRef="projectStartTask" targetRef="departmentApprovalTask" />
+
+    <!-- 2. Department Head Approval (APPROVE PROJECT REQUEST) -->
+    <userTask id="departmentApprovalTask"
+              name="Approve Project Request"
+              flowable:candidateGroups="DepartmentHead">
+      <documentation>
+        Department Head reviews and approves/rejects the project staffing request
+      </documentation>
     </userTask>
+    <sequenceFlow id="flow3" sourceRef="departmentApprovalTask" targetRef="projectApprovalTask" />
 
-    <sequenceFlow sourceRef="startEvent" targetRef="departmentApproval"/>
+    <!-- 3. Process Department Head Decision -->
+    <serviceTask id="projectApprovalTask"
+                 name="Process Department Approval"
+                 flowable:delegateExpression="${projectApprovalDelegate}" />
+    <sequenceFlow id="flow4" sourceRef="projectApprovalTask" targetRef="approvalGateway" />
 
-    <!-- UPDATE PROJECT STATUS -->
-    <serviceTask id="updateProjectStatus"
-                 name="Update Project Status"
-                 flowable:delegateExpression="${projectApprovalDelegate}"/>
+    <!-- 4. Approval Decision Gateway -->
+    <exclusiveGateway id="approvalGateway" name="Approval Decision" />
 
-    <sequenceFlow sourceRef="departmentApproval" targetRef="updateProjectStatus"/>
-
-    <!-- APPROVAL GATEWAY -->
-    <exclusiveGateway id="approvalGateway"/>
-
-    <sequenceFlow sourceRef="updateProjectStatus" targetRef="approvalGateway"/>
-
-    <!-- ========================= -->
-    <!-- REJECTED -->
-    <!-- ========================= -->
-    <endEvent id="endRejected" name="Rejected by Department Head"/>
-
-    <sequenceFlow sourceRef="approvalGateway" targetRef="endRejected">
+    <!-- Approved path → Resource Planner finds employees -->
+    <sequenceFlow id="approvedFlow"
+                  sourceRef="approvalGateway"
+                  targetRef="resourcePlannerTask">
       <conditionExpression xsi:type="tFormalExpression">
-        <![CDATA[${approved == false}]]>
+        ${approved == true}
       </conditionExpression>
     </sequenceFlow>
 
-    <!-- ========================= -->
-    <!-- RESOURCE PLANNER -->
-    <!-- ========================= -->
+    <!-- Rejected path -->
+    <sequenceFlow id="rejectedFlow"
+                  sourceRef="approvalGateway"
+                  targetRef="rejectEnd">
+      <conditionExpression xsi:type="tFormalExpression">
+        ${approved == false}
+      </conditionExpression>
+    </sequenceFlow>
+
+    <!-- 5. Resource Planner Task (FIND EMPLOYEES) -->
     <userTask id="resourcePlannerTask"
-              name="Allocate Employees"
-              flowable:assignee="resourcePlanner">
-      <extensionElements>
-        <flowable:formProperty id="employeeIds"
-                               name="Employee IDs"
-                               type="json"
-                               required="true"/>
-      </extensionElements>
+              name="Find Suitable Employees"
+              flowable:candidateGroups="ResourcePlanner">
+      <documentation>
+        Search for employees with matching skills and propose them for the project
+      </documentation>
     </userTask>
+    <sequenceFlow id="flow5" sourceRef="resourcePlannerTask" targetRef="employeeConfirmationTask" />
 
-    <sequenceFlow sourceRef="approvalGateway" targetRef="resourcePlannerTask">
+    <!-- 6. Employee Confirmation (NEW - according to requirements) -->
+    <userTask id="employeeConfirmationTask"
+              name="Confirm Assignment"
+              flowable:candidateGroups="Employee">
+      <documentation>
+        Employee confirms or rejects the assignment
+      </documentation>
+    </userTask>
+    <sequenceFlow id="flow6" sourceRef="employeeConfirmationTask" targetRef="employeeDecisionGateway" />
+
+    <!-- 7. Employee Decision Gateway -->
+    <exclusiveGateway id="employeeDecisionGateway" name="Employee Decision" />
+
+    <!-- Employee confirms → Assign employees -->
+    <sequenceFlow id="employeeConfirmedFlow"
+                  sourceRef="employeeDecisionGateway"
+                  targetRef="assignmentTask">
       <conditionExpression xsi:type="tFormalExpression">
-        <![CDATA[${approved == true}]]>
+        ${employeeConfirmed == true}
       </conditionExpression>
     </sequenceFlow>
 
-    <!-- ASSIGN EMPLOYEES -->
-    <serviceTask id="assignEmployees"
-                 name="Assign Employees"
-                 flowable:delegateExpression="${assignmentDelegate}"/>
+    <!-- Employee rejects → Go back to Resource Planner -->
+    <sequenceFlow id="employeeRejectedFlow"
+                  sourceRef="employeeDecisionGateway"
+                  targetRef="resourcePlannerTask">
+      <conditionExpression xsi:type="tFormalExpression">
+        ${employeeConfirmed == false}
+      </conditionExpression>
+    </sequenceFlow>
 
-    <sequenceFlow sourceRef="resourcePlannerTask" targetRef="assignEmployees"/>
+    <!-- 8. Assign Employees (if employee confirms) -->
+    <serviceTask id="assignmentTask"
+                 name="Assign Employees to Project"
+                 flowable:class="com.workforce.workforceplanning.workflow.AssignmentDelegate" />
+    <sequenceFlow id="flow7" sourceRef="assignmentTask" targetRef="notificationTask" />
 
-    <!-- NOTIFY EMPLOYEES -->
-    <serviceTask id="notifyEmployees"
-                 name="Notify Employees"
-                 flowable:delegateExpression="${notificationDelegate}"/>
+    <!-- 9. Send Notifications -->
+    <serviceTask id="notificationTask"
+                 name="Send Assignment Notifications"
+                 flowable:class="com.workforce.workforceplanning.workflow.NotificationDelegate" />
+    <sequenceFlow id="flow8" sourceRef="notificationTask" targetRef="projectCompletionTask" />
 
-    <sequenceFlow sourceRef="assignEmployees" targetRef="notifyEmployees"/>
+    <!-- 10. Complete Project Setup -->
+    <serviceTask id="projectCompletionTask"
+                 name="Complete Project Setup"
+                 flowable:class="com.workforce.workforceplanning.workflow.ProjectCompletionDelegate" />
+    <sequenceFlow id="flow9" sourceRef="projectCompletionTask" targetRef="endEvent" />
 
-    <!-- ========================= -->
-    <!-- EMPLOYEE CONFIRMATION -->
-    <!-- (MULTI-INSTANCE) -->
-    <!-- ========================= -->
-    <userTask id="employeeConfirmation"
-              name="Employee Confirmation"
-              flowable:assignee="${employeeId}">
-      <extensionElements>
-        <flowable:formProperty id="confirmed"
-                               name="Confirm Assignment?"
-                               type="boolean"
-                               required="true"/>
-      </extensionElements>
-
-      <multiInstanceLoopCharacteristics
-              isSequential="false"
-              flowable:collection="${employeeIds}"
-              flowable:elementVariable="employeeId"/>
-    </userTask>
-
-    <sequenceFlow sourceRef="notifyEmployees" targetRef="employeeConfirmation"/>
-
-    <!-- ========================= -->
-    <!-- COMPLETE PROJECT -->
-    <!-- ========================= -->
-    <serviceTask id="completeProject"
-                 name="Complete Project"
-                 flowable:delegateExpression="${projectCompletionDelegate}"/>
-
-    <sequenceFlow sourceRef="employeeConfirmation" targetRef="completeProject"/>
-
-    <endEvent id="endCompleted" name="Project Completed"/>
-
-    <sequenceFlow sourceRef="completeProject" targetRef="endCompleted"/>
+    <!-- End Events -->
+    <endEvent id="endEvent" name="Project Staffed and Ready" />
+    <endEvent id="rejectEnd" name="Project Rejected" />
 
   </process>
+
 </definitions>

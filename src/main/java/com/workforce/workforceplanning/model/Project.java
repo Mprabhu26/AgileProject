@@ -7,7 +7,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import com.workforce.workforceplanning.model.ProjectSkillRequirement;
 
 @Entity
 @Table(name = "projects")
@@ -54,6 +53,34 @@ public class Project {
     )
     @JsonManagedReference
     private List<ProjectSkillRequirement> skillRequirements = new ArrayList<>();
+
+    // Publishing fields
+    @Column(name = "published")
+    private Boolean published = false;
+
+    @Column(name = "published_at")
+    private LocalDateTime publishedAt;
+
+    @Column(name = "visible_to_all")
+    private Boolean visibleToAll = false;
+
+    // ✅ NEW: Workflow tracking fields
+    @Column(name = "process_instance_id")
+    private String processInstanceId;
+
+    @Column(name = "workflow_status")
+    private String workflowStatus = "NOT_STARTED"; // "NOT_STARTED", "STARTED", "COMPLETED", "CANCELLED"
+
+    @Column(name = "external_search_needed")
+    private Boolean externalSearchNeeded = false;
+
+    public Boolean getExternalSearchNeeded() {
+        return externalSearchNeeded;
+    }
+
+    public void setExternalSearchNeeded(Boolean externalSearchNeeded) {
+        this.externalSearchNeeded = externalSearchNeeded;
+    }
 
     // ===== Constructors =====
     public Project() {}
@@ -153,6 +180,50 @@ public class Project {
         this.skillRequirements = skillRequirements;
     }
 
+    public Boolean getPublished() {
+        return published;
+    }
+
+    public void setPublished(Boolean published) {
+        this.published = published;
+        if (published && this.publishedAt == null) {
+            this.publishedAt = LocalDateTime.now();
+        }
+    }
+
+    public LocalDateTime getPublishedAt() {
+        return publishedAt;
+    }
+
+    public void setPublishedAt(LocalDateTime publishedAt) {
+        this.publishedAt = publishedAt;
+    }
+
+    public Boolean getVisibleToAll() {
+        return visibleToAll;
+    }
+
+    public void setVisibleToAll(Boolean visibleToAll) {
+        this.visibleToAll = visibleToAll;
+    }
+
+    // ✅ NEW: Workflow tracking getters and setters
+    public String getProcessInstanceId() {
+        return processInstanceId;
+    }
+
+    public void setProcessInstanceId(String processInstanceId) {
+        this.processInstanceId = processInstanceId;
+    }
+
+    public String getWorkflowStatus() {
+        return workflowStatus;
+    }
+
+    public void setWorkflowStatus(String workflowStatus) {
+        this.workflowStatus = workflowStatus;
+    }
+
     // ===== Helper Methods =====
     public void addSkillRequirement(ProjectSkillRequirement requirement) {
         skillRequirements.add(requirement);
@@ -170,6 +241,9 @@ public class Project {
                 "id=" + id +
                 ", name='" + name + '\'' +
                 ", status=" + status +
+                ", published=" + published +
+                ", processInstanceId='" + processInstanceId + '\'' +
+                ", workflowStatus='" + workflowStatus + '\'' +
                 ", createdBy='" + createdBy + '\'' +
                 ", totalEmployeesRequired=" + totalEmployeesRequired +
                 '}';

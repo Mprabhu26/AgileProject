@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "project_skill_requirements")
+@Table(name = "project_skill_requirements")  // Remove unique constraint if present
 public class ProjectSkillRequirement {
 
     @Id
@@ -19,11 +19,10 @@ public class ProjectSkillRequirement {
     @Column(nullable = false)
     private String skill;
 
-    @Column(nullable = false)
-    private Integer requiredCount;
+    @Column(name = "required_count", nullable = false)
+    private Integer requiredCount = 1;  // Add default value
 
     // ===== Constructors =====
-
     public ProjectSkillRequirement() {}
 
     public ProjectSkillRequirement(Project project, String skill, Integer requiredCount) {
@@ -33,32 +32,44 @@ public class ProjectSkillRequirement {
     }
 
     // ===== Getters & Setters =====
-
     public Long getId() {
         return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
     }
 
     public Project getProject() {
         return project;
     }
 
-    public String getSkill() {
-        return skill;
-    }
-
-    public Integer getRequiredCount() {
-        return requiredCount;
-    }
-
     public void setProject(Project project) {
         this.project = project;
+    }
+
+    public String getSkill() {
+        return skill;
     }
 
     public void setSkill(String skill) {
         this.skill = skill;
     }
 
+    public Integer getRequiredCount() {
+        return requiredCount;
+    }
+
     public void setRequiredCount(Integer requiredCount) {
         this.requiredCount = requiredCount;
+    }
+
+    @Override
+    public String toString() {
+        return "ProjectSkillRequirement{" +
+                "id=" + id +
+                ", skill='" + skill + '\'' +
+                ", requiredCount=" + requiredCount +
+                '}';
     }
 }

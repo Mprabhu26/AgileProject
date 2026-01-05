@@ -4,63 +4,130 @@ import com.workforce.workforceplanning.model.*;
 import com.workforce.workforceplanning.repository.*;
 import org.flowable.engine.delegate.DelegateExecution;
 import org.flowable.engine.delegate.JavaDelegate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Component("assignmentDelegate")
 public class AssignmentDelegate implements JavaDelegate {
 
+    private static final Logger log = LoggerFactory.getLogger(AssignmentDelegate.class);
+
     private final AssignmentRepository assignmentRepository;
     private final EmployeeRepository employeeRepository;
     private final ProjectRepository projectRepository;
 
+    // ✅ FIXED: Constructor injection
     public AssignmentDelegate(
             AssignmentRepository assignmentRepository,
             EmployeeRepository employeeRepository,
-            ProjectRepository projectRepository
-    ) {
+            ProjectRepository projectRepository) {
         this.assignmentRepository = assignmentRepository;
         this.employeeRepository = employeeRepository;
         this.projectRepository = projectRepository;
+        log.info("✅ AssignmentDelegate initialized with repositories");
     }
 
     @Override
+    @Transactional
     public void execute(DelegateExecution execution) {
+        log.info("=== ASSIGNING EMPLOYEES TO PROJECT ===");
 
-        Long projectId = ((Number) execution.getVariable("projectId")).longValue();
-        List<?> employeeIdsRaw = (List<?>) execution.getVariable("employeeIds");
+        try {
+            // ✅ Check if repositories are initialized
+            if (assignmentRepository == null || employeeRepository == null || projectRepository == null) {
+                log.error("❌ One or more repositories are null in AssignmentDelegate!");
+                throw new RuntimeException("Repositories not initialized in AssignmentDelegate");
+            }
 
-        if (employeeIdsRaw == null || employeeIdsRaw.isEmpty()) {
-            throw new RuntimeException("❌ employeeIds missing");
+            // 1. Get project ID from workflow
+            Object projectIdObj = execution.getVariable("projectId");
+            Long projectId = parseLong(projectIdObj);
+            log.info("Project ID from workflow: {}", projectId);
+
+            // 2. Get approved employee IDs
+            Object employeeIdsObj = execution.getVariable("approvedEmployeeIds");
+            List<Long> employeeIds = parseEmployeeIds(employeeIdsObj);
+            log.info("Employee IDs from workflow: {}", employeeIds);
+
+            // 3. Get project from database
+            Project project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> {
+                        log.error("❌ Project not found in database: {}", projectId);
+                        return new RuntimeException("Project not found: " + projectId);
+                    });
+            log.info("Found project: {}", project.getName());
+
+            // 4. Create assignments for each approved employee
+            int assignedCount = 0;
+            for (Long employeeId : employeeIds) {
+                Employee employee = employeeRepository.findById(employeeId)
+                        .orElseThrow(() -> {
+                            log.error("❌ Employee not found: {}", employeeId);
+                            return new RuntimeException("Employee not found: " + employeeId);
+                        });
+
+                // Check if already assigned
+                boolean alreadyAssigned = assignmentRepository.findAll().stream()
+                        .anyMatch(a -> a.getProject() != null &&
+                                a.getProject().getId().equals(projectId) &&
+                                a.getEmployee() != null &&
+                                a.getEmployee().getId().equals(employeeId));
+
+                if (!alreadyAssigned) {
+                    // Create new assignment
+                    Assignment assignment = new Assignment(project, employee, AssignmentStatus.ASSIGNED);
+                    assignmentRepository.save(assignment);
+
+                    // Update employee availability
+                    employee.setAvailable(false);
+                    employeeRepository.save(employee);
+
+                    assignedCount++;
+                    log.info("✅ Assigned employee {} to project {}", employee.getName(), project.getName());
+                } else {
+                    log.info("⚠️ Employee {} already assigned to project {}", employee.getName(), project.getName());
+                }
+            }
+
+            // 5. Update project status
+            project.setStatus(ProjectStatus.IN_PROGRESS);
+            projectRepository.save(project);
+
+            log.info("✅ Successfully assigned {} employees. Project {} moved to IN_PROGRESS",
+                    assignedCount, project.getName());
+
+        } catch (Exception e) {
+            log.error("❌ Failed to assign employees", e);
+            throw e;
         }
+    }
 
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new RuntimeException("❌ Project not found"));
-
-        for (Object idObj : employeeIdsRaw) {
-            Long employeeId = ((Number) idObj).longValue();
-
-            Employee employee = employeeRepository.findById(employeeId)
-                    .orElseThrow(() -> new RuntimeException("❌ Employee not found: " + employeeId));
-
-            // 🔹 Create Assignment
-            Assignment assignment = new Assignment();
-            assignment.setProject(project);
-            assignment.setEmployee(employee);
-            assignment.setStatus(AssignmentStatus.ASSIGNED);
-            assignment.setAssignedAt(LocalDateTime.now());
-
-            assignmentRepository.save(assignment);
-
-            // 🔹 Mark employee unavailable
-            employee.setAvailable(false);
-            employeeRepository.save(employee);
+    private Long parseLong(Object obj) {
+        if (obj instanceof Number) {
+            return ((Number) obj).longValue();
+        } else if (obj != null) {
+            try {
+                return Long.parseLong(obj.toString());
+            } catch (NumberFormatException e) {
+                log.error("❌ Cannot parse projectId: {}", obj);
+                throw new RuntimeException("Invalid projectId: " + obj);
+            }
         }
+        throw new RuntimeException("Project ID is null");
+    }
 
-        // 🔹 Update project status
-        project.setStatus(ProjectStatus.IN_PROGRESS);
-        projectRepository.save(project);
+    @SuppressWarnings("unchecked")
+    private List<Long> parseEmployeeIds(Object obj) {
+        if (obj instanceof List) {
+            return (List<Long>) obj;
+        } else if (obj != null) {
+            log.warn("⚠️ employeeIds is not a List, type: {}", obj.getClass().getName());
+        }
+        log.info("⚠️ No employeeIds found in workflow variables");
+        return List.of();
     }
 }

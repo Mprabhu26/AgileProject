@@ -62,29 +62,34 @@ public class DataInitializer implements CommandLineRunner {
         employeeRepository.save(emp3);
 
         // =========================
-        // PROJECT 1 — BANKING
+        // PROJECT 1 — BANKING (Published)
         // =========================
 
         Project bankingProject = new Project();
         bankingProject.setName("Banking Project");
-        bankingProject.setDescription("Core banking system");
+        bankingProject.setDescription("Core banking system modernization");
         bankingProject.setStatus(ProjectStatus.PENDING);
         bankingProject.setStartDate(LocalDate.of(2025, 1, 15));
         bankingProject.setEndDate(LocalDate.of(2025, 6, 30));
         bankingProject.setBudget(new BigDecimal("1500000"));
         bankingProject.setTotalEmployeesRequired(5);
+        bankingProject.setCreatedBy("pm"); // FIXED: Added created_by
+        bankingProject.setPublished(true); // FIXED: Set as published
+        bankingProject.setVisibleToAll(true); // FIXED: Set visible
 
-        bankingProject.getSkillRequirements().add(
-                new ProjectSkillRequirement(bankingProject, "Java", 2));
-        bankingProject.getSkillRequirements().add(
-                new ProjectSkillRequirement(bankingProject, "Python", 2));
-        bankingProject.getSkillRequirements().add(
-                new ProjectSkillRequirement(bankingProject, "React", 1));
+        // FIXED: Properly create and add skill requirements
+        ProjectSkillRequirement req1 = new ProjectSkillRequirement(bankingProject, "Java", 2);
+        ProjectSkillRequirement req2 = new ProjectSkillRequirement(bankingProject, "Python", 2);
+        ProjectSkillRequirement req3 = new ProjectSkillRequirement(bankingProject, "React", 1);
+
+        bankingProject.addSkillRequirement(req1);
+        bankingProject.addSkillRequirement(req2);
+        bankingProject.addSkillRequirement(req3);
 
         projectRepository.save(bankingProject);
 
         // =========================
-        // PROJECT 2 — IOT
+        // PROJECT 2 — IOT (Not Published)
         // =========================
 
         Project iotProject = new Project();
@@ -95,16 +100,45 @@ public class DataInitializer implements CommandLineRunner {
         iotProject.setEndDate(LocalDate.of(2025, 9, 30));
         iotProject.setBudget(new BigDecimal("2200000"));
         iotProject.setTotalEmployeesRequired(4);
+        iotProject.setCreatedBy("pm"); // FIXED: Added created_by
+        iotProject.setPublished(false); // FIXED: Not published
+        iotProject.setVisibleToAll(false); // FIXED: Not visible
 
-        iotProject.getSkillRequirements().add(
-                new ProjectSkillRequirement(iotProject, "Java", 2));
-        iotProject.getSkillRequirements().add(
-                new ProjectSkillRequirement(iotProject, "Python", 1));
-        iotProject.getSkillRequirements().add(
-                new ProjectSkillRequirement(iotProject, "React", 1));
+        ProjectSkillRequirement req4 = new ProjectSkillRequirement(iotProject, "Java", 2);
+        ProjectSkillRequirement req5 = new ProjectSkillRequirement(iotProject, "Python", 1);
+        ProjectSkillRequirement req6 = new ProjectSkillRequirement(iotProject, "React", 1);
+
+        iotProject.addSkillRequirement(req4);
+        iotProject.addSkillRequirement(req5);
+        iotProject.addSkillRequirement(req6);
 
         projectRepository.save(iotProject);
 
+        // =========================
+        // PROJECT 3 — MOBILE APP (Published)
+        // =========================
+
+        Project mobileProject = new Project();
+        mobileProject.setName("Mobile Banking App");
+        mobileProject.setDescription("iOS and Android banking application");
+        mobileProject.setStatus(ProjectStatus.APPROVED); // Different status
+        mobileProject.setStartDate(LocalDate.of(2025, 3, 1));
+        mobileProject.setEndDate(LocalDate.of(2025, 8, 31));
+        mobileProject.setBudget(new BigDecimal("800000"));
+        mobileProject.setTotalEmployeesRequired(3);
+        mobileProject.setCreatedBy("pm");
+        mobileProject.setPublished(true);
+        mobileProject.setVisibleToAll(true);
+
+        ProjectSkillRequirement req7 = new ProjectSkillRequirement(mobileProject, "React Native", 2);
+        ProjectSkillRequirement req8 = new ProjectSkillRequirement(mobileProject, "Java", 1);
+
+        mobileProject.addSkillRequirement(req7);
+        mobileProject.addSkillRequirement(req8);
+
+        projectRepository.save(mobileProject);
+
         System.out.println("✅ Sample data loaded successfully");
+        System.out.println("📊 Created: 3 employees, 3 projects (2 published, 1 not published)");
     }
 }
