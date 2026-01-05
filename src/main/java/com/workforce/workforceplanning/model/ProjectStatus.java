@@ -7,5 +7,6 @@ public enum ProjectStatus {
     STAFFING,          // Resource Planner is assigning// Rejected
     IN_PROGRESS,       // Staff assigned and work started
     COMPLETED,         // Project finished
-    CANCELLED          // Project cancelled
+    CANCELLED,
+    ASSIGNED          // Project cancelled
 }
