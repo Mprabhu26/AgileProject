@@ -64,23 +64,25 @@ public class Project {
     @Column(name = "visible_to_all")
     private Boolean visibleToAll = false;
 
-    // ✅ NEW: Workflow tracking fields
+    // Workflow tracking fields
     @Column(name = "process_instance_id")
     private String processInstanceId;
 
     @Column(name = "workflow_status")
-    private String workflowStatus = "NOT_STARTED"; // "NOT_STARTED", "STARTED", "COMPLETED", "CANCELLED"
+    private String workflowStatus = "NOT_STARTED";
 
+    // External Search fields
     @Column(name = "external_search_needed")
     private Boolean externalSearchNeeded = false;
 
-    public Boolean getExternalSearchNeeded() {
-        return externalSearchNeeded;
-    }
+    @Column(name = "external_search_notes")
+    private String externalSearchNotes;
 
-    public void setExternalSearchNeeded(Boolean externalSearchNeeded) {
-        this.externalSearchNeeded = externalSearchNeeded;
-    }
+    @Column(name = "external_search_requested_at")
+    private LocalDateTime externalSearchRequestedAt;
+
+    @Column(name = "external_search_completed_at")
+    private LocalDateTime externalSearchCompletedAt;
 
     // ===== Constructors =====
     public Project() {}
@@ -92,98 +94,40 @@ public class Project {
     }
 
     // ===== Getters & Setters =====
-    public Long getId() {
-        return id;
-    }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
 
-    public String getName() {
-        return name;
-    }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
 
-    public void setName(String name) {
-        this.name = name;
-    }
+    public ProjectStatus getStatus() { return status; }
+    public void setStatus(ProjectStatus status) { this.status = status; }
 
-    public String getDescription() {
-        return description;
-    }
+    public LocalDate getStartDate() { return startDate; }
+    public void setStartDate(LocalDate startDate) { this.startDate = startDate; }
 
-    public void setDescription(String description) {
-        this.description = description;
-    }
+    public LocalDate getEndDate() { return endDate; }
+    public void setEndDate(LocalDate endDate) { this.endDate = endDate; }
 
-    public ProjectStatus getStatus() {
-        return status;
-    }
+    public BigDecimal getBudget() { return budget; }
+    public void setBudget(BigDecimal budget) { this.budget = budget; }
 
-    public void setStatus(ProjectStatus status) {
-        this.status = status;
-    }
+    public String getCreatedBy() { return createdBy; }
+    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
 
-    public LocalDate getStartDate() {
-        return startDate;
-    }
+    public Integer getTotalEmployeesRequired() { return totalEmployeesRequired; }
+    public void setTotalEmployeesRequired(Integer totalEmployeesRequired) { this.totalEmployeesRequired = totalEmployeesRequired; }
 
-    public void setStartDate(LocalDate startDate) {
-        this.startDate = startDate;
-    }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
-    public LocalDate getEndDate() {
-        return endDate;
-    }
+    public List<ProjectSkillRequirement> getSkillRequirements() { return skillRequirements; }
+    public void setSkillRequirements(List<ProjectSkillRequirement> skillRequirements) { this.skillRequirements = skillRequirements; }
 
-    public void setEndDate(LocalDate endDate) {
-        this.endDate = endDate;
-    }
-
-    public BigDecimal getBudget() {
-        return budget;
-    }
-
-    public void setBudget(BigDecimal budget) {
-        this.budget = budget;
-    }
-
-    public String getCreatedBy() {
-        return createdBy;
-    }
-
-    public void setCreatedBy(String createdBy) {
-        this.createdBy = createdBy;
-    }
-
-    public Integer getTotalEmployeesRequired() {
-        return totalEmployeesRequired;
-    }
-
-    public void setTotalEmployeesRequired(Integer totalEmployeesRequired) {
-        this.totalEmployeesRequired = totalEmployeesRequired;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public List<ProjectSkillRequirement> getSkillRequirements() {
-        return skillRequirements;
-    }
-
-    public void setSkillRequirements(List<ProjectSkillRequirement> skillRequirements) {
-        this.skillRequirements = skillRequirements;
-    }
-
-    public Boolean getPublished() {
-        return published;
-    }
-
+    public Boolean getPublished() { return published; }
     public void setPublished(Boolean published) {
         this.published = published;
         if (published && this.publishedAt == null) {
@@ -191,38 +135,29 @@ public class Project {
         }
     }
 
-    public LocalDateTime getPublishedAt() {
-        return publishedAt;
-    }
+    public LocalDateTime getPublishedAt() { return publishedAt; }
+    public void setPublishedAt(LocalDateTime publishedAt) { this.publishedAt = publishedAt; }
 
-    public void setPublishedAt(LocalDateTime publishedAt) {
-        this.publishedAt = publishedAt;
-    }
+    public Boolean getVisibleToAll() { return visibleToAll; }
+    public void setVisibleToAll(Boolean visibleToAll) { this.visibleToAll = visibleToAll; }
 
-    public Boolean getVisibleToAll() {
-        return visibleToAll;
-    }
+    public String getProcessInstanceId() { return processInstanceId; }
+    public void setProcessInstanceId(String processInstanceId) { this.processInstanceId = processInstanceId; }
 
-    public void setVisibleToAll(Boolean visibleToAll) {
-        this.visibleToAll = visibleToAll;
-    }
+    public String getWorkflowStatus() { return workflowStatus; }
+    public void setWorkflowStatus(String workflowStatus) { this.workflowStatus = workflowStatus; }
 
-    // ✅ NEW: Workflow tracking getters and setters
-    public String getProcessInstanceId() {
-        return processInstanceId;
-    }
+    public Boolean getExternalSearchNeeded() { return externalSearchNeeded; }
+    public void setExternalSearchNeeded(Boolean externalSearchNeeded) { this.externalSearchNeeded = externalSearchNeeded; }
 
-    public void setProcessInstanceId(String processInstanceId) {
-        this.processInstanceId = processInstanceId;
-    }
+    public String getExternalSearchNotes() { return externalSearchNotes; }
+    public void setExternalSearchNotes(String externalSearchNotes) { this.externalSearchNotes = externalSearchNotes; }
 
-    public String getWorkflowStatus() {
-        return workflowStatus;
-    }
+    public LocalDateTime getExternalSearchRequestedAt() { return externalSearchRequestedAt; }
+    public void setExternalSearchRequestedAt(LocalDateTime externalSearchRequestedAt) { this.externalSearchRequestedAt = externalSearchRequestedAt; }
 
-    public void setWorkflowStatus(String workflowStatus) {
-        this.workflowStatus = workflowStatus;
-    }
+    public LocalDateTime getExternalSearchCompletedAt() { return externalSearchCompletedAt; }
+    public void setExternalSearchCompletedAt(LocalDateTime externalSearchCompletedAt) { this.externalSearchCompletedAt = externalSearchCompletedAt; }
 
     // ===== Helper Methods =====
     public void addSkillRequirement(ProjectSkillRequirement requirement) {
@@ -241,11 +176,8 @@ public class Project {
                 "id=" + id +
                 ", name='" + name + '\'' +
                 ", status=" + status +
-                ", published=" + published +
-                ", processInstanceId='" + processInstanceId + '\'' +
                 ", workflowStatus='" + workflowStatus + '\'' +
-                ", createdBy='" + createdBy + '\'' +
-                ", totalEmployeesRequired=" + totalEmployeesRequired +
+                ", externalSearchNeeded=" + externalSearchNeeded +
                 '}';
     }
 }

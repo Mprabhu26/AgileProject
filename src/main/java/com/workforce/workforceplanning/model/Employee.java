@@ -150,7 +150,13 @@ public class Employee {
     // Helper methods
     public void addSkill(String skill) {
         if (skill != null && !skill.trim().isEmpty()) {
-            this.skills.add(skill.trim());
+            String skillToAdd = skill.trim();
+            // Check if skill already exists (case-insensitive)
+            boolean alreadyExists = this.skills.stream()
+                    .anyMatch(s -> s.equalsIgnoreCase(skillToAdd));
+            if (!alreadyExists) {
+                this.skills.add(skillToAdd);
+            }
         }
     }
 
@@ -169,8 +175,15 @@ public class Employee {
     }
 
     public boolean hasSkill(String skill) {
-        return skill != null && this.skills != null && this.skills.contains(skill);
+        if (skill == null || this.skills == null) {
+            return false;
+        }
+        // Make it case-insensitive
+        String skillLower = skill.toLowerCase().trim();
+        return this.skills.stream()
+                .anyMatch(s -> s.toLowerCase().trim().equals(skillLower));
     }
+
 
     // Business logic method
     public boolean isAvailableForProject() {

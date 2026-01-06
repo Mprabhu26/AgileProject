@@ -7,6 +7,8 @@ import com.workforce.workforceplanning.model.Project;
 import com.workforce.workforceplanning.repository.AssignmentRepository;
 import com.workforce.workforceplanning.repository.EmployeeRepository;
 import com.workforce.workforceplanning.repository.ProjectRepository;
+import com.workforce.workforceplanning.service.AssignmentValidationService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -25,6 +27,10 @@ public class AssignmentController {
     private final AssignmentRepository assignmentRepository;
     private final ProjectRepository projectRepository;
     private final EmployeeRepository employeeRepository;
+
+    // ✅ Add validation service
+    @Autowired
+    private AssignmentValidationService validationService;
 
     public AssignmentController(AssignmentRepository assignmentRepository,
                                 ProjectRepository projectRepository,
@@ -65,8 +71,21 @@ public class AssignmentController {
         Project project = projectOpt.get();
         Employee employee = employeeOpt.get();
 
+        // ✅ USE VALIDATION SERVICE
+        AssignmentValidationService.ValidationResult validation =
+                validationService.canAssignEmployeeToProject(projectId, employeeId);
+
+        if (validation.isError()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("error", validation.getMessage()));
+        }
+
         Assignment assignment = new Assignment(project, employee, AssignmentStatus.ASSIGNED);
         Assignment saved = assignmentRepository.save(assignment);
+
+        // ✅ Update employee availability
+        employee.setAvailable(false);
+        employeeRepository.save(employee);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }

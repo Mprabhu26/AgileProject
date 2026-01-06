@@ -61,6 +61,7 @@
 
         .header-buttons {
             display: flex;
+            align-items: center;
             gap: 15px;
         }
 
@@ -98,14 +99,12 @@
             background: rgba(255, 255, 255, 0.3);
         }
 
-
-
         /* Main Content */
         .content {
             padding: 30px;
         }
 
-        /* Stats Bar - UPDATED */
+        /* Stats Bar */
         .stats-bar {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -173,11 +172,7 @@
             background: #f8fafc;
         }
 
-        tr:last-child td {
-            border-bottom: none;
-        }
-
-        /* Status Badge */
+        /* Badges */
         .status-badge {
             padding: 6px 12px;
             border-radius: 20px;
@@ -185,8 +180,6 @@
             font-weight: 600;
             display: inline-block;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 4px;
         }
 
         .status-pending { background: #fef3c7; color: #92400e; }
@@ -197,7 +190,6 @@
         .status-staffing { background: #e0e7ff; color: #4f46e5; }
         .status-cancelled { background: #f3f4f6; color: #6b7280; }
 
-        /* NEW: Published Status */
         .published-badge {
             font-size: 11px;
             padding: 3px 8px;
@@ -206,23 +198,10 @@
             font-weight: 500;
         }
 
-        .published-yes {
-            background: #d1fae5;
-            color: #065f46;
-        }
+        .published-yes { background: #d1fae5; color: #065f46; }
+        .published-no { background: #fef3c7; color: #92400e; }
 
-        .published-no {
-            background: #fef3c7;
-            color: #92400e;
-        }
-
-        /* Skill Tags */
-        .skill-tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-        }
-
+        .skill-tags { display: flex; flex-wrap: wrap; gap: 6px; }
         .skill-tag {
             background: #e0e7ff;
             color: #4f46e5;
@@ -232,13 +211,7 @@
             font-weight: 500;
         }
 
-        /* Actions - UPDATED */
-        .actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
+        .actions { display: flex; flex-wrap: wrap; gap: 8px; }
         .action-btn {
             padding: 6px 12px;
             border-radius: 6px;
@@ -251,132 +224,43 @@
             gap: 4px;
             border: none;
             cursor: pointer;
-            white-space: nowrap;
         }
 
-        .publish-btn {
-            background: #10b981;
-            color: white;
-        }
+        .publish-btn { background: #10b981; color: white; }
+        .unpublish-btn { background: #f59e0b; color: white; }
+        .view-btn { background: #e0e7ff; color: #4f46e5; }
+        .edit-btn { background: #fef3c7; color: #92400e; }
+        .delete-btn { background: #fee2e2; color: #dc2626; }
 
-        .publish-btn:hover {
-            background: #059669;
-        }
+        .empty-state { text-align: center; padding: 60px 20px; }
+        .empty-state i { font-size: 60px; color: #cbd5e1; margin-bottom: 20px; }
 
-        .unpublish-btn {
-            background: #f59e0b;
-            color: white;
-        }
-
-        .unpublish-btn:hover {
-            background: #d97706;
-        }
-
-        .view-btn {
-            background: #e0e7ff;
-            color: #4f46e5;
-        }
-
-        .view-btn:hover {
-            background: #c7d2fe;
-        }
-
-        .edit-btn {
-            background: #fef3c7;
-            color: #92400e;
-        }
-
-        .edit-btn:hover {
-            background: #fde68a;
-        }
-
-        .delete-btn {
-            background: #fee2e2;
-            color: #dc2626;
-        }
-
-        .delete-btn:hover {
-            background: #fecaca;
-        }
-
-        /* Empty State */
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-        }
-
-        .empty-state i {
-            font-size: 60px;
-            color: #cbd5e1;
-            margin-bottom: 20px;
-        }
-
-        .empty-state h3 {
-            color: #475569;
-            margin-bottom: 10px;
-            font-size: 20px;
-        }
-
-        .empty-state p {
-            color: #94a3b8;
-            margin-bottom: 25px;
-            max-width: 500px;
-            margin-left: auto;
-            margin-right: auto;
+        #notificationDropdown {
+            display: none;
+            position: absolute;
+            top: 55px;
+            right: 0;
+            background: white;
+            border-radius: 10px;
+            width: 320px;
+            z-index: 1000;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            color: #1e293b;
+            border: 1px solid #e2e8f0;
         }
 
         /* Responsive */
-        @media (max-width: 1200px) {
-            .container {
-                margin: 10px;
-            }
-
-            .table-container {
-                overflow-x: auto;
-            }
-
-            table {
-                min-width: 1100px;
-            }
-        }
-
         @media (max-width: 768px) {
-            .header {
-                flex-direction: column;
-                gap: 20px;
-                text-align: center;
-            }
-
-            .header-buttons {
-                flex-direction: column;
-                width: 100%;
-            }
-
-            .btn {
-                width: 100%;
-                justify-content: center;
-            }
-
-            .stats-bar {
-                grid-template-columns: 1fr;
-            }
-
-            .actions {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
-            .action-btn {
-                width: 100%;
-                justify-content: center;
-            }
+            .header { flex-direction: column; gap: 20px; }
+            .header-buttons { width: 100%; flex-direction: column; }
+            .btn { width: 100%; justify-content: center; }
+            .table-container { overflow-x: auto; }
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <!-- Header -->
     <div class="header">
         <div class="header-left">
             <h2><i class="fas fa-project-diagram"></i> My Projects Dashboard</h2>
@@ -387,6 +271,33 @@
         </div>
 
         <div class="header-buttons">
+            <div style="position: relative;">
+                <button onclick="toggleNotifications()" class="btn" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">
+                    <i class="fas fa-bell"></i>
+                    <span th:if="${notificationCount > 0}"
+                          style="position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; display: flex; align-items: center; justify-content: center; font-weight: bold;">
+                        <span th:text="${notificationCount}">0</span>
+                    </span>
+                </button>
+
+                <div id="notificationDropdown">
+                    <div style="padding: 15px; border-bottom: 1px solid #f1f5f9; font-weight: 600;">Notifications</div>
+                    <div style="max-height: 300px; overflow-y: auto;">
+                        <div th:if="${notifications != null and not #lists.isEmpty(notifications)}">
+                            <div th:each="notification : ${notifications}" style="padding: 12px 15px; border-bottom: 1px solid #f8fafc;">
+                                <strong style="display: block; font-size: 13px;" th:text="${notification.projectName}"></strong>
+                                <p style="margin: 4px 0; font-size: 12px; color: #64748b;" th:text="${notification.message}"></p>
+                                <a th:href="@{'/ui/projects/' + ${notification.projectId}}" style="font-size: 11px; color: #4f46e5; text-decoration: none; font-weight: 600;">View Project</a>
+                            </div>
+                        </div>
+                        <div th:if="${notifications == null or #lists.isEmpty(notifications)}" style="text-align: center; padding: 30px; color: #94a3b8;">
+                            <i class="fas fa-bell-slash" style="font-size: 24px; margin-bottom: 10px;"></i>
+                            <p style="font-size: 13px;">No new notifications</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <a th:href="@{/ui/projects/create}" class="btn btn-create">
                 <i class="fas fa-plus"></i> New Project
             </a>
@@ -399,51 +310,33 @@
         </div>
     </div>
 
-    <div th:if="${successMessage}"
-         style="background: #d1fae5; color: #065f46; padding: 15px 30px;
-                border-bottom: 2px solid #10b981;">
-        <div style="display: flex; align-items: center; gap: 10px;">
-            <i class="fas fa-check-circle"></i>
-            <strong>Success!</strong>
-            <span th:text="${successMessage}"></span>
-        </div>
+    <div th:if="${successMessage}" style="background: #d1fae5; color: #065f46; padding: 15px 30px; border-bottom: 2px solid #10b981;">
+        <i class="fas fa-check-circle"></i> <span th:text="${successMessage}"></span>
+    </div>
+    <div th:if="${param.error}" style="background: #fee2e2; color: #991b1b; padding: 15px 30px; border-bottom: 2px solid #ef4444;">
+        <i class="fas fa-exclamation-circle"></i> <span th:text="${param.error}"></span>
     </div>
 
-    <div th:if="${param.error}"
-         style="background: #fee2e2; color: #991b1b; padding: 15px 30px;
-                border-bottom: 2px solid #ef4444;">
-        <div style="display: flex; align-items: center; gap: 10px;">
-            <i class="fas fa-exclamation-circle"></i>
-            <strong>Error!</strong>
-            <span th:text="${param.error}"></span>
-        </div>
-    </div>
-
-    <!-- Main Content -->
-    <!-- Statistics Bar - Using controller-provided counts -->
-    <div class="stats-bar">
-        <div class="stat-card">
-            <h3><i class="fas fa-list-check"></i> Total Projects</h3>
-            <div class="value" th:text="${totalCount}">0</div>
-        </div>
-
-        <div class="stat-card" style="border-left-color: #f59e0b;">
-            <h3><i class="fas fa-clock"></i> Pending</h3>
-            <div class="value" th:text="${pendingCount}">0</div>
+    <div class="content">
+        <div class="stats-bar">
+            <div class="stat-card">
+                <h3><i class="fas fa-list-check"></i> Total Projects</h3>
+                <div class="value" th:text="${totalCount}">0</div>
+            </div>
+            <div class="stat-card" style="border-left-color: #f59e0b;">
+                <h3><i class="fas fa-clock"></i> Pending</h3>
+                <div class="value" th:text="${pendingCount}">0</div>
+            </div>
+            <div class="stat-card" style="border-left-color: #10b981;">
+                <h3><i class="fas fa-check-double"></i> Approved</h3>
+                <div class="value" th:text="${approvedCount}">0</div>
+            </div>
+            <div class="stat-card" style="border-left-color: #3b82f6;">
+                <h3><i class="fas fa-globe"></i> Published</h3>
+                <div class="value" th:text="${publishedCount}">0</div>
+            </div>
         </div>
 
-        <div class="stat-card" style="border-left-color: #10b981;">
-            <h3><i class="fas fa-check-double"></i> Approved</h3>
-            <div class="value" th:text="${approvedCount}">0</div>
-        </div>
-
-        <div class="stat-card" style="border-left-color: #3b82f6;">
-            <h3><i class="fas fa-globe"></i> Published</h3>
-            <div class="value" th:text="${publishedCount}">0</div>
-        </div>
-    </div>
-
-        <!-- Projects Table -->
         <div class="table-container">
             <table>
                 <thead>
@@ -460,48 +353,31 @@
                 </tr>
                 </thead>
                 <tbody>
-                <!-- Project Rows -->
                 <tr th:each="project : ${projects}">
                     <td>
                         <div style="font-weight: 600; margin-bottom: 4px;" th:text="${project.name}"></div>
                         <div style="font-size: 12px; color: #64748b;" th:text="${project.description} ?: 'No description'"></div>
                     </td>
                     <td>
-                        <div style="display: flex; flex-direction: column; gap: 4px;">
                             <span class="status-badge"
-                                  th:class="'status-' + ${project.status.name().toLowerCase().replace('_', '-')}"
-                                  th:text="${project.status}">
-                            </span>
-                        </div>
+                                  th:classappend="'status-' + ${project.status.name().toLowerCase().replace('_', '-')}"
+                                  th:text="${project.status}"></span>
                     </td>
                     <td>
-                        <!-- Published Status -->
-                        <div style="display: flex; flex-direction: column; gap: 4px;">
-                            <span th:if="${project.published}"
-                                  class="published-badge published-yes">
+                            <span th:if="${project.published}" class="published-badge published-yes">
                                 <i class="fas fa-check-circle"></i> Published
                             </span>
-                            <span th:unless="${project.published}"
-                                  class="published-badge published-no">
+                        <span th:unless="${project.published}" class="published-badge published-no">
                                 <i class="fas fa-times-circle"></i> Draft
                             </span>
-
-                            <!-- Published Date -->
-                            <div th:if="${project.publishedAt}"
-                                 style="font-size: 11px; color: #64748b; margin-top: 2px;">
-                                <i class="fas fa-calendar-alt"></i>
-                                <span th:text="${#temporals.format(project.publishedAt, 'MMM dd, yyyy')}"></span>
-                            </div>
+                        <div th:if="${project.publishedAt}" style="font-size: 11px; color: #64748b; margin-top: 4px;">
+                            <i class="fas fa-calendar-alt"></i> <span th:text="${#temporals.format(project.publishedAt, 'MMM dd, yyyy')}"></span>
                         </div>
                     </td>
                     <td>
-                        <div style="font-size: 14px;">
-                            <div><i class="fas fa-play" style="color: #10b981; margin-right: 5px;"></i>
-                                <span th:text="${#temporals.format(project.startDate, 'MMM dd, yyyy')}"></span>
-                            </div>
-                            <div><i class="fas fa-flag-checkered" style="color: #ef4444; margin-right: 5px;"></i>
-                                <span th:text="${#temporals.format(project.endDate, 'MMM dd, yyyy')}"></span>
-                            </div>
+                        <div style="font-size: 13px;">
+                            <div><i class="fas fa-play" style="color: #10b981; width: 15px;"></i> <span th:text="${#temporals.format(project.startDate, 'MMM dd, yyyy')}"></span></div>
+                            <div><i class="fas fa-flag-checkered" style="color: #ef4444; width: 15px;"></i> <span th:text="${#temporals.format(project.endDate, 'MMM dd, yyyy')}"></span></div>
                         </div>
                     </td>
                     <td>
@@ -510,92 +386,45 @@
                         </div>
                     </td>
                     <td>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <i class="fas fa-users" style="color: #4f46e5;"></i>
-                            <span th:text="${project.totalEmployeesRequired}"></span> people
-                        </div>
+                        <i class="fas fa-users" style="color: #4f46e5;"></i> <span th:text="${project.totalEmployeesRequired}"></span>
                     </td>
                     <td>
                         <div class="skill-tags">
-                            <span class="skill-tag" th:each="skill : ${project.skillRequirements}"
-                                  th:if="${skill.skill != null}">
-                                <span th:text="${skill.skill}"></span>
-                                <span style="background: #4f46e5; color: white; border-radius: 50%; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; margin-left: 4px;"
-                                      th:text="${skill.requiredCount}"></span>
-                            </span>
+                                <span class="skill-tag" th:each="skill : ${project.skillRequirements}" th:if="${skill.skill != null}">
+                                    <span th:text="${skill.skill}"></span>
+                                    <span style="background: #4f46e5; color: white; border-radius: 50%; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; margin-left: 4px;" th:text="${skill.requiredCount}"></span>
+                                </span>
                         </div>
                     </td>
                     <td>
-                        <div style="font-size: 14px;">
-                            <div><i class="fas fa-user" style="color: #6b7280; margin-right: 5px;"></i>
-                                <span th:text="${project.createdBy}"></span>
-                            </div>
-                            <div style="font-size: 12px; color: #94a3b8;">
-                                <i class="fas fa-calendar" style="margin-right: 5px;"></i>
-                                <span th:text="${#temporals.format(project.createdAt, 'MMM dd, yyyy')}"></span>
-                            </div>
+                        <div style="font-size: 12px;">
+                            <div><i class="fas fa-user"></i> <span th:text="${project.createdBy}"></span></div>
+                            <div style="color: #94a3b8;"><i class="fas fa-calendar"></i> <span th:text="${#temporals.format(project.createdAt, 'MMM dd, yyyy')}"></span></div>
                         </div>
                     </td>
                     <td>
                         <div class="actions">
-                            <!-- Publish/Unpublish Buttons -->
-                            <form th:action="@{/projects/{id}/publish(id=${project.id})}"
-                                  method="post"
-                                  style="display: inline;"
-                                  th:if="${not project.published}">
-                                <button type="submit" class="action-btn publish-btn"
-                                        title="Publish project to make it visible">
-                                    <i class="fas fa-globe"></i> Publish
-                                </button>
+                            <form th:action="@{/projects/{id}/publish(id=${project.id})}" method="post" th:if="${not project.published}">
+                                <button type="submit" class="action-btn publish-btn"><i class="fas fa-globe"></i> Publish</button>
                             </form>
-
-                            <form th:action="@{/projects/{id}/unpublish(id=${project.id})}"
-                                  method="post"
-                                  style="display: inline;"
-                                  th:if="${project.published}">
-                                <button type="submit" class="action-btn unpublish-btn"
-                                        title="Unpublish project to hide it">
-                                    <i class="fas fa-eye-slash"></i> Unpublish
-                                </button>
+                            <form th:action="@{/projects/{id}/unpublish(id=${project.id})}" method="post" th:if="${project.published}">
+                                <button type="submit" class="action-btn unpublish-btn"><i class="fas fa-eye-slash"></i> Unpublish</button>
                             </form>
-
-                            <!-- Existing buttons -->
-                            <a th:href="@{/ui/projects/{id}(id=${project.id})}"
-                               class="action-btn view-btn"
-                               title="View project details">
-                                <i class="fas fa-eye"></i> View
-                            </a>
-
-                            <a th:href="@{/ui/projects/{id}/edit(id=${project.id})}"
-                               class="action-btn edit-btn"
-                               th:if="${project.status.name() == 'PENDING' or project.status.name() == 'APPROVED'}"
-                               title="Edit project details">
-                                <i class="fas fa-edit"></i> Edit
-                            </a>
-
-                            <form th:action="@{/ui/projects/{id}/delete(id=${project.id})}"
-                                  method="post"
-                                  style="display: inline;"
-                                  th:if="${project.status.name() == 'PENDING' or project.status.name() == 'APPROVED'}">
-                                <button type="submit"
-                                        class="action-btn delete-btn"
-                                        title="Delete project"
-                                        onclick="return confirm('Are you sure you want to delete this project?')">
-                                    <i class="fas fa-trash"></i>
-                                </button>
+                            <a th:href="@{/ui/projects/{id}(id=${project.id})}" class="action-btn view-btn"><i class="fas fa-eye"></i> View</a>
+                            <a th:href="@{/ui/projects/{id}/edit(id=${project.id})}" class="action-btn edit-btn" th:if="${project.status.name() == 'PENDING' or project.status.name() == 'APPROVED'}"><i class="fas fa-edit"></i> Edit</a>
+                            <form th:action="@{/ui/projects/{id}/delete(id=${project.id})}" method="post" th:if="${project.status.name() == 'PENDING' or project.status.name() == 'APPROVED'}">
+                                <button type="submit" class="action-btn delete-btn" onclick="return confirm('Delete this project?')"><i class="fas fa-trash"></i></button>
                             </form>
                         </div>
                     </td>
                 </tr>
-
-                <!-- Empty State -->
                 <tr th:if="${#lists.isEmpty(projects)}">
                     <td colspan="9">
                         <div class="empty-state">
                             <i class="fas fa-inbox"></i>
                             <h3>No Projects Found</h3>
-                            <p>You haven't created any projects yet. Start by creating your first project to manage your workforce planning.</p>
-                            <a th:href="@{/ui/projects/create}" class="btn btn-create" style="display: inline-flex;">
+                            <p>Start by creating your first project.</p>
+                            <a th:href="@{/ui/projects/create}" class="btn btn-create" style="display: inline-flex; margin-top: 15px; border: 1px solid #4f46e5;">
                                 <i class="fas fa-plus-circle"></i> Create First Project
                             </a>
                         </div>
@@ -605,23 +434,27 @@
             </table>
         </div>
 
-        <!-- Footer Info -->
         <div style="margin-top: 30px; padding: 20px; background: #f8fafc; border-radius: 10px; font-size: 14px; color: #64748b;">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
                 <i class="fas fa-info-circle" style="color: #4f46e5;"></i>
-                <span style="font-weight: 600;">Projects Overview</span>
+                <strong style="color: #1e293b;">Management Tips</strong>
             </div>
-            <p>This table shows all projects you have created. You can track their status, budget, required team size, and skill requirements. Use the action buttons to:</p>
-            <ul style="margin-top: 10px; padding-left: 20px;">
-                <li><strong>Publish</strong> - Make project visible to other users (Resource Planners, Employees)</li>
-                <li><strong>Unpublish</strong> - Hide project from other users</li>
-                <li><strong>View</strong> - See project details</li>
-                <li><strong>Edit</strong> - Update project information</li>
-                <li><strong>Delete</strong> - Remove project</li>
-            </ul>
+            <p>Publish projects to make them visible to resource planners. Only Pending or Approved projects can be edited or deleted.</p>
         </div>
-    </div>
-</div>
+    </div> </div> <script>
+    function toggleNotifications() {
+        const dropdown = document.getElementById('notificationDropdown');
+        dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+    }
+
+    document.addEventListener('click', function(event) {
+        const dropdown = document.getElementById('notificationDropdown');
+        const bellBtn = event.target.closest('.header-buttons');
+        if (!bellBtn && dropdown) {
+            dropdown.style.display = 'none';
+        }
+    });
+</script>
 
 </body>
 </html>

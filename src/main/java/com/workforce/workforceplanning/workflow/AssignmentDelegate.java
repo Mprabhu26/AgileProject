@@ -2,14 +2,17 @@ package com.workforce.workforceplanning.workflow;
 
 import com.workforce.workforceplanning.model.*;
 import com.workforce.workforceplanning.repository.*;
+import com.workforce.workforceplanning.service.AssignmentValidationService;
 import org.flowable.engine.delegate.DelegateExecution;
 import org.flowable.engine.delegate.JavaDelegate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Arrays;
 
 @Component("assignmentDelegate")
 public class AssignmentDelegate implements JavaDelegate {
@@ -19,6 +22,17 @@ public class AssignmentDelegate implements JavaDelegate {
     private final AssignmentRepository assignmentRepository;
     private final EmployeeRepository employeeRepository;
     private final ProjectRepository projectRepository;
+
+    // List of statuses that indicate an employee is actively assigned
+    private static final List<AssignmentStatus> ACTIVE_STATUSES = Arrays.asList(
+            AssignmentStatus.PENDING,
+            AssignmentStatus.ASSIGNED,
+            AssignmentStatus.IN_PROGRESS
+    );
+
+    // ✅ Add validation service
+    @Autowired
+    private AssignmentValidationService validationService;
 
     // ✅ FIXED: Constructor injection
     public AssignmentDelegate(
@@ -63,6 +77,8 @@ public class AssignmentDelegate implements JavaDelegate {
 
             // 4. Create assignments for each approved employee
             int assignedCount = 0;
+            int skippedCount = 0;
+
             for (Long employeeId : employeeIds) {
                 Employee employee = employeeRepository.findById(employeeId)
                         .orElseThrow(() -> {
@@ -70,40 +86,56 @@ public class AssignmentDelegate implements JavaDelegate {
                             return new RuntimeException("Employee not found: " + employeeId);
                         });
 
-                // Check if already assigned
-                boolean alreadyAssigned = assignmentRepository.findAll().stream()
-                        .anyMatch(a -> a.getProject() != null &&
-                                a.getProject().getId().equals(projectId) &&
-                                a.getEmployee() != null &&
-                                a.getEmployee().getId().equals(employeeId));
+                // ✅ USE VALIDATION SERVICE (replaces the old duplicate check)
+                AssignmentValidationService.ValidationResult validation =
+                        validationService.canAssignEmployeeToProject(projectId, employeeId);
 
-                if (!alreadyAssigned) {
-                    // Create new assignment
-                    Assignment assignment = new Assignment(project, employee, AssignmentStatus.ASSIGNED);
-                    assignmentRepository.save(assignment);
-
-                    // Update employee availability
-                    employee.setAvailable(false);
-                    employeeRepository.save(employee);
-
-                    assignedCount++;
-                    log.info("✅ Assigned employee {} to project {}", employee.getName(), project.getName());
-                } else {
-                    log.info("⚠️ Employee {} already assigned to project {}", employee.getName(), project.getName());
+                if (validation.isError()) {
+                    log.warn("⚠️ Skipping employee {}: {}", employee.getName(), validation.getMessage());
+                    skippedCount++;
+                    continue;
                 }
+
+                // Only assign if validation passed
+                Assignment assignment = new Assignment(project, employee, AssignmentStatus.ASSIGNED);
+                assignmentRepository.save(assignment);
+
+                // Update employee availability
+                employee.setAvailable(false);
+                employeeRepository.save(employee);
+
+                assignedCount++;
+                log.info("✅ Assigned employee {} to project {}", employee.getName(), project.getName());
             }
 
             // 5. Update project status
             project.setStatus(ProjectStatus.IN_PROGRESS);
             projectRepository.save(project);
 
-            log.info("✅ Successfully assigned {} employees. Project {} moved to IN_PROGRESS",
-                    assignedCount, project.getName());
+            log.info("✅ Successfully assigned {} employees, skipped {}. Project {} moved to IN_PROGRESS",
+                    assignedCount, skippedCount, project.getName());
+
+            // Set workflow variables for reporting
+            execution.setVariable("assignedCount", assignedCount);
+            execution.setVariable("skippedCount", skippedCount);
 
         } catch (Exception e) {
             log.error("❌ Failed to assign employees", e);
             throw e;
         }
+    }
+
+    /**
+     * Check if employee is already assigned to the project with an active status
+     * (Keep as backup or remove if using validation service)
+     */
+    private boolean isEmployeeAlreadyAssigned(Long projectId, Long employeeId) {
+        return assignmentRepository.findAll().stream()
+                .anyMatch(a -> a.getProject() != null &&
+                        a.getProject().getId().equals(projectId) &&
+                        a.getEmployee() != null &&
+                        a.getEmployee().getId().equals(employeeId) &&
+                        ACTIVE_STATUSES.contains(a.getStatus()));
     }
 
     private Long parseLong(Object obj) {
