@@ -206,6 +206,13 @@
         .btn-back:hover {
             background: #e2e8f0;
         }
+        .btn-external {
+            background: #8b5cf6;
+            color: white;
+        }
+        .btn-external:hover {
+            background: #7c3aed;
+        }
         .employee-card {
             background: white;
             border-radius: 10px;
@@ -312,6 +319,13 @@
             justify-content: flex-end;
             margin-top: 25px;
         }
+        .external-search-section {
+            background: #f0f9ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border-left: 4px solid #0ea5e9;
+        }
     </style>
 </head>
 <body>
@@ -345,7 +359,7 @@
                     <div class="meta-item">
                         <div class="meta-label">Status</div>
                         <div class="meta-value">
-                            <span th:class="'status-badge ' + ${project.status == 'APPROVED' ? 'bg-green' : project.status == 'PENDING' ? 'bg-yellow' : 'bg-red'}"
+                            <span th:class="${'status-badge ' + (project.status.name() == 'APPROVED' ? 'bg-green' : (project.status.name() == 'PENDING' ? 'bg-yellow' : 'bg-red'))}"
                                   th:text="${project.status}">APPROVED</span>
                         </div>
                     </div>
@@ -366,6 +380,40 @@
         <div style="text-align: center; color: #64748b; font-size: 14px; margin-top: 10px;">
             <span th:text="${#numbers.formatDecimal((currentAssignments != null ? currentAssignments.size() : 0) / project.totalEmployeesRequired * 100, 1, 1)}">40</span>% staffed
             • Need <span th:text="${project.totalEmployeesRequired - (currentAssignments != null ? currentAssignments.size() : 0)}">3</span> more employees
+        </div>
+
+        <!-- External Search Section -->
+        <div class="external-search-section">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h4 style="color: #0369a1; margin-bottom: 5px;">
+                        <i class="fas fa-globe"></i> External Talent Search
+                    </h4>
+                    <p style="color: #64748b; font-size: 13px;">
+                        Find candidates from external job boards and platforms
+                    </p>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <form th:action="@{'/ui/resource-planner/project/' + ${project.id} + '/external-search'}"
+                          method="post" style="margin: 0;">
+                        <button type="submit" class="btn btn-external"
+                                th:disabled="${project.externalSearchNeeded}">
+                            <i class="fas fa-search"></i>
+                            <span th:if="${project.externalSearchNeeded}">
+                                <i class="fas fa-sync-alt fa-spin"></i> Search in Progress
+                            </span>
+                            <span th:if="${not project.externalSearchNeeded}">
+                                Start External Search
+                            </span>
+                        </button>
+                    </form>
+
+                    <a th:href="@{'/ui/resource-planner/project/' + ${project.id} + '/external-candidates'}"
+                       class="btn btn-primary" th:if="${project.externalSearchNeeded}">
+                        <i class="fas fa-user-tie"></i> View External Candidates
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -420,10 +468,7 @@
                                   style="color: #94a3b8; font-style: italic;">No skills</span>
                         </td>
                         <td>
-                            <span th:class="'status-badge ' +
-                                          ${assignment.status.name() == 'PENDING' ? 'bg-yellow' :
-                                           assignment.status.name() == 'ASSIGNED' ? 'bg-green' :
-                                           assignment.status.name() == 'IN_PROGRESS' ? 'bg-blue' : 'bg-red'}"
+                            <span th:class="${'status-badge ' + (assignment.status.name() == 'PENDING' ? 'bg-yellow' : (assignment.status.name() == 'ASSIGNED' ? 'bg-green' : (assignment.status.name() == 'IN_PROGRESS' ? 'bg-blue' : 'bg-red')))}"
                                   th:text="${assignment.status}">ASSIGNED</span>
                         </td>
                         <td>
@@ -475,6 +520,60 @@
                         <span th:if="${skillReq.requiredCount > 1}"
                               th:text="'(' + ${skillReq.requiredCount} + ')'">(2)</span>
                     </span>
+                </div>
+            </div>
+
+
+            <div th:if="${project.skillRequirements != null and not project.skillRequirements.isEmpty()}"
+                 style="margin: 20px 0; padding: 15px; background: #fff8e1; border-radius: 8px; border-left: 4px solid #ff9800;">
+
+                <h4 style="color: #e65100; margin-bottom: 15px;">
+                    <i class="fas fa-chart-line"></i> Skill Gap Analysis
+                </h4>
+
+                <!-- Skill Coverage Progress -->
+                <div style="margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <span style="font-weight: 500; color: #5d4037;">Skill Coverage</span>
+                        <span style="font-weight: 600; color: #388e3c;">
+                            <span th:text="${skillCoveragePercentage != null ? #numbers.formatDecimal(skillCoveragePercentage, 1, 1) : 100}">100</span>%
+                        </span>
+                    </div>
+                    <div style="height: 10px; background: #e0e0e0; border-radius: 5px; overflow: hidden;">
+                        <div th:with="coverage=${skillCoveragePercentage != null ? skillCoveragePercentage : 100},
+                                      color=${coverage >= 80 ? '#4caf50' : (coverage >= 50 ? '#ff9800' : '#f44336')}"
+                             th:style="'width: ' + ${coverage} + '%; height: 100%; background: ' + ${color} + ';'">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detailed Gap Analysis -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">
+                    <div th:each="gapEntry : ${skillGaps}"
+                         th:with="isPositive=${gapEntry.value >= 0}"
+                         th:style="'background: ' + ${isPositive ? '#e8f5e8' : '#ffebee'} + '; padding: 12px; border-radius: 6px; border-left: 3px solid ' + ${isPositive ? '#4caf50' : '#f44336'} + ';'">
+                        <div style="font-weight: 600; color: #424242;" th:text="${gapEntry.key}">Java</div>
+                        <div style="font-size: 14px; color: #616161;">
+                            Required: <span th:text="${helpers.getRequiredCount.apply(project, gapEntry.key)}">3</span> |
+                            Available: <span th:text="${helpers.getAvailableCount.apply(project, gapEntry.key, availableEmployeesForGap)}">2</span>
+                        </div>
+                        <div th:if="${gapEntry.value >= 0}" style="color: #2e7d32; font-weight: 500;">
+                            <i class="fas fa-check-circle"></i> +<span th:text="${gapEntry.value}">1</span> surplus
+                        </div>
+                        <div th:if="${gapEntry.value < 0}" style="color: #d32f2f; font-weight: 500;">
+                            <i class="fas fa-exclamation-circle"></i> <span th:text="${-gapEntry.value}">1</span> shortage
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recommended Actions -->
+                <div th:if="${recommendedActions != null and not recommendedActions.isEmpty()}">
+                    <h5 style="color: #5d4037; margin-bottom: 10px;">
+                        <i class="fas fa-lightbulb"></i> Recommended Actions
+                    </h5>
+                    <ul style="margin: 0; padding-left: 20px; color: #616161;">
+                        <li th:each="action : ${recommendedActions}" th:text="${action}"></li>
+                    </ul>
                 </div>
             </div>
 

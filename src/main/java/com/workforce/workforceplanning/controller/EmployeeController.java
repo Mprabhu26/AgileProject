@@ -17,12 +17,22 @@ public class EmployeeController {
         this.service = service;
     }
 
-    // Remove one of these duplicate methods. Keep this one with @ResponseStatus:
+    // Single creation
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED) // Returns 201 instead of 200
     public Employee createEmployee(@RequestBody Employee employee) {
         return service.save(employee);
     }
+
+    // creation for multiple employees
+    @PostMapping("/batch")
+    @ResponseStatus(HttpStatus.CREATED)
+    public List<Employee> createEmployees(@RequestBody List<Employee> employees) {
+        // This assumes your EmployeeService has a saveAll method
+        // which calls repository.saveAll(employees)
+        return service.saveAll(employees);
+    }
+
 
     @GetMapping
     public List<Employee> getAllEmployees() {
