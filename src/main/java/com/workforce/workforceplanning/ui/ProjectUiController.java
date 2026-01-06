@@ -233,6 +233,30 @@ public class ProjectUiController {
         // Get external search notes from Resource Planner
         String externalSearchNotes = project.getExternalSearchNotes();
 
+        // ============ ADD SKILL GAP ANALYSIS ============
+        Map<String, Integer> skillGaps = new HashMap<>();
+        boolean hasSkillGaps = false;
+
+        // Analyze skill gaps between project requirements and assigned employees
+        if (project.getSkillRequirements() != null && !project.getSkillRequirements().isEmpty()) {
+            for (ProjectSkillRequirement requirement : project.getSkillRequirements()) {
+                String skill = requirement.getSkill();
+                int requiredCount = requirement.getRequiredCount();
+
+                // Count how many assigned employees have this skill
+                long assignedWithSkill = assignments.stream()
+                        .filter(a -> a.getEmployee().getSkills() != null)
+                        .filter(a -> a.getEmployee().getSkills().contains(skill))
+                        .count();
+
+                int gap = requiredCount - (int) assignedWithSkill;
+                if (gap > 0) {
+                    skillGaps.put(skill, gap);
+                    hasSkillGaps = true;
+                }
+            }
+        }
+
         model.addAttribute("username", username);
         model.addAttribute("project", project);
         model.addAttribute("assignments", assignments);
@@ -242,6 +266,11 @@ public class ProjectUiController {
         model.addAttribute("canTriggerExternalSearch", canTriggerExternalSearch);
         model.addAttribute("assignedCount", assignments.size());
         model.addAttribute("requiredCount", project.getTotalEmployeesRequired());
+
+        // Add skill gap attributes
+        model.addAttribute("hasSkillGaps", hasSkillGaps);
+        model.addAttribute("skillGaps", skillGaps);
+        model.addAttribute("externalSearchNotes", externalSearchNotes);
 
         return "projects/view";
     }
@@ -591,7 +620,18 @@ public class ProjectUiController {
 
         String username = principal != null ? principal.getName() : "Guest";
 
+        try {
+            // Pass the justification to the service
+            String processInstanceId = externalSearchService.triggerExternalSearch(id, username, justification);
 
+            redirectAttributes.addFlashAttribute("successMessage",
+                    "✅ External search request submitted successfully! " +
+                            "Awaiting Department Head approval.");
+
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage",
+                    "❌ Failed to request external search: " + e.getMessage());
+        }
 
         return "redirect:/ui/projects/" + id;
     }

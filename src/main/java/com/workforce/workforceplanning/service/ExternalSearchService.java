@@ -54,8 +54,11 @@ public class ExternalSearchService {
     /**
      * Project Manager triggers external search (starts workflow)
      */
+    /**
+     * Project Manager triggers external search (starts workflow)
+     */
     @Transactional
-    public String triggerExternalSearch(Long projectId, String pmUsername) {
+    public String triggerExternalSearch(Long projectId, String pmUsername, String justification) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Project not found"));
 
@@ -72,8 +75,12 @@ public class ExternalSearchService {
         variables.put("projectId", projectId);
         variables.put("projectName", project.getName());
         variables.put("requestedBy", pmUsername);
+        variables.put("justification", justification != null ? justification : "Skill gaps identified");
         variables.put("externalSearchType", "skill_gap");
         variables.put("requestTime", LocalDateTime.now());
+
+        // Add skill gaps information
+        // You can add skill gap analysis here or pass from controller
 
         String processInstanceId;
 
@@ -90,26 +97,23 @@ public class ExternalSearchService {
             log.warn("Flowable process not found, using simple workflow: {}", e.getMessage());
             processInstanceId = "MANUAL-" + System.currentTimeMillis();
 
-            // For manual workflow, we need to:
-            // 1. Set workflow status
-            // 2. Create a task for Department Head
+            // For manual workflow
             project.setWorkflowStatus("AWAITING_DEPARTMENT_HEAD_APPROVAL");
 
-            // Log manual task creation
-            log.info("📋 Manual task created for Department Head approval");
-            log.info("  Project: {}", project.getName());
-            log.info("  Requested by: {}", pmUsername);
-            log.info("  Process ID: {}", processInstanceId);
+            log.info("📋 Manual external search task created for Department Head");
         }
 
         // Update project with workflow info
+        project.setExternalSearchNeeded(true);
+        project.setExternalSearchNotes("External search requested by " + pmUsername +
+                (justification != null ? ". Reason: " + justification : ""));
         project.setProcessInstanceId(processInstanceId);
         project.setWorkflowStatus("AWAITING_DEPARTMENT_HEAD_APPROVAL");
+        project.setExternalSearchRequestedAt(LocalDateTime.now());
         projectRepository.save(project);
 
         return processInstanceId;
     }
-
     /**
      * Department Head approves/rejects external search
      */
