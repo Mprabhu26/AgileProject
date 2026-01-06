@@ -50,6 +50,15 @@ public class DepartmentHeadUIController {
                 .desc()
                 .list();
 
+        // Get external search approval tasks
+        List<Task> pendingExternalSearchTasks = taskService.createTaskQuery()
+                .taskCandidateGroup("DepartmentHead")
+                .taskName("Approve External Search")
+                .active()
+                .orderByTaskCreateTime()
+                .desc()
+                .list();
+
         // Get recently completed tasks (last 50)
         List<HistoricTaskInstance> recentTasks = historyService.createHistoricTaskInstanceQuery()
                 .taskCandidateGroup("DepartmentHead")
@@ -82,6 +91,7 @@ public class DepartmentHeadUIController {
         model.addAttribute("totalApprovals", totalApprovals);
         model.addAttribute("approvedCount", approvedCount);
         model.addAttribute("approvalRate", approvalRate);
+        model.addAttribute("pendingExternalSearchCount", pendingExternalSearchTasks.size());
 
         return "department-head/dashboard";
     }
@@ -472,6 +482,122 @@ public class DepartmentHeadUIController {
         }
 
         return "redirect:/ui/department-head/dashboard";
+    }
+
+    // ==================== EXTERNAL SEARCH REQUESTS ====================
+    @GetMapping("/external-search-requests")
+    public String viewExternalSearchRequests(Model model, Principal principal) {
+        String username = principal != null ? principal.getName() : "Guest";
+        model.addAttribute("username", username);
+
+        // Get all pending external search approval tasks
+        List<Task> pendingExternalSearchTasks = taskService.createTaskQuery()
+                .taskCandidateGroup("DepartmentHead")
+                .taskName("Approve External Search")
+                .active()
+                .orderByTaskCreateTime()
+                .desc()
+                .list();
+
+        // Group tasks with project info
+        List<Map<String, Object>> externalSearchRequests = new ArrayList<>();
+        for (Task task : pendingExternalSearchTasks) {
+            Map<String, Object> processVariables = runtimeService.getVariables(task.getProcessInstanceId());
+            Map<String, Object> request = new HashMap<>();
+
+            request.put("task", task);
+            request.put("variables", processVariables);
+
+            // Get project details
+            if (processVariables.containsKey("projectId")) {
+                Long projectId = ((Number) processVariables.get("projectId")).longValue();
+                Project project = projectRepository.findById(projectId).orElse(null);
+                request.put("project", project);
+            }
+
+            externalSearchRequests.add(request);
+        }
+
+        model.addAttribute("externalSearchRequests", externalSearchRequests);
+        model.addAttribute("pendingExternalSearchCount", pendingExternalSearchTasks.size());
+
+        return "department-head/external-search-requests";
+    }
+
+    // ==================== APPROVE EXTERNAL SEARCH ====================
+    @PostMapping("/external-search/tasks/{taskId}/approve")
+    public String approveExternalSearchTask(
+            @PathVariable String taskId,
+            @RequestParam(required = false) String approvalNotes,
+            RedirectAttributes redirectAttributes,
+            Principal principal) {
+
+        try {
+            String approver = principal != null ? principal.getName() : "DepartmentHead";
+
+            Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
+            if (task == null) {
+                redirectAttributes.addFlashAttribute("errorMessage", "Task not found");
+                return "redirect:/ui/department-head/external-search-requests";
+            }
+
+            // Set approval variables
+            Map<String, Object> variables = new HashMap<>();
+            variables.put("approved", true);
+            variables.put("externalSearchApproved", true);
+            variables.put("approvalNotes", approvalNotes != null ? approvalNotes : "Approved by " + approver);
+            variables.put("approvedBy", approver);
+
+            // Complete the task
+            taskService.complete(taskId, variables);
+
+            redirectAttributes.addFlashAttribute("successMessage",
+                    "✅ External search approved successfully!");
+
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage",
+                    "❌ Error approving external search: " + e.getMessage());
+        }
+
+        return "redirect:/ui/department-head/external-search-requests";
+    }
+
+    // ==================== REJECT EXTERNAL SEARCH ====================
+    @PostMapping("/external-search/tasks/{taskId}/reject")
+    public String rejectExternalSearchTask(
+            @PathVariable String taskId,
+            @RequestParam(required = false) String rejectionReason,
+            RedirectAttributes redirectAttributes,
+            Principal principal) {
+
+        try {
+            String rejector = principal != null ? principal.getName() : "DepartmentHead";
+
+            Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
+            if (task == null) {
+                redirectAttributes.addFlashAttribute("errorMessage", "Task not found");
+                return "redirect:/ui/department-head/external-search-requests";
+            }
+
+            // Set rejection variables
+            Map<String, Object> variables = new HashMap<>();
+            variables.put("approved", false);
+            variables.put("externalSearchApproved", false);
+            variables.put("rejectionReason", rejectionReason != null ? rejectionReason : "Rejected by " + rejector);
+            variables.put("rejectedBy", rejector);
+
+            // Complete the task
+            taskService.complete(taskId, variables);
+
+            redirectAttributes.addFlashAttribute("successMessage",
+                    "❌ External search rejected.");
+
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage",
+                    "❌ Error rejecting external search: " + e.getMessage());
+        }
+
+        return "redirect:/ui/department-head/external-search-requests";
     }
     // ==================== CHECK WORKFLOW STATUS ====================
     @GetMapping("/check-status/{taskId}")

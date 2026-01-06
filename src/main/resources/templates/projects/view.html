@@ -647,10 +647,9 @@
                         <span th:text="${skillCoverage}"></span>%
                         <div th:if="${skillCoverage < 100}" style="margin-top: 8px;">
                             <div style="background: #e5e7eb; height: 8px; border-radius: 4px; overflow: hidden;">
-                                <div th:style="'width: ' + ${skillCoverage} + '%; height: 100%;'"
-                                     th:styleappend="${skillCoverage > 70} ? 'background: #10b981;' :
-                         ${skillCoverage > 40} ? 'background: #f59e0b;' :
-                         'background: #ef4444;'"></div>
+                                <div th:styleappend="${skillCoverage > 70} ? 'background: #10b981;' :
+                 (${skillCoverage > 40} ? 'background: #f59e0b;' :
+                 'background: #ef4444;')"></div>
                             </div>
                         </div>
                     </div>
@@ -856,12 +855,7 @@
                 </form>
 
                 <!-- External Search -->
-                <form th:action="@{'/ui/projects/' + ${project.id} + '/external-search'}"
-                      method="post" style="display: inline;">
-                    <button type="submit" class="action-btn btn-secondary">
-                        <i class="fas fa-search"></i> Trigger External Search
-                    </button>
-                </form>
+
 
                 <!-- Delete Project -->
                 <form th:action="@{'/ui/projects/' + ${project.id} + '/delete'}"

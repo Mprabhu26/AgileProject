@@ -87,7 +87,7 @@
     <!-- 6. Project Manager Decision Gateway -->
     <exclusiveGateway id="pmDecisionGateway" name="PM Decision Gateway" />
 
-    <!-- PM requests external search → Department Head approval -->
+    <!-- PM requests external search → Department Head approval for external search -->
     <sequenceFlow id="requestExternalSearchFlow"
                   sourceRef="pmDecisionGateway"
                   targetRef="externalSearchApprovalTask">

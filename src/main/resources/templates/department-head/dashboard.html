@@ -256,6 +256,26 @@
 
         <!-- Recent Activity & Quick Actions -->
         <div class="col-lg-4 mb-4">
+            <!-- Add this to your dashboard.html -->
+            <div class="col-md-6 mb-3">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h6 class="card-title">
+                            <i class="fas fa-search me-2 text-warning"></i>
+                            External Search Requests
+                        </h6>
+                        <p class="card-text small">Review requests to search for external candidates.</p>
+                        <a href="/ui/department-head/external-search-requests" class="btn btn-warning btn-sm">
+                            <i class="fas fa-external-link-alt me-1"></i>
+                            View External Search Requests
+                            <span th:if="${pendingExternalSearchCount != null and pendingExternalSearchCount > 0}"
+                                  class="badge bg-light text-dark ms-1" th:text="${pendingExternalSearchCount}">
+                    0
+                </span>
+                        </a>
+                    </div>
+                </div>
+            </div>
             <!-- Recent Decisions -->
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-white">
