@@ -618,6 +618,96 @@
             </div>
         </div>
 
+        <!-- In your view.html, add this section after project details: -->
+        <div th:if="${hasSkillGaps}" class="section" style="background: #fef3c7; border-color: #f59e0b;">
+            <div class="section-title" style="color: #92400e;">
+                <i class="fas fa-exclamation-triangle"></i> Skill Gap Alert!
+            </div>
+
+            <div style="padding: 15px; background: white; border-radius: 8px;">
+                <h5 style="color: #92400e; margin-bottom: 10px;">
+                    <i class="fas fa-exclamation-circle"></i> Missing Skills Detected
+                </h5>
+
+                <div style="margin-bottom: 15px;">
+                    <p style="margin-bottom: 10px;">This project has skill gaps that may require external hiring:</p>
+
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px;">
+                <span th:each="gap : ${skillGaps.entrySet()}"
+                      style="background: #fee2e2; color: #991b1b; padding: 6px 12px;
+                             border-radius: 20px; font-size: 13px; font-weight: 500;">
+                    <i class="fas fa-times-circle"></i>
+                    <span th:text="${gap.key}"></span>: Missing
+                    <span th:text="${gap.value}"></span> employee(s)
+                </span>
+                    </div>
+
+                    <div style="background: #f8fafc; padding: 12px; border-radius: 6px; border-left: 4px solid #f59e0b;">
+                        <strong>Skill Coverage: </strong>
+                        <span th:text="${skillCoverage}"></span>%
+                        <div th:if="${skillCoverage < 100}" style="margin-top: 8px;">
+                            <div style="background: #e5e7eb; height: 8px; border-radius: 4px; overflow: hidden;">
+                                <div th:style="'width: ' + ${skillCoverage} + '%; height: 100%;'"
+                                     th:styleappend="${skillCoverage > 70} ? 'background: #10b981;' :
+                         ${skillCoverage > 40} ? 'background: #f59e0b;' :
+                         'background: #ef4444;'"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div th:if="${canTriggerExternalSearch}" style="margin-top: 20px;">
+                    <h6 style="color: #92400e; margin-bottom: 10px;">Recommended Action:</h6>
+                    <ul style="padding-left: 20px; margin-bottom: 20px;">
+                        <li th:each="action : ${recommendedActions}" th:text="${action}"></li>
+                    </ul>
+
+                    <!-- External Search Trigger Button -->
+                    <form th:action="@{'/ui/projects/' + ${project.id} + '/request-external-search'}"
+                          method="post" style="margin-top: 15px;">
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label for="justification" style="display: block; margin-bottom: 5px; font-weight: 500;">
+                                <i class="fas fa-sticky-note"></i> Justification (Optional):
+                            </label>
+                            <textarea id="justification" name="justification"
+                                      style="width: 100%; padding: 10px; border: 1px solid #d1d5db;
+                                     border-radius: 6px; font-family: inherit;"
+                                      rows="3"
+                                      placeholder="Explain why external search is needed..."></textarea>
+                        </div>
+
+                        <button type="submit" class="btn"
+                                style="background: #f59e0b; color: white; padding: 10px 20px; border: none;
+                               border-radius: 6px; font-weight: 600; cursor: pointer;">
+                            <i class="fas fa-search"></i> Trigger External Search
+                        </button>
+
+                        <div style="font-size: 13px; color: #64748b; margin-top: 10px;">
+                            <i class="fas fa-info-circle"></i> This will request Department Head approval for external hiring
+                        </div>
+                    </form>
+                </div>
+
+                <div th:if="${hasExternalSearchRequest}" style="margin-top: 20px;">
+                    <h6 style="color: #1e40af;">External Search Status:</h6>
+                    <div style="background: #dbeafe; padding: 12px; border-radius: 6px; margin-top: 10px;">
+                        <strong>Status: </strong>
+                        <span th:text="${workflowStatus}"></span>
+                        <div th:if="${workflowStatus == 'EXTERNAL_SEARCH_APPROVED'}" style="margin-top: 8px;">
+                            <i class="fas fa-check-circle" style="color: #10b981;"></i>
+                            External search approved! Resource Planner will search for candidates.
+                        </div>
+                        <div th:if="${workflowStatus == 'EXTERNAL_SEARCH_REJECTED'}" style="margin-top: 8px;">
+                            <i class="fas fa-times-circle" style="color: #ef4444;"></i>
+                            External search rejected. Please review project requirements.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+
         <!-- Current Assignments Section -->
         <div class="section">
             <div class="section-title">

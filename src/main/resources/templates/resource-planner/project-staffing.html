@@ -340,6 +340,7 @@
                 </h1>
                 <p th:text="${project.description ?: 'No description available'}">Project description</p>
 
+                <!-- Project Meta Information -->
                 <div class="project-meta">
                     <div class="meta-item">
                         <div class="meta-label">Required Positions</div>
@@ -347,20 +348,23 @@
                     </div>
                     <div class="meta-item">
                         <div class="meta-label">Currently Staffed</div>
-                        <div class="meta-value" th:text="${currentAssignments != null ? currentAssignments.size() : 0} + ' people'">2 people</div>
+                        <div class="meta-value" th:text="${currentAssignments != null ? currentAssignments.size() : 0} + ' people'">5 people</div>
                     </div>
                     <div class="meta-item">
-                        <div class="meta-label">Timeline</div>
+                        <div class="meta-label">Skills Coverage</div>
                         <div class="meta-value">
-                            <span th:text="${#temporals.format(project.startDate, 'MMM dd, yyyy')}">Jan 15, 2025</span> -
-                            <span th:text="${#temporals.format(project.endDate, 'MMM dd, yyyy')}">Jun 30, 2025</span>
+                            <span th:text="${skillCoveragePercentage} + '%'">0%</span>
                         </div>
                     </div>
                     <div class="meta-item">
-                        <div class="meta-label">Status</div>
+                        <div class="meta-label">Missing Skills</div>
                         <div class="meta-value">
-                            <span th:class="${'status-badge ' + (project.status.name() == 'APPROVED' ? 'bg-green' : (project.status.name() == 'PENDING' ? 'bg-yellow' : 'bg-red'))}"
-                                  th:text="${project.status}">APPROVED</span>
+                            <span th:if="${missingEmployeesCount > 0}" style="color: #ef4444;">
+                                <span th:text="${missingEmployeesCount}">3</span> needed
+                            </span>
+                            <span th:if="${missingEmployeesCount == 0}" style="color: #10b981;">
+                                All covered
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -375,11 +379,26 @@
         <!-- Progress Bar -->
         <div class="progress-bar-container">
             <div class="progress-bar"
-                 th:style="'width: ' + ${(currentAssignments != null ? currentAssignments.size() : 0) / project.totalEmployeesRequired * 100} + '%;'"></div>
+                 th:style="'width: ' + ${skillCoveragePercentage} + '%; background: ' +
+           ${skillCoveragePercentage >= 80 ? '#10b981' :
+             (skillCoveragePercentage >= 50 ? '#f59e0b' : '#ef4444')} + ';'"></div>
         </div>
         <div style="text-align: center; color: #64748b; font-size: 14px; margin-top: 10px;">
-            <span th:text="${#numbers.formatDecimal((currentAssignments != null ? currentAssignments.size() : 0) / project.totalEmployeesRequired * 100, 1, 1)}">40</span>% staffed
-            • Need <span th:text="${project.totalEmployeesRequired - (currentAssignments != null ? currentAssignments.size() : 0)}">3</span> more employees
+            <span th:text="${#numbers.formatDecimal(skillCoveragePercentage, 1, 1)}">0</span>% skill coverage
+            • <span th:text="${currentAssignments != null ? currentAssignments.size() : 0}">5</span> employees assigned
+            • <span th:text="${skillsCovered}">1</span>/<span th:text="${totalSkillsNeeded}">3</span> skill requirements met
+        </div>
+
+        <!-- Warning Message -->
+        <div th:if="${currentAssignments != null and not currentAssignments.isEmpty() and skillCoveragePercentage < 100}"
+             class="alert alert-warning" style="margin-top: 20px;">
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>Warning:</strong>
+            <span th:text="${currentAssignments.size()}">5</span> employees are assigned, but only
+            <span th:text="${#numbers.formatDecimal(skillCoveragePercentage, 1, 1)}">0</span>% of required skills are covered.
+            <span th:if="${missingEmployeesCount > 0}">
+                Need <span th:text="${missingEmployeesCount}">3</span> more employees with matching skills.
+            </span>
         </div>
 
         <!-- External Search Section -->
@@ -523,57 +542,141 @@
                 </div>
             </div>
 
-
+            <!-- Skill Gap Analysis Section -->
             <div th:if="${project.skillRequirements != null and not project.skillRequirements.isEmpty()}"
                  style="margin: 20px 0; padding: 15px; background: #fff8e1; border-radius: 8px; border-left: 4px solid #ff9800;">
 
                 <h4 style="color: #e65100; margin-bottom: 15px;">
-                    <i class="fas fa-chart-line"></i> Skill Gap Analysis
+                    <i class="fas fa-chart-line"></i> Skill Gap Analysis (Based on Assigned Team)
                 </h4>
 
                 <!-- Skill Coverage Progress -->
                 <div style="margin-bottom: 15px;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                         <span style="font-weight: 500; color: #5d4037;">Skill Coverage</span>
-                        <span style="font-weight: 600; color: #388e3c;">
-                            <span th:text="${skillCoveragePercentage != null ? #numbers.formatDecimal(skillCoveragePercentage, 1, 1) : 100}">100</span>%
-                        </span>
+                        <span th:with="coverage=${skillCoveragePercentage != null ? skillCoveragePercentage : 0},
+               formattedCoverage=${skillCoveragePercentage != null ? #numbers.formatDecimal(skillCoveragePercentage, 1, 1) : '0'}"
+                              th:style="'font-weight: 600; color: ' + ${coverage >= 80 ? '#388e3c' : (coverage >= 50 ? '#f57c00' : '#d32f2f')}">
+    <span th:text="${formattedCoverage}">0</span>%
+</span>
                     </div>
                     <div style="height: 10px; background: #e0e0e0; border-radius: 5px; overflow: hidden;">
-                        <div th:with="coverage=${skillCoveragePercentage != null ? skillCoveragePercentage : 100},
-                                      color=${coverage >= 80 ? '#4caf50' : (coverage >= 50 ? '#ff9800' : '#f44336')}"
-                             th:style="'width: ' + ${coverage} + '%; height: 100%; background: ' + ${color} + ';'">
+                        <div th:with="coverage=${skillCoveragePercentage != null ? skillCoveragePercentage : 0}"
+                             th:style="'width: ' + ${coverage} + '%; height: 100%; background: ' +
+              ${coverage >= 80 ? '#4caf50' : (coverage >= 50 ? '#ff9800' : '#f44336')} + ';'">
+                        </div>
+                    </div>
+                    <div style="text-align: center; font-size: 12px; color: #666; margin-top: 5px;">
+                        <span th:text="${skillsCovered}">0</span> of <span th:text="${totalSkillsNeeded}">0</span> required skill positions filled
+                    </div>
+                </div>
+
+                <!-- Current Status Summary -->
+                <div style="background: #e3f2fd; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <strong>Employees Assigned:</strong>
+                            <span th:text="${currentAssignments != null ? currentAssignments.size() : 0}">0</span>
+                        </div>
+                        <div>
+                            <strong>Skills Covered:</strong>
+                            <span th:text="${coveredSkillsCount}">0</span>/<span th:text="${requiredCounts != null ? requiredCounts.size() : 0}">0</span>
+                        </div>
+                        <div>
+                            <strong>Missing:</strong>
+                            <span th:text="${missingEmployeesCount}">0</span> employees
                         </div>
                     </div>
                 </div>
 
-                <!-- Detailed Gap Analysis -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">
-                    <div th:each="gapEntry : ${skillGaps}"
-                         th:with="isPositive=${gapEntry.value >= 0}"
-                         th:style="'background: ' + ${isPositive ? '#e8f5e8' : '#ffebee'} + '; padding: 12px; border-radius: 6px; border-left: 3px solid ' + ${isPositive ? '#4caf50' : '#f44336'} + ';'">
-                        <div style="font-weight: 600; color: #424242;" th:text="${gapEntry.key}">Java</div>
-                        <div style="font-size: 14px; color: #616161;">
-                            Required: <span th:text="${helpers.getRequiredCount.apply(project, gapEntry.key)}">3</span> |
-                            Available: <span th:text="${helpers.getAvailableCount.apply(project, gapEntry.key, availableEmployeesForGap)}">2</span>
+                <!-- Skill Gap Details -->
+                <div style="margin-bottom: 15px;" th:if="${skillGaps != null and not skillGaps.isEmpty()}">
+                    <div style="font-weight: 600; color: #5d4037; margin-bottom: 10px;">
+                        <i class="fas fa-exclamation-circle"></i> Skills Needing Attention:
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                        <div th:each="gapEntry : ${skillGaps}"
+                             th:if="${gapEntry.value > 0}"
+                             th:style="'background: #ffebee; padding: 10px; border-radius: 6px; border-left: 3px solid #f44336;'">
+                            <div style="font-weight: 600; color: #424242;" th:text="${gapEntry.key}">React</div>
+                            <div style="font-size: 13px; color: #616161; margin: 5px 0;">
+                                Required: <span th:text="${requiredCounts?.get(gapEntry.key) ?: 0}">2</span> |
+                                Assigned: <span th:text="${requiredCounts?.get(gapEntry.key) != null ? (requiredCounts.get(gapEntry.key) - gapEntry.value) : 0}">1</span>
+                            </div>
+                            <div style="color: #d32f2f; font-weight: 500; font-size: 12px;">
+                                <i class="fas fa-times-circle"></i> Need <span th:text="${gapEntry.value}">1</span> more
+                            </div>
                         </div>
-                        <div th:if="${gapEntry.value >= 0}" style="color: #2e7d32; font-weight: 500;">
-                            <i class="fas fa-check-circle"></i> +<span th:text="${gapEntry.value}">1</span> surplus
-                        </div>
-                        <div th:if="${gapEntry.value < 0}" style="color: #d32f2f; font-weight: 500;">
-                            <i class="fas fa-exclamation-circle"></i> <span th:text="${-gapEntry.value}">1</span> shortage
-                        </div>
+                    </div>
+                </div>
+
+                <!-- Skills Already Covered Section -->
+                <div th:if="${hasCoveredSkills}">
+                    <div style="font-weight: 600; color: #5d4037; margin-bottom: 10px;">
+                        <i class="fas fa-check-circle"></i> Skills Already Covered:
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                        <span th:each="reqSkill : ${requiredCounts.keySet()}"
+                              th:if="${skillGaps.get(reqSkill) == null or skillGaps.get(reqSkill) <= 0}"
+                              th:with="assignedCount=${requiredCounts.get(reqSkill) - (skillGaps.get(reqSkill) != null ? skillGaps.get(reqSkill) : 0)}"
+                              style="background: #e8f5e8; color: #2e7d32; padding: 4px 10px; border-radius: 15px; font-size: 12px;">
+                            <i class="fas fa-check"></i>
+                            <span th:text="${reqSkill}">Java</span>
+                            (<span th:text="${assignedCount}">2</span>/<span th:text="${requiredCounts.get(reqSkill)}">2</span>)
+                        </span>
                     </div>
                 </div>
 
                 <!-- Recommended Actions -->
-                <div th:if="${recommendedActions != null and not recommendedActions.isEmpty()}">
+                <div th:if="${recommendedActions != null and not recommendedActions.isEmpty()}" style="margin-top: 15px;">
                     <h5 style="color: #5d4037; margin-bottom: 10px;">
                         <i class="fas fa-lightbulb"></i> Recommended Actions
                     </h5>
                     <ul style="margin: 0; padding-left: 20px; color: #616161;">
                         <li th:each="action : ${recommendedActions}" th:text="${action}"></li>
                     </ul>
+                </div>
+            </div>
+            <!-- End of Skill Gap Analysis Section -->
+
+            <!-- Notify Project Manager Section -->
+            <div th:if="${hasSkillGaps}" class="alert alert-warning" style="margin-top: 20px;">
+                <h5><i class="fas fa-exclamation-triangle"></i> Skill Gaps Detected</h5>
+
+                <p>The following skills are not available internally:</p>
+                <ul>
+                    <li th:each="gap : ${skillGaps.entrySet()}">
+                        <strong th:text="${gap.key}">React</strong>: Need
+                        <span th:text="${gap.value}">1</span> more employee(s)
+                    </li>
+                </ul>
+
+                <p>Skill Coverage: <strong th:text="${skillCoverage}">0.0</strong>%</p>
+
+                <div th:if="${!pmNotified}">
+                    <form th:action="@{/ui/resource-planner/project/__${project.id}__/notify-pm-skill-gap}"
+                          method="post" style="margin-top: 15px;">
+
+                        <div class="form-group">
+                            <label for="message">Message to Project Manager:</label>
+                            <textarea id="message" name="message" class="form-control" rows="3"
+                                      placeholder="Explain the skill gaps and why external search is needed..."></textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-bell"></i> Notify Project Manager
+                        </button>
+
+                        <div class="small text-muted mt-2">
+                            <i class="fas fa-info-circle"></i> This will notify the Project Manager that external search is needed.
+                        </div>
+                    </form>
+                </div>
+
+                <div th:if="${pmNotified}" class="alert alert-info">
+                    <i class="fas fa-check-circle"></i>
+                    Project Manager has been notified about skill gaps. Awaiting their decision.
                 </div>
             </div>
 
