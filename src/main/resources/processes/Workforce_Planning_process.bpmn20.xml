@@ -1,0 +1,319 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xmlns:flowable="http://flowable.org/bpmn"
+             targetNamespace="http://www.workforce.com">
+
+  <process id="workforcePlanningProcess"
+           name="Workforce Planning Process"
+           isExecutable="true">
+
+    <!-- Start -->
+    <startEvent id="startEvent" name="Start" />
+    <sequenceFlow id="flow1" sourceRef="startEvent" targetRef="projectStartTask" />
+
+    <!-- 1. Project Initialization -->
+    <serviceTask id="projectStartTask"
+                 name="Initialize Project Workflow"
+                 flowable:class="com.workforce.workforceplanning.workflow.ProjectStartDelegate" />
+    <sequenceFlow id="flow2" sourceRef="projectStartTask" targetRef="skillGapAnalysisTask" />
+
+    <!-- 2. Skill Gap Analysis (Automatic) -->
+    <serviceTask id="skillGapAnalysisTask"
+                 name="Analyze Skill Gaps"
+                 flowable:class="com.workforce.workforceplanning.workflow.SkillGapAnalysisDelegate">
+      <documentation>
+        Automatically checks if project has skill gaps that require external search
+      </documentation>
+    </serviceTask>
+    <sequenceFlow id="flow2a" sourceRef="skillGapAnalysisTask" targetRef="skillGapGateway" />
+
+    <!-- 3. Skill Gap Decision Gateway -->
+    <exclusiveGateway id="skillGapGateway" name="Skill Gap Decision" />
+
+    <!-- If NO critical skill gaps → Continue to Department Head approval -->
+    <sequenceFlow id="noGapFlow"
+                  sourceRef="skillGapGateway"
+                  targetRef="departmentApprovalTask">
+      <conditionExpression xsi:type="tFormalExpression">
+        ${hasCriticalSkillGaps == false}
+      </conditionExpression>
+    </sequenceFlow>
+
+    <!-- If critical skill gaps exist → Notify Project Manager -->
+    <sequenceFlow id="hasGapFlow"
+                  sourceRef="skillGapGateway"
+                  targetRef="notifyProjectManagerTask">
+      <conditionExpression xsi:type="tFormalExpression">
+        ${hasCriticalSkillGaps == true}
+      </conditionExpression>
+    </sequenceFlow>
+
+    <!-- 4. Notify Project Manager about skill gaps -->
+    <serviceTask id="notifyProjectManagerTask"
+                 name="Notify Project Manager"
+                 flowable:delegateExpression="${notificationDelegate}">
+      <extensionElements>
+        <flowable:field name="notificationType">
+          <flowable:string><![CDATA[skill_gap]]></flowable:string>
+        </flowable:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="flow2b" sourceRef="notifyProjectManagerTask" targetRef="pmDecisionTask" />
+
+    <!-- 5. Project Manager Decision Task -->
+    <userTask id="pmDecisionTask"
+              name="Handle Skill Gaps"
+              flowable:candidateGroups="ProjectManager">
+      <documentation>
+        Project Manager decides whether to request external search for missing skills
+      </documentation>
+      <extensionElements>
+        <flowable:formProperty id="pmDecision"
+                               name="Decision"
+                               type="enum"
+                               required="true">
+          <flowable:value id="request_external" name="Request External Search" />
+          <flowable:value id="proceed_internal" name="Proceed with Internal Staffing" />
+          <flowable:value id="revise_requirements" name="Revise Project Requirements" />
+        </flowable:formProperty>
+        <flowable:formProperty id="pmNotes"
+                               name="Decision Notes"
+                               type="string" />
+      </extensionElements>
+    </userTask>
+    <sequenceFlow id="flow2c" sourceRef="pmDecisionTask" targetRef="pmDecisionGateway" />
+
+    <!-- 6. Project Manager Decision Gateway -->
+    <exclusiveGateway id="pmDecisionGateway" name="PM Decision Gateway" />
+
+    <!-- PM requests external search → Department Head approval for external search -->
+    <sequenceFlow id="requestExternalSearchFlow"
+                  sourceRef="pmDecisionGateway"
+                  targetRef="externalSearchApprovalTask">
+      <conditionExpression xsi:type="tFormalExpression">
+        ${pmDecision == 'request_external'}
+      </conditionExpression>
+    </sequenceFlow>
+
+    <!-- PM decides to proceed internally → Continue to Department Head approval -->
+    <sequenceFlow id="proceedInternalFlow"
+                  sourceRef="pmDecisionGateway"
+                  targetRef="departmentApprovalTask">
+      <conditionExpression xsi:type="tFormalExpression">
+        ${pmDecision == 'proceed_internal'}
+      </conditionExpression>
+    </sequenceFlow>
+
+    <!-- PM revises requirements → End current workflow, PM will restart -->
+    <sequenceFlow id="reviseRequirementsFlow"
+                  sourceRef="pmDecisionGateway"
+                  targetRef="reviseRequirementsEnd">
+      <conditionExpression xsi:type="tFormalExpression">
+        ${pmDecision == 'revise_requirements'}
+      </conditionExpression>
+    </sequenceFlow>
+
+    <!-- 7. External Search Approval (Department Head) -->
+    <userTask id="externalSearchApprovalTask"
+              name="Approve External Search"
+              flowable:candidateGroups="DepartmentHead">
+      <documentation>
+        Department Head approves or rejects the external search request
+      </documentation>
+      <extensionElements>
+        <flowable:formProperty id="externalSearchApproved"
+                               name="Approve External Search?"
+                               type="boolean"
+                               required="true" />
+        <flowable:formProperty id="externalSearchNotes"
+                               name="Approval Notes"
+                               type="string" />
+      </extensionElements>
+    </userTask>
+    <sequenceFlow id="flow2d" sourceRef="externalSearchApprovalTask" targetRef="processExternalSearchDecisionTask" />
+
+    <!-- 8. Process External Search Decision -->
+    <serviceTask id="processExternalSearchDecisionTask"
+                 name="Process External Search Decision"
+                 flowable:class="com.workforce.workforceplanning.workflow.ExternalSearchDecisionDelegate" />
+    <sequenceFlow id="flow2e" sourceRef="processExternalSearchDecisionTask" targetRef="externalSearchResultGateway" />
+
+    <!-- 9. External Search Result Gateway -->
+    <exclusiveGateway id="externalSearchResultGateway" name="External Search Result" />
+
+    <!-- External search approved → Notify PM and RP -->
+    <sequenceFlow id="externalSearchApprovedFlow"
+                  sourceRef="externalSearchResultGateway"
+                  targetRef="notifyExternalSearchApprovedTask">
+      <conditionExpression xsi:type="tFormalExpression">
+        ${externalSearchApproved == true}
+      </conditionExpression>
+    </sequenceFlow>
+
+    <!-- External search rejected → Notify PM and RP -->
+    <sequenceFlow id="externalSearchRejectedFlow"
+                  sourceRef="externalSearchResultGateway"
+                  targetRef="notifyExternalSearchRejectedTask">
+      <conditionExpression xsi:type="tFormalExpression">
+        ${externalSearchApproved == false}
+      </conditionExpression>
+    </sequenceFlow>
+
+    <!-- 10. Notify about external search decision -->
+    <serviceTask id="notifyExternalSearchApprovedTask"
+                 name="Notify External Search Approved"
+                 flowable:delegateExpression="${notificationDelegate}">
+      <extensionElements>
+        <flowable:field name="notificationType">
+          <flowable:string><![CDATA[external_search_approved]]></flowable:string>
+        </flowable:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="flow2f" sourceRef="notifyExternalSearchApprovedTask" targetRef="departmentApprovalTask" />
+
+    <serviceTask id="notifyExternalSearchRejectedTask"
+                 name="Notify External Search Rejected"
+                 flowable:delegateExpression="${notificationDelegate}">
+      <extensionElements>
+        <flowable:field name="notificationType">
+          <flowable:string><![CDATA[external_search_rejected]]></flowable:string>
+        </flowable:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="flow2g" sourceRef="notifyExternalSearchRejectedTask" targetRef="departmentApprovalTask" />
+
+    <!-- 11. Department Head Approval (APPROVE PROJECT REQUEST) -->
+    <userTask id="departmentApprovalTask"
+              name="Approve Project Request"
+              flowable:candidateGroups="DepartmentHead">
+      <documentation>
+        Department Head reviews and approves/rejects the project staffing request
+      </documentation>
+    </userTask>
+    <sequenceFlow id="flow3" sourceRef="departmentApprovalTask" targetRef="projectApprovalTask" />
+
+    <!-- 12. Process Department Head Decision -->
+    <serviceTask id="projectApprovalTask"
+                 name="Process Department Approval"
+                 flowable:delegateExpression="${projectApprovalDelegate}" />
+    <sequenceFlow id="flow4" sourceRef="projectApprovalTask" targetRef="approvalGateway" />
+
+    <!-- 13. Approval Decision Gateway -->
+    <exclusiveGateway id="approvalGateway" name="Approval Decision" />
+
+    <!-- Approved path → Resource Planner finds employees -->
+    <sequenceFlow id="approvedFlow"
+                  sourceRef="approvalGateway"
+                  targetRef="resourcePlannerTask">
+      <conditionExpression xsi:type="tFormalExpression">
+        ${approved == true}
+      </conditionExpression>
+    </sequenceFlow>
+
+    <!-- Rejected path -->
+    <sequenceFlow id="rejectedFlow"
+                  sourceRef="approvalGateway"
+                  targetRef="rejectEnd">
+      <conditionExpression xsi:type="tFormalExpression">
+        ${approved == false}
+      </conditionExpression>
+    </sequenceFlow>
+
+    <!-- 14. Resource Planner Task (FIND EMPLOYEES) -->
+    <userTask id="resourcePlannerTask"
+              name="Find Suitable Employees"
+              flowable:candidateGroups="ResourcePlanner">
+      <documentation>
+        Search for employees with matching skills and propose them for the project
+      </documentation>
+      <extensionElements>
+        <!-- Resource Planner can also request external search if needed -->
+        <flowable:formProperty id="rpExternalSearchNeeded"
+                               name="Need External Search?"
+                               type="boolean" />
+        <flowable:formProperty id="rpMissingSkills"
+                               name="Missing Skills"
+                               type="string" />
+      </extensionElements>
+    </userTask>
+    <sequenceFlow id="flow5" sourceRef="resourcePlannerTask" targetRef="rpDecisionGateway" />
+
+    <!-- 15. Resource Planner Decision Gateway -->
+    <exclusiveGateway id="rpDecisionGateway" name="RP Decision Gateway" />
+
+    <!-- RP finds employees internally → Continue to employee confirmation -->
+    <sequenceFlow id="internalStaffingFlow"
+                  sourceRef="rpDecisionGateway"
+                  targetRef="employeeConfirmationTask">
+      <conditionExpression xsi:type="tFormalExpression">
+        ${rpExternalSearchNeeded == false || rpExternalSearchNeeded == null}
+      </conditionExpression>
+    </sequenceFlow>
+
+    <!-- RP needs external search → Notify Project Manager -->
+    <sequenceFlow id="rpExternalSearchFlow"
+                  sourceRef="rpDecisionGateway"
+                  targetRef="notifyProjectManagerTask">
+      <conditionExpression xsi:type="tFormalExpression">
+        ${rpExternalSearchNeeded == true}
+      </conditionExpression>
+    </sequenceFlow>
+
+    <!-- 16. Employee Confirmation -->
+    <userTask id="employeeConfirmationTask"
+              name="Confirm Assignment"
+              flowable:candidateGroups="Employee">
+      <documentation>
+        Employee confirms or rejects the assignment
+      </documentation>
+    </userTask>
+    <sequenceFlow id="flow6" sourceRef="employeeConfirmationTask" targetRef="employeeDecisionGateway" />
+
+    <!-- 17. Employee Decision Gateway -->
+    <exclusiveGateway id="employeeDecisionGateway" name="Employee Decision" />
+
+    <!-- Employee confirms → Assign employees -->
+    <sequenceFlow id="employeeConfirmedFlow"
+                  sourceRef="employeeDecisionGateway"
+                  targetRef="assignmentTask">
+      <conditionExpression xsi:type="tFormalExpression">
+        ${employeeConfirmed == true}
+      </conditionExpression>
+    </sequenceFlow>
+
+    <!-- Employee rejects → Go back to Resource Planner -->
+    <sequenceFlow id="employeeRejectedFlow"
+                  sourceRef="employeeDecisionGateway"
+                  targetRef="resourcePlannerTask">
+      <conditionExpression xsi:type="tFormalExpression">
+        ${employeeConfirmed == false}
+      </conditionExpression>
+    </sequenceFlow>
+
+    <!-- 18. Assign Employees (if employee confirms) -->
+    <serviceTask id="assignmentTask"
+                 name="Assign Employees to Project"
+                 flowable:class="com.workforce.workforceplanning.workflow.AssignmentDelegate" />
+    <sequenceFlow id="flow7" sourceRef="assignmentTask" targetRef="notificationTask" />
+
+    <!-- 19. Send Notifications -->
+    <serviceTask id="notificationTask"
+                 name="Send Assignment Notifications"
+                 flowable:class="com.workforce.workforceplanning.workflow.NotificationDelegate" />
+    <sequenceFlow id="flow8" sourceRef="notificationTask" targetRef="projectCompletionTask" />
+
+    <!-- 20. Complete Project Setup -->
+    <serviceTask id="projectCompletionTask"
+                 name="Complete Project Setup"
+                 flowable:class="com.workforce.workforceplanning.workflow.ProjectCompletionDelegate" />
+    <sequenceFlow id="flow9" sourceRef="projectCompletionTask" targetRef="endEvent" />
+
+    <!-- End Events -->
+    <endEvent id="endEvent" name="Project Staffed and Ready" />
+    <endEvent id="rejectEnd" name="Project Rejected" />
+    <endEvent id="reviseRequirementsEnd" name="Revise Requirements" />
+
+  </process>
+
+</definitions>
