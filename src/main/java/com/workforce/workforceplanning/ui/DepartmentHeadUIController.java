@@ -304,8 +304,8 @@ public class DepartmentHeadUIController {
     @GetMapping("/history")
     public String approvalHistory(Model model, Principal principal) {
         // =============================================
-// Fetch completed Department Head tasks
-// =============================================
+         // Fetch completed Department Head tasks
+        // =============================================
         List<HistoricTaskInstance> completedTasks =
                 historyService.createHistoricTaskInstanceQuery()
                         .taskCandidateGroup("DepartmentHead")
@@ -316,36 +316,22 @@ public class DepartmentHeadUIController {
                         .stream()
                         .limit(50)
                         .toList();
-
-// =============================================
-// Build UI-friendly history list with decision
-// Flowable does NOT tell us approved/rejected directly,
-// so we read the historic process variable "approved"
-// =============================================
-        List<Map<String, Object>> historyWithStatus = new ArrayList<>();
+        // ==================== BUILD HISTORY WITH APPROVAL STATUS ====================
+        List<HistoryRow> historyWithStatus = new ArrayList<>();
 
         for (HistoricTaskInstance task : completedTasks) {
-            Map<String, Object> row = new HashMap<>();
-
-            // Task itself
-            row.put("task", task);
-
-            // Determine approval decision from history variables
             boolean approved = isApprovedFromHistory(task.getProcessInstanceId());
-            row.put("approved", approved);
-
-            historyWithStatus.add(row);
+            historyWithStatus.add(new HistoryRow(task, approved));
         }
+
 
 // =============================================
 // Statistics
 // =============================================
         long totalDecisions = completedTasks.size();
-
         long approvedCount = historyWithStatus.stream()
-                .filter(row -> (Boolean) row.get("approved"))
+                .filter(HistoryRow::isApproved)
                 .count();
-
         long rejectedCount = totalDecisions - approvedCount;
 
 // =============================================
@@ -686,5 +672,26 @@ public class DepartmentHeadUIController {
             return true; // fallback so page won't crash
         }
     }
+    // ==================== HELPER DTO FOR HISTORY UI ====================
+    // Used to send task + approval status together to Thymeleaf
+    public static class HistoryRow {
+
+        private HistoricTaskInstance task;
+        private boolean approved;
+
+        public HistoryRow(HistoricTaskInstance task, boolean approved) {
+            this.task = task;
+            this.approved = approved;
+        }
+
+        public HistoricTaskInstance getTask() {
+            return task;
+        }
+
+        public boolean isApproved() {
+            return approved;
+        }
+    }
+
 
 }
