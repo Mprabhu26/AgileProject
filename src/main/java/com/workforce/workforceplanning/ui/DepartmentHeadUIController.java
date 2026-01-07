@@ -303,47 +303,63 @@ public class DepartmentHeadUIController {
     // ==================== VIEW APPROVAL HISTORY ====================
     @GetMapping("/history")
     public String approvalHistory(Model model, Principal principal) {
-        String username = principal != null ? principal.getName() : "Guest";
+        // =============================================
+// Fetch completed Department Head tasks
+// =============================================
+        List<HistoricTaskInstance> completedTasks =
+                historyService.createHistoricTaskInstanceQuery()
+                        .taskCandidateGroup("DepartmentHead")
+                        .finished()
+                        .orderByTaskCreateTime()
+                        .desc()
+                        .list()
+                        .stream()
+                        .limit(50)
+                        .toList();
 
-        // Get completed tasks from history
-        List<HistoricTaskInstance> completedTasks = historyService.createHistoricTaskInstanceQuery()
-                .taskCandidateGroup("DepartmentHead")
-                .finished()
-                .orderByTaskCreateTime()
-                .desc()
-                .list()
-                .stream()
-                .limit(50)
-                .toList();
+// =============================================
+// Build UI-friendly history list with decision
+// Flowable does NOT tell us approved/rejected directly,
+// so we read the historic process variable "approved"
+// =============================================
+        List<Map<String, Object>> historyWithStatus = new ArrayList<>();
 
-        // Get statistics
-        long totalApprovals = historyService.createHistoricTaskInstanceQuery()
-                .taskCandidateGroup("DepartmentHead")
-                .finished()
+        for (HistoricTaskInstance task : completedTasks) {
+            Map<String, Object> row = new HashMap<>();
+
+            // Task itself
+            row.put("task", task);
+
+            // Determine approval decision from history variables
+            boolean approved = isApprovedFromHistory(task.getProcessInstanceId());
+            row.put("approved", approved);
+
+            historyWithStatus.add(row);
+        }
+
+// =============================================
+// Statistics
+// =============================================
+        long totalDecisions = completedTasks.size();
+
+        long approvedCount = historyWithStatus.stream()
+                .filter(row -> (Boolean) row.get("approved"))
                 .count();
 
-        // Count approved vs rejected (simplified - check variables in real implementation)
-        long approvedCount = completedTasks.stream()
-                .filter(task -> {
-                    // In real app, you'd check process variables
-                    // For now, just estimate
-                    return task.getDeleteReason() == null ||
-                            !task.getDeleteReason().toLowerCase().contains("reject");
-                })
-                .count();
+        long rejectedCount = totalDecisions - approvedCount;
 
-        long rejectedCount = totalApprovals - approvedCount;
-
-        model.addAttribute("username", username);
-        model.addAttribute("completedTasks", completedTasks);
-        model.addAttribute("totalApprovals", totalApprovals);
+// =============================================
+// Model attributes for UI
+// =============================================
+        model.addAttribute("username", principal != null ? principal.getName() : "Guest");
+        model.addAttribute("historyWithStatus", historyWithStatus);
+        model.addAttribute("totalApprovals", totalDecisions);
         model.addAttribute("approvedCount", approvedCount);
         model.addAttribute("rejectedCount", rejectedCount);
 
         return "department-head/history";
     }
-
-    // ==================== VIEW SPECIFIC HISTORY TASK ====================
+        // ==================== VIEW SPECIFIC HISTORY TASK ====================
     @GetMapping("/history/task/{taskId}")
     public String viewHistoryTask(@PathVariable String taskId, Model model, Principal principal) {
         String username = principal != null ? principal.getName() : "Guest";
@@ -650,4 +666,25 @@ public class DepartmentHeadUIController {
 
         return "redirect:/ui/department-head/dashboard";
     }
+    /**
+     * Reads historic process variable "approved"
+     * true  → Approved
+     * false → Rejected
+     */
+    private boolean isApprovedFromHistory(String processInstanceId) {
+        try {
+            var historicVar = historyService.createHistoricVariableInstanceQuery()
+                    .processInstanceId(processInstanceId)
+                    .variableName("approved")
+                    .singleResult();
+
+            if (historicVar == null) return true; // fallback
+
+            Object val = historicVar.getValue();
+            return (val instanceof Boolean) ? (Boolean) val : true;
+        } catch (Exception e) {
+            return true; // fallback so page won't crash
+        }
+    }
+
 }
