@@ -49,6 +49,25 @@ public class DepartmentHeadUIController {
                 .orderByTaskCreateTime()
                 .desc()
                 .list();
+        Map<String, String> taskProjectNames = new HashMap<>();
+
+        for (Task t : pendingTasks) {
+            try {
+                Map<String, Object> vars = runtimeService.getVariables(t.getProcessInstanceId());
+                Object pidObj = vars.get("projectId");
+
+                if (pidObj != null) {
+                    Long pid = ((Number) pidObj).longValue();
+                    projectRepository.findById(pid).ifPresent(p ->
+                            taskProjectNames.put(t.getId(), p.getName())
+                    );
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        model.addAttribute("taskProjectNames", taskProjectNames);
+
 
         // Get external search approval tasks
         List<Task> pendingExternalSearchTasks = taskService.createTaskQuery()
