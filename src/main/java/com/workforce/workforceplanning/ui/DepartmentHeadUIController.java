@@ -49,6 +49,25 @@ public class DepartmentHeadUIController {
                 .orderByTaskCreateTime()
                 .desc()
                 .list();
+        Map<String, String> taskProjectNames = new HashMap<>();
+
+        for (Task t : pendingTasks) {
+            try {
+                Map<String, Object> vars = runtimeService.getVariables(t.getProcessInstanceId());
+                Object pidObj = vars.get("projectId");
+
+                if (pidObj != null) {
+                    Long pid = ((Number) pidObj).longValue();
+                    projectRepository.findById(pid).ifPresent(p ->
+                            taskProjectNames.put(t.getId(), p.getName())
+                    );
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        model.addAttribute("taskProjectNames", taskProjectNames);
+
 
         // Get external search approval tasks
         List<Task> pendingExternalSearchTasks = taskService.createTaskQuery()
@@ -284,47 +303,49 @@ public class DepartmentHeadUIController {
     // ==================== VIEW APPROVAL HISTORY ====================
     @GetMapping("/history")
     public String approvalHistory(Model model, Principal principal) {
-        String username = principal != null ? principal.getName() : "Guest";
+        // =============================================
+         // Fetch completed Department Head tasks
+        // =============================================
+        List<HistoricTaskInstance> completedTasks =
+                historyService.createHistoricTaskInstanceQuery()
+                        .taskCandidateGroup("DepartmentHead")
+                        .finished()
+                        .orderByTaskCreateTime()
+                        .desc()
+                        .list()
+                        .stream()
+                        .limit(50)
+                        .toList();
+        // ==================== BUILD HISTORY WITH APPROVAL STATUS ====================
+        List<HistoryRow> historyWithStatus = new ArrayList<>();
 
-        // Get completed tasks from history
-        List<HistoricTaskInstance> completedTasks = historyService.createHistoricTaskInstanceQuery()
-                .taskCandidateGroup("DepartmentHead")
-                .finished()
-                .orderByTaskCreateTime()
-                .desc()
-                .list()
-                .stream()
-                .limit(50)
-                .toList();
+        for (HistoricTaskInstance task : completedTasks) {
+            boolean approved = isApprovedFromHistory(task.getProcessInstanceId());
+            historyWithStatus.add(new HistoryRow(task, approved));
+        }
 
-        // Get statistics
-        long totalApprovals = historyService.createHistoricTaskInstanceQuery()
-                .taskCandidateGroup("DepartmentHead")
-                .finished()
+
+// =============================================
+// Statistics
+// =============================================
+        long totalDecisions = completedTasks.size();
+        long approvedCount = historyWithStatus.stream()
+                .filter(HistoryRow::isApproved)
                 .count();
+        long rejectedCount = totalDecisions - approvedCount;
 
-        // Count approved vs rejected (simplified - check variables in real implementation)
-        long approvedCount = completedTasks.stream()
-                .filter(task -> {
-                    // In real app, you'd check process variables
-                    // For now, just estimate
-                    return task.getDeleteReason() == null ||
-                            !task.getDeleteReason().toLowerCase().contains("reject");
-                })
-                .count();
-
-        long rejectedCount = totalApprovals - approvedCount;
-
-        model.addAttribute("username", username);
-        model.addAttribute("completedTasks", completedTasks);
-        model.addAttribute("totalApprovals", totalApprovals);
+// =============================================
+// Model attributes for UI
+// =============================================
+        model.addAttribute("username", principal != null ? principal.getName() : "Guest");
+        model.addAttribute("historyWithStatus", historyWithStatus);
+        model.addAttribute("totalApprovals", totalDecisions);
         model.addAttribute("approvedCount", approvedCount);
         model.addAttribute("rejectedCount", rejectedCount);
 
         return "department-head/history";
     }
-
-    // ==================== VIEW SPECIFIC HISTORY TASK ====================
+        // ==================== VIEW SPECIFIC HISTORY TASK ====================
     @GetMapping("/history/task/{taskId}")
     public String viewHistoryTask(@PathVariable String taskId, Model model, Principal principal) {
         String username = principal != null ? principal.getName() : "Guest";
@@ -631,4 +652,46 @@ public class DepartmentHeadUIController {
 
         return "redirect:/ui/department-head/dashboard";
     }
+    /**
+     * Reads historic process variable "approved"
+     * true  → Approved
+     * false → Rejected
+     */
+    private boolean isApprovedFromHistory(String processInstanceId) {
+        try {
+            var historicVar = historyService.createHistoricVariableInstanceQuery()
+                    .processInstanceId(processInstanceId)
+                    .variableName("approved")
+                    .singleResult();
+
+            if (historicVar == null) return true; // fallback
+
+            Object val = historicVar.getValue();
+            return (val instanceof Boolean) ? (Boolean) val : true;
+        } catch (Exception e) {
+            return true; // fallback so page won't crash
+        }
+    }
+    // ==================== HELPER DTO FOR HISTORY UI ====================
+    // Used to send task + approval status together to Thymeleaf
+    public static class HistoryRow {
+
+        private HistoricTaskInstance task;
+        private boolean approved;
+
+        public HistoryRow(HistoricTaskInstance task, boolean approved) {
+            this.task = task;
+            this.approved = approved;
+        }
+
+        public HistoricTaskInstance getTask() {
+            return task;
+        }
+
+        public boolean isApproved() {
+            return approved;
+        }
+    }
+
+
 }
