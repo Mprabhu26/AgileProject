@@ -49,7 +49,7 @@ public class AssignmentDelegate implements JavaDelegate {
             log.info("Project ID from workflow: {}", projectId);
 
             // 2. Get approved employee IDs
-            Object employeeIdsObj = execution.getVariable("approvedEmployeeIds");
+            Object employeeIdsObj = execution.getVariable("proposedEmployeeIds");
             List<Long> employeeIds = parseEmployeeIds(employeeIdsObj);
             log.info("Employee IDs from workflow: {}", employeeIds);
 
@@ -78,13 +78,11 @@ public class AssignmentDelegate implements JavaDelegate {
                                 a.getEmployee().getId().equals(employeeId));
 
                 if (!alreadyAssigned) {
-                    // Create new assignment
-                    Assignment assignment = new Assignment(project, employee, AssignmentStatus.ASSIGNED);
+                    // Create PENDING assignment (awaiting employee confirmation)
+                    Assignment assignment = new Assignment(project, employee, AssignmentStatus.PENDING);
                     assignmentRepository.save(assignment);
 
-                    // Update employee availability
-                    employee.setAvailable(false);
-                    employeeRepository.save(employee);
+
 
                     assignedCount++;
                     log.info("✅ Assigned employee {} to project {}", employee.getName(), project.getName());
@@ -123,7 +121,18 @@ public class AssignmentDelegate implements JavaDelegate {
     @SuppressWarnings("unchecked")
     private List<Long> parseEmployeeIds(Object obj) {
         if (obj instanceof List) {
-            return (List<Long>) obj;
+            List<?> rawList = (List<?>) obj;
+            return rawList.stream()
+                    .map(item -> {
+                        if (item instanceof Number) {
+                            return ((Number) item).longValue();
+                        } else if (item != null) {
+                            return Long.parseLong(item.toString());
+                        }
+                        return null;
+                    })
+                    .filter(id -> id != null)
+                    .toList();
         } else if (obj != null) {
             log.warn("⚠️ employeeIds is not a List, type: {}", obj.getClass().getName());
         }
