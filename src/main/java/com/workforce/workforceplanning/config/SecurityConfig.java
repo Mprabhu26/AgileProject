@@ -75,6 +75,14 @@ public class SecurityConfig {
                         .password("{noop}pm123")
                         .roles("PROJECT_MANAGER")
                         .build(),
+                User.withUsername("pm2")
+                        .password("{noop}pm1234")
+                        .roles("PROJECT_MANAGER")
+                        .build(),
+                User.withUsername("pm3")
+                        .password("{noop}pm1235")
+                        .roles("PROJECT_MANAGER")
+                        .build(),
                 User.withUsername("head")
                         .password("{noop}head123")
                         .roles("DEPARTMENT_HEAD")

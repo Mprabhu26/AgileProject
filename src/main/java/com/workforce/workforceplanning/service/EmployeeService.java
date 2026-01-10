@@ -77,4 +77,8 @@ public class EmployeeService {
                 .filter(Employee::isAvailableForProject)
                 .collect(Collectors.toList());
     }
+
+    public List<Employee> saveAll(List<Employee> employees) {
+        return repository.saveAll(employees);
+    }
 }

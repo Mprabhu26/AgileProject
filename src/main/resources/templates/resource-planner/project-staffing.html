@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title th:text="${project.name} + ' - Staffing | Resource Planner'">Project Staffing</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f1f5f9;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: white;
+            border-radius: 15px;
+            padding: 25px 30px;
+            margin-bottom: 25px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            border-left: 5px solid #8b5cf6;
+        }
+        .header h1 {
+            color: #1e293b;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .project-meta {
+            display: flex;
+            gap: 30px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        .meta-item {
+            display: flex;
+            flex-direction: column;
+        }
+        .meta-label {
+            font-size: 12px;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .meta-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        .alert {
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid;
+        }
+        .alert-success {
+            background: #d1fae5;
+            border-color: #10b981;
+            color: #065f46;
+        }
+        .alert-warning {
+            background: #fef3c7;
+            border-color: #f59e0b;
+            color: #92400e;
+        }
+        .alert-info {
+            background: #e0f2fe;
+            border-color: #0ea5e9;
+            color: #0369a1;
+        }
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+        @media (max-width: 1200px) {
+            .two-column {
+                grid-template-columns: 1fr;
+            }
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e2e8f0;
+        }
+        .card-title {
+            font-size: 18px;
+            color: #1e293b;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        th {
+            background: #f8fafc;
+            font-weight: 600;
+            color: #475569;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        tr:hover {
+            background: #f8fafc;
+        }
+        .skill-tag {
+            background: #e0e7ff;
+            color: #4f46e5;
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            display: inline-block;
+            margin: 2px;
+        }
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+            text-transform: uppercase;
+        }
+        .bg-green {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .bg-yellow {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .bg-red {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .bg-blue {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        .btn-success:hover {
+            background: #059669;
+        }
+        .btn-warning {
+            background: #f59e0b;
+            color: white;
+        }
+        .btn-warning:hover {
+            background: #d97706;
+        }
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        .btn-back {
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+        .btn-back:hover {
+            background: #e2e8f0;
+        }
+        .btn-external {
+            background: #8b5cf6;
+            color: white;
+        }
+        .btn-external:hover {
+            background: #7c3aed;
+        }
+        .employee-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s;
+        }
+        .employee-card:hover {
+            border-color: #c7d2fe;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        }
+        .employee-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .employee-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            font-weight: 600;
+        }
+        .employee-info h4 {
+            font-size: 16px;
+            color: #1e293b;
+            margin-bottom: 4px;
+        }
+        .employee-info p {
+            font-size: 13px;
+            color: #64748b;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #94a3b8;
+        }
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+        .progress-bar-container {
+            height: 12px;
+            background: #e2e8f0;
+            border-radius: 6px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #059669);
+            border-radius: 6px;
+            transition: width 0.5s ease;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+        }
+        .modal-content {
+            background: white;
+            margin: 10% auto;
+            padding: 30px;
+            border-radius: 15px;
+            width: 500px;
+            max-width: 90%;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #475569;
+        }
+        .form-control {
+            width: 100%;
+            padding: 10px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .form-control:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 25px;
+        }
+        .external-search-section {
+            background: #f0f9ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border-left: 4px solid #0ea5e9;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- Header -->
+    <div class="header">
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+            <div>
+                <h1>
+                    <i class="fas fa-user-plus"></i>
+                    Staffing: <span th:text="${project.name}">Project Name</span>
+                </h1>
+                <p th:text="${project.description ?: 'No description available'}">Project description</p>
+
+                <!-- Project Meta Information -->
+                <div class="project-meta">
+                    <div class="meta-item">
+                        <div class="meta-label">Required Positions</div>
+                        <div class="meta-value" th:text="${project.totalEmployeesRequired} + ' people'">5 people</div>
+                    </div>
+                    <div class="meta-item">
+                        <div class="meta-label">Currently Staffed</div>
+                        <div class="meta-value" th:text="${currentAssignments != null ? currentAssignments.size() : 0} + ' people'">5 people</div>
+                    </div>
+                    <div class="meta-item">
+                        <div class="meta-label">Skills Coverage</div>
+                        <div class="meta-value">
+                            <span th:text="${skillCoveragePercentage} + '%'">0%</span>
+                        </div>
+                    </div>
+                    <div class="meta-item">
+                        <div class="meta-label">Missing Skills</div>
+                        <div class="meta-value">
+                            <span th:if="${missingEmployeesCount > 0}" style="color: #ef4444;">
+                                <span th:text="${missingEmployeesCount}">3</span> needed
+                            </span>
+                            <span th:if="${missingEmployeesCount == 0}" style="color: #10b981;">
+                                All covered
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <a href="/ui/resource-planner/dashboard" class="btn btn-back">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="progress-bar-container">
+            <div class="progress-bar"
+                 th:style="'width: ' + ${skillCoveragePercentage} + '%; background: ' +
+           ${skillCoveragePercentage >= 80 ? '#10b981' :
+             (skillCoveragePercentage >= 50 ? '#f59e0b' : '#ef4444')} + ';'"></div>
+        </div>
+        <div style="text-align: center; color: #64748b; font-size: 14px; margin-top: 10px;">
+            <span th:text="${#numbers.formatDecimal(skillCoveragePercentage, 1, 1)}">0</span>% skill coverage
+            • <span th:text="${currentAssignments != null ? currentAssignments.size() : 0}">5</span> employees assigned
+            • <span th:text="${skillsCovered}">1</span>/<span th:text="${totalSkillsNeeded}">3</span> skill requirements met
+        </div>
+
+        <!-- Warning Message -->
+        <div th:if="${currentAssignments != null and not currentAssignments.isEmpty() and skillCoveragePercentage < 100}"
+             class="alert alert-warning" style="margin-top: 20px;">
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>Warning:</strong>
+            <span th:text="${currentAssignments.size()}">5</span> employees are assigned, but only
+            <span th:text="${#numbers.formatDecimal(skillCoveragePercentage, 1, 1)}">0</span>% of required skills are covered.
+            <span th:if="${missingEmployeesCount > 0}">
+                Need <span th:text="${missingEmployeesCount}">3</span> more employees with matching skills.
+            </span>
+        </div>
+
+        <!-- External Search Section -->
+        <div class="external-search-section">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h4 style="color: #0369a1; margin-bottom: 5px;">
+                        <i class="fas fa-globe"></i> External Talent Search
+                    </h4>
+                    <p style="color: #64748b; font-size: 13px;">
+                        Find candidates from external job boards and platforms
+                    </p>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <form th:action="@{'/ui/resource-planner/project/' + ${project.id} + '/external-search'}"
+                          method="post" style="margin: 0;">
+                        <button type="submit" class="btn btn-external"
+                                th:disabled="${project.externalSearchNeeded}">
+                            <i class="fas fa-search"></i>
+                            <span th:if="${project.externalSearchNeeded}">
+                                <i class="fas fa-sync-alt fa-spin"></i> Search in Progress
+                            </span>
+                            <span th:if="${not project.externalSearchNeeded}">
+                                Start External Search
+                            </span>
+                        </button>
+                    </form>
+
+                    <a th:href="@{'/ui/resource-planner/project/' + ${project.id} + '/external-candidates'}"
+                       class="btn btn-primary" th:if="${project.externalSearchNeeded}">
+                        <i class="fas fa-user-tie"></i> View External Candidates
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Flash Messages -->
+    <div th:if="${#ctx.containsVariable('success')}" class="alert alert-success">
+        <i class="fas fa-check-circle"></i>
+        <span th:text="${success}"></span>
+    </div>
+
+    <div th:if="${#ctx.containsVariable('warning')}" class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle"></i>
+        <span th:text="${warning}"></span>
+    </div>
+
+    <div th:if="${#ctx.containsVariable('info')}" class="alert alert-info">
+        <i class="fas fa-info-circle"></i>
+        <span th:text="${info}"></span>
+    </div>
+
+    <!-- Two Column Layout -->
+    <div class="two-column">
+        <!-- Current Assignments -->
+        <div class="card">
+            <div class="card-title">
+                <i class="fas fa-user-check"></i>
+                Current Team (<span th:text="${currentAssignments != null ? currentAssignments.size() : 0}">0</span>)
+            </div>
+
+            <div th:if="${currentAssignments != null and not currentAssignments.isEmpty()}">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Department</th>
+                        <th>Skills</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="assignment : ${currentAssignments}">
+                        <td>
+                            <strong th:text="${assignment.employee.name}">John Doe</strong><br>
+                            <small style="color: #64748b;" th:text="${assignment.employee.email}">john@example.com</small>
+                        </td>
+                        <td th:text="${assignment.employee.department}">Engineering</td>
+                        <td>
+                            <div th:each="skill : ${assignment.employee.skills}">
+                                <span class="skill-tag" th:text="${skill}">Java</span>
+                            </div>
+                            <span th:if="${assignment.employee.skills == null or assignment.employee.skills.isEmpty()}"
+                                  style="color: #94a3b8; font-style: italic;">No skills</span>
+                        </td>
+                        <td>
+                            <span th:class="${'status-badge ' + (assignment.status.name() == 'PENDING' ? 'bg-yellow' : (assignment.status.name() == 'ASSIGNED' ? 'bg-green' : (assignment.status.name() == 'IN_PROGRESS' ? 'bg-blue' : 'bg-red')))}"
+                                  th:text="${assignment.status}">ASSIGNED</span>
+                        </td>
+                        <td>
+                            <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                                <form th:action="@{'/ui/resource-planner/assignment/' + ${assignment.id} + '/remove'}"
+                                      method="post" style="display: inline;">
+                                    <button type="submit" class="btn btn-danger remove-btn"
+                                            th:attr="data-employee-name=${assignment.employee.name}"
+                                            th:disabled="${assignment.status.name() != 'PENDING'}">
+                                        <i class="fas fa-user-minus"></i> Remove
+                                    </button>
+                                </form>
+                                <button th:if="${assignment.status.name() == 'PENDING'}"
+                                        class="btn btn-warning cancel-proposal-btn"
+                                        th:attr="data-assignment-id=${assignment.id}"
+                                        th:data-employee-name="${assignment.employee.name}">
+                                    <i class="fas fa-times"></i> Cancel
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div th:if="${currentAssignments == null or currentAssignments.isEmpty()}" class="empty-state">
+                <i class="fas fa-user-slash"></i>
+                <h3>No Employees Assigned Yet</h3>
+                <p>Start by proposing employees from the matching candidates.</p>
+            </div>
+        </div>
+
+        <!-- Matching Employees -->
+        <div class="card">
+            <div class="card-title">
+                <i class="fas fa-users"></i>
+                Matching Candidates (<span th:text="${matchingEmployees != null ? matchingEmployees.size() : 0}">0</span>)
+            </div>
+
+            <!-- Skill Requirements -->
+            <div th:if="${project.skillRequirements != null and not project.skillRequirements.isEmpty()}"
+                 style="margin-bottom: 20px; padding: 15px; background: #f0f9ff; border-radius: 8px;">
+                <div style="font-weight: 600; color: #1e293b; margin-bottom: 10px;">
+                    <i class="fas fa-bullseye"></i> Required Skills:
+                </div>
+                <div>
+                    <span th:each="skillReq : ${project.skillRequirements}" class="skill-tag">
+                        <i class="fas fa-tag"></i>
+                        <span th:text="${skillReq.skill}">Java</span>
+                        <span th:if="${skillReq.requiredCount > 1}"
+                              th:text="'(' + ${skillReq.requiredCount} + ')'">(2)</span>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Skill Gap Analysis Section -->
+            <div th:if="${project.skillRequirements != null and not project.skillRequirements.isEmpty()}"
+                 style="margin: 20px 0; padding: 15px; background: #fff8e1; border-radius: 8px; border-left: 4px solid #ff9800;">
+
+                <h4 style="color: #e65100; margin-bottom: 15px;">
+                    <i class="fas fa-chart-line"></i> Skill Gap Analysis (Based on Assigned Team)
+                </h4>
+
+                <!-- Skill Coverage Progress -->
+                <div style="margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <span style="font-weight: 500; color: #5d4037;">Skill Coverage</span>
+                        <span th:with="coverage=${skillCoveragePercentage != null ? skillCoveragePercentage : 0},
+               formattedCoverage=${skillCoveragePercentage != null ? #numbers.formatDecimal(skillCoveragePercentage, 1, 1) : '0'}"
+                              th:style="'font-weight: 600; color: ' + ${coverage >= 80 ? '#388e3c' : (coverage >= 50 ? '#f57c00' : '#d32f2f')}">
+    <span th:text="${formattedCoverage}">0</span>%
+</span>
+                    </div>
+                    <div style="height: 10px; background: #e0e0e0; border-radius: 5px; overflow: hidden;">
+                        <div th:with="coverage=${skillCoveragePercentage != null ? skillCoveragePercentage : 0}"
+                             th:style="'width: ' + ${coverage} + '%; height: 100%; background: ' +
+              ${coverage >= 80 ? '#4caf50' : (coverage >= 50 ? '#ff9800' : '#f44336')} + ';'">
+                        </div>
+                    </div>
+                    <div style="text-align: center; font-size: 12px; color: #666; margin-top: 5px;">
+                        <span th:text="${skillsCovered}">0</span> of <span th:text="${totalSkillsNeeded}">0</span> required skill positions filled
+                    </div>
+                </div>
+
+                <!-- Current Status Summary -->
+                <div style="background: #e3f2fd; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <strong>Employees Assigned:</strong>
+                            <span th:text="${currentAssignments != null ? currentAssignments.size() : 0}">0</span>
+                        </div>
+                        <div>
+                            <strong>Skills Covered:</strong>
+                            <span th:text="${coveredSkillsCount}">0</span>/<span th:text="${requiredCounts != null ? requiredCounts.size() : 0}">0</span>
+                        </div>
+                        <div>
+                            <strong>Missing:</strong>
+                            <span th:text="${missingEmployeesCount}">0</span> employees
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Skill Gap Details -->
+                <div style="margin-bottom: 15px;" th:if="${skillGaps != null and not skillGaps.isEmpty()}">
+                    <div style="font-weight: 600; color: #5d4037; margin-bottom: 10px;">
+                        <i class="fas fa-exclamation-circle"></i> Skills Needing Attention:
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                        <div th:each="gapEntry : ${skillGaps}"
+                             th:if="${gapEntry.value > 0}"
+                             th:style="'background: #ffebee; padding: 10px; border-radius: 6px; border-left: 3px solid #f44336;'">
+                            <div style="font-weight: 600; color: #424242;" th:text="${gapEntry.key}">React</div>
+                            <div style="font-size: 13px; color: #616161; margin: 5px 0;">
+                                Required: <span th:text="${requiredCounts?.get(gapEntry.key) ?: 0}">2</span> |
+                                Assigned: <span th:text="${requiredCounts?.get(gapEntry.key) != null ? (requiredCounts.get(gapEntry.key) - gapEntry.value) : 0}">1</span>
+                            </div>
+                            <div style="color: #d32f2f; font-weight: 500; font-size: 12px;">
+                                <i class="fas fa-times-circle"></i> Need <span th:text="${gapEntry.value}">1</span> more
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Skills Already Covered Section -->
+                <div th:if="${hasCoveredSkills}">
+                    <div style="font-weight: 600; color: #5d4037; margin-bottom: 10px;">
+                        <i class="fas fa-check-circle"></i> Skills Already Covered:
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                        <span th:each="reqSkill : ${requiredCounts.keySet()}"
+                              th:if="${skillGaps.get(reqSkill) == null or skillGaps.get(reqSkill) <= 0}"
+                              th:with="assignedCount=${requiredCounts.get(reqSkill) - (skillGaps.get(reqSkill) != null ? skillGaps.get(reqSkill) : 0)}"
+                              style="background: #e8f5e8; color: #2e7d32; padding: 4px 10px; border-radius: 15px; font-size: 12px;">
+                            <i class="fas fa-check"></i>
+                            <span th:text="${reqSkill}">Java</span>
+                            (<span th:text="${assignedCount}">2</span>/<span th:text="${requiredCounts.get(reqSkill)}">2</span>)
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Recommended Actions -->
+                <div th:if="${recommendedActions != null and not recommendedActions.isEmpty()}" style="margin-top: 15px;">
+                    <h5 style="color: #5d4037; margin-bottom: 10px;">
+                        <i class="fas fa-lightbulb"></i> Recommended Actions
+                    </h5>
+                    <ul style="margin: 0; padding-left: 20px; color: #616161;">
+                        <li th:each="action : ${recommendedActions}" th:text="${action}"></li>
+                    </ul>
+                </div>
+            </div>
+            <!-- End of Skill Gap Analysis Section -->
+
+            <!-- Notify Project Manager Section -->
+            <div th:if="${hasSkillGaps}" class="alert alert-warning" style="margin-top: 20px;">
+                <h5><i class="fas fa-exclamation-triangle"></i> Skill Gaps Detected</h5>
+
+                <p>The following skills are not available internally:</p>
+                <ul>
+                    <li th:each="gap : ${skillGaps.entrySet()}">
+                        <strong th:text="${gap.key}">React</strong>: Need
+                        <span th:text="${gap.value}">1</span> more employee(s)
+                    </li>
+                </ul>
+
+                <p>Skill Coverage: <strong th:text="${skillCoverage}">0.0</strong>%</p>
+
+                <div th:if="${!pmNotified}">
+                    <form th:action="@{/ui/resource-planner/project/__${project.id}__/notify-pm-skill-gap}"
+                          method="post" style="margin-top: 15px;">
+
+                        <div class="form-group">
+                            <label for="message">Message to Project Manager:</label>
+                            <textarea id="message" name="message" class="form-control" rows="3"
+                                      placeholder="Explain the skill gaps and why external search is needed..."></textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-bell"></i> Notify Project Manager
+                        </button>
+
+                        <div class="small text-muted mt-2">
+                            <i class="fas fa-info-circle"></i> This will notify the Project Manager that external search is needed.
+                        </div>
+                    </form>
+                </div>
+
+                <div th:if="${pmNotified}" class="alert alert-info">
+                    <i class="fas fa-check-circle"></i>
+                    Project Manager has been notified about skill gaps. Awaiting their decision.
+                </div>
+            </div>
+
+            <!-- Employee Cards -->
+            <div th:if="${matchingEmployees != null and not matchingEmployees.isEmpty()}">
+                <div th:each="employee : ${matchingEmployees}" class="employee-card">
+                    <div class="employee-header">
+                        <div class="employee-avatar" th:text="${#strings.substring(employee.name, 0, 1)}">J</div>
+                        <div class="employee-info">
+                            <h4 th:text="${employee.name}">John Doe</h4>
+                            <p>
+                                <i class="fas fa-building"></i>
+                                <span th:text="${employee.department}">Engineering</span>
+                                •
+                                <i class="fas fa-envelope"></i>
+                                <span th:text="${employee.email}">john@example.com</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <strong style="font-size: 13px; color: #64748b;">Skills:</strong>
+                        <div>
+                            <span th:each="skill : ${employee.skills}" class="skill-tag" th:text="${skill}">Java</span>
+                            <span th:if="${employee.skills == null or employee.skills.isEmpty()}"
+                                  style="color: #94a3b8; font-style: italic;">No skills</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <button class="btn btn-success propose-btn"
+                                th:data-employee-id="${employee.id}"
+                                th:data-employee-name="${employee.name}"
+                                th:disabled="${!employee.available}">
+                            <i class="fas fa-user-plus"></i>
+                            <span th:text="${employee.available ? 'Propose for Project' : 'Not Available'}">Propose for Project</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div th:if="${matchingEmployees == null or matchingEmployees.isEmpty()}" class="empty-state">
+                <i class="fas fa-search"></i>
+                <h3>No Matching Employees Found</h3>
+                <p>Try searching for employees with different skills.</p>
+                <a href="/ui/resource-planner/search" class="btn btn-primary" style="margin-top: 15px;">
+                    <i class="fas fa-search"></i> Search All Employees
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pending Applications -->
+    <div class="card">
+        <div class="card-title">
+            <i class="fas fa-clock"></i>
+            Pending Applications (<span th:text="${pendingApplications != null ? pendingApplications.size() : 0}">0</span>)
+        </div>
+
+        <div th:if="${pendingApplications != null and not pendingApplications.isEmpty()}">
+            <table>
+                <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Applied On</th>
+                    <th>Message</th>
+                    <th>Skills</th>
+                    <th>Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="app : ${pendingApplications}">
+                    <td>
+                        <strong th:text="${app.employee.name}">John Doe</strong><br>
+                        <small style="color: #64748b;" th:text="${app.employee.department}">Engineering</small>
+                    </td>
+                    <td th:text="${#temporals.format(app.appliedAt, 'MMM dd, yyyy HH:mm')}">Jan 15, 2025</td>
+                    <td>
+                        <span th:if="${app.message}" th:text="${#strings.abbreviate(app.message, 100)}">Message...</span>
+                        <span th:if="${app.message == null}" style="color: #94a3b8; font-style: italic;">No message</span>
+                    </td>
+                    <td>
+                        <div th:each="skill : ${app.employee.skills}">
+                            <span class="skill-tag" th:text="${skill}">Java</span>
+                        </div>
+                        <span th:if="${app.employee.skills == null or app.employee.skills.isEmpty()}"
+                              style="color: #94a3b8; font-style: italic;">No skills</span>
+                    </td>
+                    <td>
+                        <button class="btn btn-success propose-btn"
+                                th:data-employee-id="${app.employee.id}"
+                                th:data-employee-name="${app.employee.name}"
+                                th:disabled="${!app.employee.available}">
+                            <i class="fas fa-check"></i> Propose
+                        </button>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <div th:if="${pendingApplications == null or pendingApplications.isEmpty()}" class="empty-state">
+            <i class="fas fa-inbox"></i>
+            <h3>No Pending Applications</h3>
+            <p>Employees haven't applied to this project yet.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Proposal Modal -->
+<div id="proposalModal" class="modal">
+    <div class="modal-content">
+        <h2 style="margin-bottom: 20px; color: #1e293b;">
+            <i class="fas fa-user-plus"></i>
+            Propose Employee for Project
+        </h2>
+
+        <form id="proposalForm" method="post" th:action="@{'/ui/resource-planner/project/' + ${project.id} + '/propose'}">
+            <input type="hidden" id="proposalEmployeeId" name="employeeId">
+
+            <div class="form-group">
+                <label for="employeeName">Employee</label>
+                <input type="text" id="employeeName" class="form-control" readonly>
+            </div>
+
+            <div class="form-group">
+                <label for="projectName">Project</label>
+                <input type="text" id="projectName" class="form-control" th:value="${project.name}" readonly>
+            </div>
+
+            <div class="form-group">
+                <label for="proposalNotes">
+                    <i class="fas fa-sticky-note"></i>
+                    Notes (Optional)
+                </label>
+                <textarea id="proposalNotes" name="notes" class="form-control"
+                          rows="4" placeholder="Add notes about why this employee is a good match..."></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn btn-back" onclick="closeModal()">
+                    Cancel
+                </button>
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-paper-plane"></i>
+                    Submit Proposal
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Modal functions
+    function openProposalModal(employeeId, employeeName) {
+        document.getElementById('proposalEmployeeId').value = employeeId;
+        document.getElementById('employeeName').value = employeeName;
+        document.getElementById('proposalModal').style.display = 'block';
+    }
+
+    function closeModal() {
+        document.getElementById('proposalModal').style.display = 'none';
+        document.getElementById('proposalForm').reset();
+    }
+
+    // Close modal when clicking outside
+    window.onclick = function(event) {
+        const modal = document.getElementById('proposalModal');
+        if (event.target === modal) {
+            closeModal();
+        }
+    };
+
+    // Handle remove confirmation
+    document.addEventListener('DOMContentLoaded', function() {
+        const removeButtons = document.querySelectorAll('.remove-btn');
+        removeButtons.forEach(button => {
+            button.addEventListener('click', function(event) {
+                if (this.disabled) {
+                    event.preventDefault();
+                    return;
+                }
+                const employeeName = this.getAttribute('data-employee-name');
+                const confirmed = confirm('Remove ' + employeeName + ' from project?');
+                if (!confirmed) {
+                    event.preventDefault();
+                }
+            });
+        });
+
+        // Handle propose buttons
+        const proposeButtons = document.querySelectorAll('.propose-btn');
+        proposeButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                if (this.disabled) return;
+
+                const employeeId = this.getAttribute('data-employee-id');
+                const employeeName = this.getAttribute('data-employee-name');
+                openProposalModal(employeeId, employeeName);
+            });
+        });
+
+        // Handle cancel proposal buttons
+        const cancelButtons = document.querySelectorAll('.cancel-proposal-btn');
+        cancelButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const assignmentId = this.getAttribute('data-assignment-id');
+                const employeeName = this.getAttribute('data-employee-name');
+
+                if (confirm('Cancel proposal for ' + employeeName + '?')) {
+                    fetch('/ui/resource-planner/assignment/' + assignmentId + '/cancel', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        }
+                    }).then(response => {
+                        if (response.ok) {
+                            location.reload();
+                        } else {
+                            alert('Failed to cancel proposal');
+                        }
+                    }).catch(error => {
+                        console.error('Error:', error);
+                        alert('Failed to cancel proposal');
+                    });
+                }
+            });
+        });
+    });
+</script>
+</body>
+</html>
