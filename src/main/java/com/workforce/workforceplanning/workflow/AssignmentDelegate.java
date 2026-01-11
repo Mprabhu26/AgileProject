@@ -63,7 +63,7 @@ public class AssignmentDelegate implements JavaDelegate {
             log.info("Project ID from workflow: {}", projectId);
 
             // 2. Get approved employee IDs
-            Object employeeIdsObj = execution.getVariable("approvedEmployeeIds");
+            Object employeeIdsObj = execution.getVariable("proposedEmployeeIds");
             List<Long> employeeIds = parseEmployeeIds(employeeIdsObj);
             log.info("Employee IDs from workflow: {}", employeeIds);
 
@@ -86,14 +86,24 @@ public class AssignmentDelegate implements JavaDelegate {
                             return new RuntimeException("Employee not found: " + employeeId);
                         });
 
-                // ✅ USE VALIDATION SERVICE (replaces the old duplicate check)
-                AssignmentValidationService.ValidationResult validation =
-                        validationService.canAssignEmployeeToProject(projectId, employeeId);
+                // Check if already assigned
+                boolean alreadyAssigned = assignmentRepository.findAll().stream()
+                        .anyMatch(a -> a.getProject() != null &&
+                                a.getProject().getId().equals(projectId) &&
+                                a.getEmployee() != null &&
+                                a.getEmployee().getId().equals(employeeId));
 
-                if (validation.isError()) {
-                    log.warn("⚠️ Skipping employee {}: {}", employee.getName(), validation.getMessage());
-                    skippedCount++;
-                    continue;
+                if (!alreadyAssigned) {
+                    // Create PENDING assignment (awaiting employee confirmation)
+                    Assignment assignment = new Assignment(project, employee, AssignmentStatus.PENDING);
+                    assignmentRepository.save(assignment);
+
+
+
+                    assignedCount++;
+                    log.info("✅ Assigned employee {} to project {}", employee.getName(), project.getName());
+                } else {
+                    log.info("⚠️ Employee {} already assigned to project {}", employee.getName(), project.getName());
                 }
 
                 // Only assign if validation passed
@@ -155,7 +165,18 @@ public class AssignmentDelegate implements JavaDelegate {
     @SuppressWarnings("unchecked")
     private List<Long> parseEmployeeIds(Object obj) {
         if (obj instanceof List) {
-            return (List<Long>) obj;
+            List<?> rawList = (List<?>) obj;
+            return rawList.stream()
+                    .map(item -> {
+                        if (item instanceof Number) {
+                            return ((Number) item).longValue();
+                        } else if (item != null) {
+                            return Long.parseLong(item.toString());
+                        }
+                        return null;
+                    })
+                    .filter(id -> id != null)
+                    .toList();
         } else if (obj != null) {
             log.warn("⚠️ employeeIds is not a List, type: {}", obj.getClass().getName());
         }
