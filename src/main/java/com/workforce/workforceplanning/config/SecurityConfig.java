@@ -97,4 +97,24 @@ public class SecurityConfig {
                         .build()
         );
     }
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+                .csrf(csrf -> csrf
+                        .ignoringRequestMatchers("/notifications/**")
+                )
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/notifications/**").authenticated()
+                        .anyRequest().authenticated()
+                )
+                .formLogin(form -> form
+                        .loginPage("/login")
+                        .permitAll()
+                )
+                .logout(logout -> logout.permitAll());
+
+        return http.build();
+    }
+
 }

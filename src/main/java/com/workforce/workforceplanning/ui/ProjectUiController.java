@@ -64,8 +64,10 @@ public class ProjectUiController {
 
         for (Project project : projects) {
             // Notification 1: Resource Planner found skill gaps
-            if (Boolean.TRUE.equals(project.getExternalSearchNeeded()) &&
-                    "AWAITING_PM_DECISION".equals(project.getWorkflowStatus())) {
+            if (Boolean.TRUE.equals(project.getExternalSearchNeeded())
+                    && "AWAITING_PM_DECISION".equals(project.getWorkflowStatus())
+                    && Boolean.FALSE.equals(project.getPmNotificationSeen())) {
+
 
                 Map<String, Object> notif = new HashMap<>();
                 notif.put("type", "rp_skill_gap_alert");
@@ -207,6 +209,7 @@ public class ProjectUiController {
             return "redirect:/ui/projects?error=Unauthorized+to+view+this+project";
         }
 
+
         // Get related data
         List<Assignment> assignments = assignmentRepository.findAll().stream()
                 .filter(a -> a.getProject().getId().equals(id))
@@ -271,6 +274,13 @@ public class ProjectUiController {
         model.addAttribute("hasSkillGaps", hasSkillGaps);
         model.addAttribute("skillGaps", skillGaps);
         model.addAttribute("externalSearchNotes", externalSearchNotes);
+
+        // ✅ Mark PM notification as seen
+        if (Boolean.FALSE.equals(project.getPmNotificationSeen())) {
+            project.setPmNotificationSeen(true);
+            projectRepository.save(project);
+        }
+
 
         return "projects/view";
     }

@@ -84,6 +84,17 @@ public class Project {
     @Column(name = "external_search_completed_at")
     private LocalDateTime externalSearchCompletedAt;
 
+    @Column(nullable = false)
+    private Boolean pmNotificationSeen = false;
+    public Boolean getPmNotificationSeen() {
+        return pmNotificationSeen;
+    }
+
+    public void setPmNotificationSeen(Boolean pmNotificationSeen) {
+        this.pmNotificationSeen = pmNotificationSeen;
+    }
+
+
     // ===== Constructors =====
     public Project() {}
 
