@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Approval History</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .history-header {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        .stats-card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: transform 0.3s;
+        }
+        .stats-card:hover {
+            transform: translateY(-3px);
+        }
+        .history-item {
+            border-left: 4px solid #6c757d;
+            padding-left: 1rem;
+            margin-bottom: 1.5rem;
+            transition: all 0.3s;
+        }
+        .history-item:hover {
+            border-left-color: #0d6efd;
+            background-color: #f8f9fa;
+            padding-left: 1.5rem;
+        }
+        .history-item.approved {
+            border-left-color: #198754;
+        }
+        .history-item.rejected {
+            border-left-color: #dc3545;
+        }
+        .filter-badge {
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .filter-badge.active {
+            transform: scale(1.05);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .pagination .page-link {
+            border-radius: 5px;
+            margin: 0 2px;
+        }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/ui/department-head/dashboard">
+            <i class="fas fa-arrow-left me-2"></i>
+            Back to Dashboard
+        </a>
+        <div class="navbar-text text-light">
+            <i class="fas fa-user-tie me-1"></i>
+            <strong th:text="${username}">Department Head</strong>
+        </div>
+    </div>
+</nav>
+
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="history-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="display-6 mb-3">
+                    <i class="fas fa-history me-2"></i>Approval History
+                </h1>
+                <p class="lead mb-0">
+                    Review your past project approval decisions and track department activities.
+                </p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <div class="btn-group">
+                    <button class="btn btn-outline-light dropdown-toggle" type="button"
+                            data-bs-toggle="dropdown">
+                        <i class="fas fa-download me-2"></i>Export
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-file-excel me-2"></i>Excel</a></li>
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-file-pdf me-2"></i>PDF</a></li>
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-file-csv me-2"></i>CSV</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Total Decisions</h6>
+                            <h2 class="card-title" th:text="${totalApprovals}">0</h2>
+                        </div>
+                        <i class="fas fa-chart-bar fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Approved</h6>
+                            <h2 class="card-title" th:text="${approvedCount}">0</h2>
+                        </div>
+                        <i class="fas fa-check-circle fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card bg-danger text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Rejected</h6>
+                            <h2 class="card-title" th:text="${rejectedCount}">0</h2>
+                        </div>
+                        <i class="fas fa-times-circle fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Approval Rate</h6>
+                            <h2 class="card-title"
+                                th:text="${totalApprovals > 0 ? (approvedCount * 100 / totalApprovals) : 0} + '%'">
+                                0%
+                            </h2>
+                        </div>
+                        <i class="fas fa-percentage fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="card-title mb-3">
+                <i class="fas fa-filter me-2"></i>Filter Decisions
+            </h5>
+            <div class="d-flex flex-wrap gap-2">
+                    <span class="badge bg-primary filter-badge active" data-filter="all">
+                        All <span class="badge bg-light text-dark" th:text="${totalApprovals}">0</span>
+                    </span>
+                <span class="badge bg-success filter-badge" data-filter="approved">
+                        Approved <span class="badge bg-light text-dark" th:text="${approvedCount}">0</span>
+                    </span>
+                <span class="badge bg-danger filter-badge" data-filter="rejected">
+                        Rejected <span class="badge bg-light text-dark" th:text="${rejectedCount}">0</span>
+                    </span>
+                <span class="badge bg-warning filter-badge" data-filter="last-week">
+                        Last 7 Days
+                    </span>
+                <span class="badge bg-info filter-badge" data-filter="last-month">
+                        Last 30 Days
+                    </span>
+            </div>
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <label for="dateFrom" class="form-label">From Date</label>
+                    <input type="date" class="form-control" id="dateFrom">
+                </div>
+                <div class="col-md-6">
+                    <label for="dateTo" class="form-label">To Date</label>
+                    <input type="date" class="form-control" id="dateTo">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- History List -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-white">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-list-ol me-2"></i>
+                Decision History
+                <span class="badge bg-secondary ms-2" th:text="${completedTasks != null ? completedTasks.size() : 0}">
+                        0
+                    </span>
+            </h5>
+        </div>
+        <div class="card-body">
+            <!-- Empty State -->
+            <div th:if="${historyWithStatus == null or historyWithStatus.size() == 0}" class="text-center py-5">
+                <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                <h4 class="text-muted">No History Available</h4>
+                <p class="text-muted">You haven't made any approval decisions yet.</p>
+                <a href="/ui/department-head/dashboard" class="btn btn-primary">
+                    <i class="fas fa-tasks me-2"></i>Go to Dashboard
+                </a>
+            </div>
+
+            <!-- History Items -->
+            <div th:unless="${historyWithStatus == null or historyWithStatus.size() == 0}">
+                <div th:each="row : ${historyWithStatus}"
+                     th:classappend="${row.approved} ? 'history-item approved' : 'history-item rejected'"
+                     class="history-item">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h6 class="mb-1">
+                                <i class="fas"
+                                   th:classappend="${row.approved} ? 'fa-check-circle text-success' : 'fa-times-circle text-danger'">
+                                </i>
+                                <span th:text="${row.task.name}"></span>
+                            </h6>
+                            <p class="text-muted small mb-1">
+                                <i class="fas fa-calendar-alt me-1"></i>
+                                Completed:
+                                <span th:text="${#dates.format(row.task.endTime, 'MMM dd, yyyy HH:mm:ss')}">
+                                    Jan 01, 2024 10:00:00
+                                </span>
+                                <span class="mx-2">•</span>
+                                Duration:
+                                <span th:if="${row.task.durationInMillis != null}"
+                                      th:text="${(row.task.durationInMillis / 1000) + ' seconds'}">
+                                        30 seconds
+                                </span>
+                            </p>
+                            <p class="text-muted small mb-0">
+                                <i class="fas fa-user me-1"></i>
+                                Task ID: <code th:text="${row.task.id}">TASK_123</code>
+                                <span class="mx-2">•</span>
+                                Process: <code th:text="${row.task.processInstanceId}">PROC_123</code>
+                            </p>
+                            <div th:if="${!row.approved}" class="mt-2">
+                                <span class="badge bg-danger">Rejected</span>
+                            </div>
+
+                            <div th:if="${row.approved}" class="mt-2">
+                                <span class="badge bg-success">Approved</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-md-end mt-2 mt-md-0">
+                            <button class="btn btn-outline-primary btn-sm"
+                                    data-bs-toggle="collapse"
+                                    th:data-bs-target="'#details-' + ${row.task.id}">
+                                <i class="fas fa-chevron-down me-1"></i>Details
+                            </button>
+                            <a href="#" class="btn btn-outline-info btn-sm">
+                                <i class="fas fa-external-link-alt me-1"></i>View Project
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Collapsible Details -->
+                    <div class="collapse mt-3" th:id="'details-' + ${row.task.id}">
+                        <div class="card card-body bg-light">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>Task Information</h6>
+                                    <p class="small mb-1">
+                                        <strong>Start Time:</strong>
+                                        <span th:text="${#dates.format(row.task.startTime, 'MMM dd, yyyy HH:mm:ss')}">
+                                                Jan 01, 2024 10:00:00
+                                            </span>
+                                    </p>
+                                    <p class="small mb-1">
+                                        <strong>Assignee:</strong>
+                                        <span th:text="${row.task.assignee != null ? row.task.assignee : 'Unassigned'}">
+                                                Department Head
+                                            </span>
+                                    </p>
+                                    <p class="small mb-0">
+                                        <strong>Owner:</strong>
+                                        <span th:text="${row.task.owner != null ? row.task.owner : 'System'}">
+                                                System
+                                            </span>
+                                    </p>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>Additional Info</h6>
+                                    <p class="small mb-1">
+                                        <strong>Task Definition Key:</strong>
+                                        <code th:text="${row.task.taskDefinitionKey}">departmentApprovalTask</code>
+                                    </p>
+                                    <p class="small mb-0">
+                                        <strong>Description:</strong>
+                                        <span th:text="${row.task.description != null ? row.task.description : 'No description'}">
+                                                Department Head approval task
+                                            </span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            <div th:if="${completedTasks != null and completedTasks.size() > 0}" class="mt-4">
+                <nav aria-label="History pagination">
+                    <ul class="pagination justify-content-center">
+                        <li class="page-item disabled">
+                            <a class="page-link" href="#" tabindex="-1">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                        <li class="page-item"><a class="page-link" href="#">2</a></li>
+                        <li class="page-item"><a class="page-link" href="#">3</a></li>
+                        <li class="page-item">
+                            <a class="page-link" href="#">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Summary -->
+    <div class="card shadow-sm mt-4">
+        <div class="card-body">
+            <h5 class="card-title">
+                <i class="fas fa-chart-pie me-2"></i>Monthly Summary
+            </h5>
+            <div class="row">
+                <div class="col-md-8">
+                    <canvas id="approvalChart" width="400" height="200"></canvas>
+                </div>
+                <div class="col-md-4">
+                    <div class="list-group">
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between">
+                                <span>January</span>
+                                <span class="badge bg-success rounded-pill">12</span>
+                            </div>
+                        </div>
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between">
+                                <span>February</span>
+                                <span class="badge bg-success rounded-pill">8</span>
+                            </div>
+                        </div>
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between">
+                                <span>March</span>
+                                <span class="badge bg-success rounded-pill">15</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Footer -->
+<footer class="mt-5 py-3 bg-dark text-white text-center">
+    <div class="container">
+        <p class="mb-0">
+            <i class="fas fa-history me-2"></i>
+            Approval History Dashboard
+            <span class="mx-2">•</span>
+            Last updated: <span th:text="${#dates.createNow()}">Today</span>
+        </p>
+    </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    // Filter functionality
+    document.querySelectorAll('.filter-badge').forEach(badge => {
+        badge.addEventListener('click', function() {
+            document.querySelectorAll('.filter-badge').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+
+            const filter = this.dataset.filter;
+            filterHistory(filter);
+        });
+    });
+
+    function filterHistory(filter) {
+        const items = document.querySelectorAll('.history-item');
+        items.forEach(item => {
+            const isApproved = item.classList.contains('approved');
+            const isRejected = item.classList.contains('rejected');
+
+            switch(filter) {
+                case 'all':
+                    item.style.display = 'block';
+                    break;
+                case 'approved':
+                    item.style.display = isApproved ? 'block' : 'none';
+                    break;
+                case 'rejected':
+                    item.style.display = isRejected ? 'block' : 'none';
+                    break;
+                default:
+                    item.style.display = 'block';
+            }
+        });
+    }
+
+    // Chart.js for approval statistics
+    const ctx = document.getElementById('approvalChart');
+    if (ctx) {
+        new Chart(ctx.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Approved', 'Rejected'],
+                datasets: [{
+                    data: [
+                        document.querySelector('.bg-success .card-title').textContent.replace('%', ''),
+                        document.querySelector('.bg-danger .card-title').textContent
+                    ],
+                    backgroundColor: [
+                        '#198754',
+                        '#dc3545'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    }
+
+    // Set date inputs to reasonable defaults
+    document.addEventListener('DOMContentLoaded', function() {
+        const today = new Date();
+        const lastMonth = new Date(today);
+        lastMonth.setMonth(lastMonth.getMonth() - 1);
+
+        document.getElementById('dateFrom').value = lastMonth.toISOString().split('T')[0];
+        document.getElementById('dateTo').value = today.toISOString().split('T')[0];
+    });
+</script>
+</body>
+</html>
