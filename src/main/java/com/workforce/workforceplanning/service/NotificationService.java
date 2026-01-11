@@ -5,16 +5,25 @@ import com.workforce.workforceplanning.model.Project;
 import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.time.LocalDateTime;
 import java.util.Map;
+import com.workforce.workforceplanning.model.Notification;
+import com.workforce.workforceplanning.repository.NotificationRepository;
+
+
 
 @Service
 public class NotificationService {
+    private final NotificationRepository notificationRepository;
 
     private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
 
-    public NotificationService() {
-        // Simple constructor - no repository needed
+
+    public NotificationService(NotificationRepository notificationRepository) {
+        this.notificationRepository = notificationRepository;
     }
+
 
     public void sendSkillGapNotification(Project project, Map<String, Integer> criticalGaps) {
         String projectManagerUsername = project.getCreatedBy();
@@ -69,15 +78,19 @@ public class NotificationService {
 
     private void logNotification(String username, String title, String message,
                                  String type, Long projectId) {
-        // Simple logging - replace with actual notification system if needed
-        log.info("📝 Notification logged:");
-        log.info("  Username: {}", username);
-        log.info("  Title: {}", title);
-        log.info("  Message: {}", message);
-        log.info("  Type: {}", type);
-        log.info("  Project ID: {}", projectId);
-        log.info("  Timestamp: {}", java.time.LocalDateTime.now());
+
+        Notification notification = new Notification();
+        notification.setUsername(username);
+        notification.setTitle(title);
+        notification.setMessage(message);
+        notification.setType(type);
+        notification.setProjectId(projectId);
+
+        notificationRepository.save(notification);
+
+        log.info("📝 Notification saved for user: {}", username);
     }
+
 
     /**
      * Get user email by username (simplified for your SecurityConfig users)
