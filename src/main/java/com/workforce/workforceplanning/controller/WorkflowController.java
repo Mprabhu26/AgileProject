@@ -79,7 +79,7 @@ public class WorkflowController {
     public ResponseEntity<List<Map<String, Object>>> getTasksByRole(@PathVariable String role) {
 
         List<Task> tasks = taskService.createTaskQuery()
-                .taskAssignee(role)  // Gets tasks assigned to this role
+                .taskCandidateGroup(role)  // Gets tasks assigned to this role
                 .active()
                 .list();
 

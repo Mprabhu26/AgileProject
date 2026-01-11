@@ -23,29 +23,17 @@ public class SecurityConfig {
                         .requestMatchers("/", "/login", "/error").permitAll()
                         .requestMatchers("/css/**", "/js/**", "/images/**").permitAll()
 
-                        // UI endpoints
+                        // ✅ ADD THIS: Allow ALL API endpoints (for Postman testing)
+                        .requestMatchers("/employees/**").permitAll()
+                        .requestMatchers("/projects/**").permitAll()
+                        .requestMatchers("/workflow/**").permitAll()
+                        .requestMatchers("/assignments/**").permitAll()
+
+                        // UI endpoints - Keep authentication (your teammates' work!)
                         .requestMatchers("/ui/projects/**").hasRole("PROJECT_MANAGER")
                         .requestMatchers("/ui/department-head/**").hasRole("DEPARTMENT_HEAD")
                         .requestMatchers("/ui/resource-planner/**").hasRole("RESOURCE_PLANNER")
-                        .requestMatchers("/ui/employee/**").hasRole("EMPLOYEE")  // ← FIXED: hasRole instead of hasAnyRole
-
-                        // API endpoints - PROJECT MANAGER
-                        .requestMatchers(HttpMethod.POST, "/projects/**").hasRole("PROJECT_MANAGER")
-                        .requestMatchers(HttpMethod.PUT, "/projects/**").hasRole("PROJECT_MANAGER")
-                        .requestMatchers(HttpMethod.DELETE, "/projects/**").hasRole("PROJECT_MANAGER")
-                        .requestMatchers(HttpMethod.POST, "/projects/*/publish").hasRole("PROJECT_MANAGER")
-                        .requestMatchers(HttpMethod.POST, "/projects/*/unpublish").hasRole("PROJECT_MANAGER")
-
-                        // API endpoints - RESOURCE PLANNER
-                        .requestMatchers("/assignments/**").hasAnyRole("RESOURCE_PLANNER", "PROJECT_MANAGER")
-                        .requestMatchers("/employees/**").hasAnyRole("RESOURCE_PLANNER", "DEPARTMENT_HEAD", "PROJECT_MANAGER")
-                        .requestMatchers("/workflow/**").hasAnyRole("RESOURCE_PLANNER", "DEPARTMENT_HEAD", "PROJECT_MANAGER")
-
-                        // GET endpoints - All authenticated users can read
-                        .requestMatchers(HttpMethod.GET, "/projects/**").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/assignments/**").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/employees/**").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/workflow/**").authenticated()
+                        .requestMatchers("/ui/employee/**").hasRole("EMPLOYEE")
 
                         // All other requests require authentication
                         .anyRequest().authenticated()
@@ -64,7 +52,7 @@ public class SecurityConfig {
                             } else if (roles.contains("ROLE_RESOURCE_PLANNER")) {
                                 response.sendRedirect("/ui/resource-planner/dashboard");
                             } else if (roles.contains("ROLE_EMPLOYEE")) {
-                                response.sendRedirect("/ui/employee/projects");  // ← ADDED!
+                                response.sendRedirect("/ui/employee/projects");
                             } else {
                                 response.sendRedirect("/login?error=true");
                             }

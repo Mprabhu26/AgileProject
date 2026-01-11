@@ -3,7 +3,6 @@ package com.workforce.workforceplanning.repository;
 import com.workforce.workforceplanning.model.Application;
 import com.workforce.workforceplanning.model.ApplicationStatus;
 import com.workforce.workforceplanning.model.Assignment;
-import com.workforce.workforceplanning.model.AssignmentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -35,7 +34,7 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
     long countByProjectIdAndStatus(Long projectId, ApplicationStatus status);
 
     // Find assignments by status
-    List<Assignment> findByStatus(AssignmentStatus status);
+    List<Application> findByStatus(ApplicationStatus status);
 
 
     // Check if employee is assigned to project
