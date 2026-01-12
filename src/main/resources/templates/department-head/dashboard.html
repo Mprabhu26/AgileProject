@@ -134,7 +134,7 @@
                 <span class="ms-2 badge bg-info">Department Head</span>
             </div>
 
-            <a href="/ui/employees" class="btn btn-view-employees">
+            <a href="/ui/resource-planner/employees" class="btn btn-view-employees">
                 <i class="fas fa-users"></i> View All Employees
             </a>
             <button type="button" class="btn btn-outline-light btn-sm logout-btn" data-bs-toggle="modal" data-bs-target="#logoutModal">
@@ -227,23 +227,23 @@
         <!-- Left Column - Pending Items -->
         <div class="col-lg-8 mb-4">
 
-            <!-- Published Projects (Non-Workflow) -->
+            <!-- Published Projects Awaiting Approval -->
             <div th:if="${publishedProjects != null and !publishedProjects.isEmpty()}" class="card shadow-sm mb-4">
                 <div class="card-header bg-white border-bottom-0 pb-0">
                     <h5 class="card-title mb-0">
-                        <i class="fas fa-paper-plane text-success me-2"></i>
-                        Recently Published Projects
-                        <span class="badge bg-success ms-2" th:text="${publishedProjectsCount}">0</span>
+                        <i class="fas fa-paper-plane text-warning me-2"></i>
+                        Published Projects Awaiting Approval
+                        <span class="badge bg-warning ms-2" th:text="${publishedProjectsCount}">0</span>
                     </h5>
-                    <p class="text-muted small mb-0 mt-2">Projects published by Project Managers - ready for review</p>
+                    <p class="text-muted small mb-0 mt-2">Projects published by Project Managers - require your approval</p>
                 </div>
                 <div class="card-body">
-                    <div th:each="project : ${publishedProjects}" class="card project-card shadow-sm">
+                    <div th:each="project : ${publishedProjects}" class="card project-card shadow-sm mb-3" style="border-left: 4px solid #f59e0b;">
                         <div class="card-body">
                             <div class="row align-items-center">
-                                <div class="col-md-8">
+                                <div class="col-md-7">
                                     <h6 class="card-title mb-1">
-                                        <i class="fas fa-project-diagram me-2 text-success"></i>
+                                        <i class="fas fa-project-diagram me-2 text-warning"></i>
                                         <span th:text="${project.name}">Project Name</span>
                                     </h6>
                                     <p class="card-text text-muted small mb-2" th:text="${project.description}">
@@ -257,12 +257,34 @@
                                         <span th:text="${#temporals.format(project.publishedAt, 'MMM dd, yyyy HH:mm')}">Jan 12, 2026</span>
                                     </p>
                                 </div>
-                                <div class="col-md-4 text-md-end mt-3 mt-md-0">
-                                    <span class="badge bg-success mb-2 d-block">PUBLISHED</span>
-                                    <a th:href="@{'/ui/projects/' + ${project.id}}"
-                                       class="btn btn-primary btn-sm">
-                                        <i class="fas fa-eye me-1"></i>Review Project
-                                    </a>
+                                <div class="col-md-5 text-md-end mt-3 mt-md-0">
+                                    <span class="badge bg-warning mb-2 d-block">AWAITING APPROVAL</span>
+                                    <div class="d-grid gap-2 d-md-block">
+                                        <a th:href="@{'/ui/department-head/projects/' + ${project.id}}"
+                                           class="btn btn-primary btn-sm mb-1">
+                                            <i class="fas fa-eye me-1"></i>Review
+                                        </a>
+                                        <form th:action="@{'/ui/department-head/projects/' + ${project.id} + '/approve'}"
+                                              method="post" class="d-inline">
+                                            <input type="hidden" th:if="${_csrf != null}"
+                                                   th:name="${_csrf.parameterName}"
+                                                   th:value="${_csrf.token}"/>
+                                            <button type="submit" class="btn btn-success btn-sm mb-1"
+                                                    onclick="return confirm('Approve this project? It will be available for staffing.')">
+                                                <i class="fas fa-check me-1"></i>Approve
+                                            </button>
+                                        </form>
+                                        <form th:action="@{'/ui/department-head/projects/' + ${project.id} + '/reject'}"
+                                              method="post" class="d-inline">
+                                            <input type="hidden" th:if="${_csrf != null}"
+                                                   th:name="${_csrf.parameterName}"
+                                                   th:value="${_csrf.token}"/>
+                                            <button type="submit" class="btn btn-danger btn-sm mb-1"
+                                                    onclick="return confirm('Reject this project? It will be unpublished and sent back to the PM.')">
+                                                <i class="fas fa-times me-1"></i>Reject
+                                            </button>
+                                        </form>
+                                    </div>
                                 </div>
                             </div>
                         </div>

@@ -26,6 +26,7 @@ public class SecurityConfig {
                         .requestMatchers("/", "/login", "/register", "/css/**", "/js/**", "/images/**", "/error").permitAll()
                         .requestMatchers("/ui/project-manager/**").hasRole("PROJECT_MANAGER")
                         .requestMatchers("/ui/department-head/**").hasRole("DEPARTMENT_HEAD")
+                        .requestMatchers("/ui/department-head/**").hasAuthority("DEPARTMENT_HEAD")
                         .requestMatchers("/ui/resource-planner/**").hasRole("RESOURCE_PLANNER")
                         .requestMatchers("/ui/employee/**").hasRole("EMPLOYEE")
                         .requestMatchers("/ui/employees/**").hasAnyRole("DEPARTMENT_HEAD", "RESOURCE_PLANNER")

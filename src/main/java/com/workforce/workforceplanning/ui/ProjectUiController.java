@@ -185,8 +185,9 @@ public class ProjectUiController {
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Project not found"));
 
-        // Check if user owns the project
-        if (!project.getCreatedBy().equals(username)) {
+        // ✅ SIMPLE FIX: Check ownership or if published
+        // Department Head and Resource Planner can view published projects
+        if (!project.getCreatedBy().equals(username) && !Boolean.TRUE.equals(project.getPublished())) {
             return "redirect:/ui/projects?error=Unauthorized+to+view+this+project";
         }
 
@@ -429,20 +430,18 @@ public class ProjectUiController {
                 return "redirect:/ui/projects/" + id;
             }
 
-            // Publish the project
+            // ✅ FIX: Publish but keep PENDING for Department Head approval
             project.setPublished(true);
             project.setPublishedAt(LocalDateTime.now());
-            project.setVisibleToAll(true);
-            project.setStatus(ProjectStatus.APPROVED);
-
-            // ✅ Set workflow status to NONE (no workflow needed for simple publish)
-            project.setWorkflowStatus("NONE");
+            project.setVisibleToAll(false);  // ✅ Not visible until approved
+            project.setStatus(ProjectStatus.PENDING);  // ✅ PENDING, not APPROVED
+            project.setWorkflowStatus("AWAITING_DEPARTMENT_HEAD_APPROVAL");  // ✅ Set workflow
 
             projectRepository.save(project);
 
             redirectAttributes.addFlashAttribute("successMessage",
                     "✅ Project '" + project.getName() + "' published successfully! " +
-                            "Employees can now view and apply. Department Head can review if needed.");
+                            "Awaiting Department Head approval.");
 
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("errorMessage",
