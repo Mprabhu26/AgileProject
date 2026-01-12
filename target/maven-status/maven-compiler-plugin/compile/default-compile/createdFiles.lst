@@ -14,10 +14,12 @@ com\workforce\workforceplanning\workflow\ProjectApprovalDelegate.class
 com\workforce\workforceplanning\model\AssignmentStatus.class
 com\workforce\workforceplanning\dto\CreateProjectRequest.class
 com\workforce\workforceplanning\ui\ResourcePlannerUIController$StaffingInfo.class
+com\workforce\workforceplanning\repository\NotificationRepository.class
 com\workforce\workforceplanning\service\AssignmentValidationService.class
 com\workforce\workforceplanning\workflow\AssignmentDelegate.class
 com\workforce\workforceplanning\service\NotificationService.class
 com\workforce\workforceplanning\workflow\ProjectCompletionDelegate.class
+com\workforce\workforceplanning\controller\NotificationController.class
 com\workforce\workforceplanning\repository\EmployeeRepository.class
 com\workforce\workforceplanning\config\DataInitializer.class
 com\workforce\workforceplanning\repository\ApplicationRepository.class
@@ -38,6 +40,7 @@ com\workforce\workforceplanning\ui\ProjectUiController.class
 com\workforce\workforceplanning\model\ApplicationStatus.class
 com\workforce\workforceplanning\service\AssignmentService.class
 com\workforce\workforceplanning\ui\ResourcePlannerUIController.class
+com\workforce\workforceplanning\model\Notification.class
 com\workforce\workforceplanning\service\UserService.class
 com\workforce\workforceplanning\workflow\ExternalSearchApprovalDelegate.class
 com\workforce\workforceplanning\model\Employee.class
