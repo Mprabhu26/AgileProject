@@ -63,8 +63,12 @@ public class ProjectUiController {
         List<Map<String, Object>> notifications = new ArrayList<>();
 
         for (Project project : projects) {
-            // Only add notifications for specific workflow statuses
-            if (Boolean.TRUE.equals(project.getExternalSearchNeeded())) {
+            // Notification 1: Resource Planner found skill gaps
+            if (Boolean.TRUE.equals(project.getExternalSearchNeeded())
+                    && "AWAITING_PM_DECISION".equals(project.getWorkflowStatus())
+                    && Boolean.FALSE.equals(project.getPmNotificationSeen())) {
+
+
                 Map<String, Object> notif = new HashMap<>();
                 notif.put("id", project.getId()); // ✅ Always set ID
                 notif.put("projectId", project.getId());
@@ -191,6 +195,7 @@ public class ProjectUiController {
             return "redirect:/ui/projects?error=Unauthorized+to+view+this+project";
         }
 
+
         // Get related data
         List<Assignment> assignments = assignmentRepository.findAll().stream()
                 .filter(a -> a.getProject().getId().equals(id))
@@ -255,6 +260,13 @@ public class ProjectUiController {
         model.addAttribute("hasSkillGaps", hasSkillGaps);
         model.addAttribute("skillGaps", skillGaps);
         model.addAttribute("externalSearchNotes", externalSearchNotes);
+
+        // ✅ Mark PM notification as seen
+        if (Boolean.FALSE.equals(project.getPmNotificationSeen())) {
+            project.setPmNotificationSeen(true);
+            projectRepository.save(project);
+        }
+
 
         return "projects/view";
     }

@@ -85,40 +85,17 @@ public class Project {
     @Column(name = "external_search_completed_at")
     private LocalDateTime externalSearchCompletedAt;
 
-    // ===== Department Head Approval Fields =====
-    @Column(name = "approved_at")
-    private LocalDateTime approvedAt;
+    @Column(name="pm_notification_seen", nullable = false)
+    private Boolean pmNotificationSeen = false;
 
-    @Column(name = "approved_by")
-    private String approvedBy;
-
-    @Column(name = "approval_comments", length = 1000)
-    private String approvalComments;
-
-    // Getters and Setters
-    public LocalDateTime getApprovedAt() {
-        return approvedAt;
+    public Boolean getPmNotificationSeen() {
+        return pmNotificationSeen;
     }
 
-    public void setApprovedAt(LocalDateTime approvedAt) {
-        this.approvedAt = approvedAt;
+    public void setPmNotificationSeen(Boolean pmNotificationSeen) {
+        this.pmNotificationSeen = pmNotificationSeen;
     }
 
-    public String getApprovedBy() {
-        return approvedBy;
-    }
-
-    public void setApprovedBy(String approvedBy) {
-        this.approvedBy = approvedBy;
-    }
-
-    public String getApprovalComments() {
-        return approvalComments;
-    }
-
-    public void setApprovalComments(String approvalComments) {
-        this.approvalComments = approvalComments;
-    }
 
     // ===== Constructors =====
     public Project() {}
