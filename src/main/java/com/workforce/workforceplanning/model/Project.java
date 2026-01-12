@@ -84,8 +84,9 @@ public class Project {
     @Column(name = "external_search_completed_at")
     private LocalDateTime externalSearchCompletedAt;
 
-    @Column(nullable = false)
+    @Column(name="pm_notification_seen", nullable = false)
     private Boolean pmNotificationSeen = false;
+
     public Boolean getPmNotificationSeen() {
         return pmNotificationSeen;
     }
