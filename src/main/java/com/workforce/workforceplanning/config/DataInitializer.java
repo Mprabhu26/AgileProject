@@ -76,6 +76,7 @@ public class DataInitializer implements CommandLineRunner {
         bankingProject.setCreatedBy("pm"); // FIXED: Added created_by
         bankingProject.setPublished(true); // FIXED: Set as published
         bankingProject.setVisibleToAll(true); // FIXED: Set visible
+        bankingProject.setPmNotificationSeen(false);
 
         // FIXED: Properly create and add skill requirements
         ProjectSkillRequirement req1 = new ProjectSkillRequirement(bankingProject, "Java", 2);
@@ -103,6 +104,7 @@ public class DataInitializer implements CommandLineRunner {
         iotProject.setCreatedBy("pm"); // FIXED: Added created_by
         iotProject.setPublished(false); // FIXED: Not published
         iotProject.setVisibleToAll(false); // FIXED: Not visible
+        iotProject.setPmNotificationSeen(false);
 
         ProjectSkillRequirement req4 = new ProjectSkillRequirement(iotProject, "Java", 2);
         ProjectSkillRequirement req5 = new ProjectSkillRequirement(iotProject, "Python", 1);
@@ -129,6 +131,7 @@ public class DataInitializer implements CommandLineRunner {
         mobileProject.setCreatedBy("pm");
         mobileProject.setPublished(true);
         mobileProject.setVisibleToAll(true);
+        mobileProject.setPmNotificationSeen(false);
 
         ProjectSkillRequirement req7 = new ProjectSkillRequirement(mobileProject, "React Native", 2);
         ProjectSkillRequirement req8 = new ProjectSkillRequirement(mobileProject, "Java", 1);
