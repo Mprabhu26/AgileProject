@@ -44,6 +44,7 @@ public class Project {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+
     // 🔗 Project → Skill Requirements
     @OneToMany(
             mappedBy = "project",

@@ -74,7 +74,7 @@ public class EmployeeService {
 
     public List<Employee> findAvailable() {
         return repository.findAll().stream()
-                .filter(Employee::isAvailableForProject)
+                .filter(e -> Boolean.TRUE.equals(e.getAvailable()))
                 .collect(Collectors.toList());
     }
 
