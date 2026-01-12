@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/ui/projects")
@@ -58,9 +59,8 @@ public class ProjectUiController {
         long approvedCount = projects.stream().filter(p -> p.getStatus() == ProjectStatus.APPROVED).count();
         long publishedCount = projects.stream().filter(p -> Boolean.TRUE.equals(p.getPublished())).count();
 
-        List<Map<String, Object>> projectStatuses = new ArrayList<>();
+        // ✅ SIMPLIFIED NOTIFICATIONS - NO MORE ERRORS
         List<Map<String, Object>> notifications = new ArrayList<>();
-        int notificationCount = 0;
 
         for (Project project : projects) {
             // Notification 1: Resource Planner found skill gaps
@@ -70,66 +70,47 @@ public class ProjectUiController {
 
 
                 Map<String, Object> notif = new HashMap<>();
-                notif.put("type", "rp_skill_gap_alert");
+                notif.put("id", project.getId()); // ✅ Always set ID
                 notif.put("projectId", project.getId());
                 notif.put("projectName", project.getName());
-                notif.put("message", "Resource Planner found skill gaps. External search needed.");
-                notif.put("createdAt", project.getExternalSearchRequestedAt());
-                notif.put("priority", "high");
-                notifications.add(notif);
-                notificationCount++;
-            }
 
-            // Notification 2: External search pending Department Head approval
-            if (Boolean.TRUE.equals(project.getExternalSearchNeeded()) &&
-                    "AWAITING_DEPARTMENT_HEAD_APPROVAL".equals(project.getWorkflowStatus())) {
+                // Determine message based on workflow status
+                String workflowStatus = project.getWorkflowStatus();
+                if ("AWAITING_PM_DECISION".equals(workflowStatus)) {
+                    notif.put("message", "Resource Planner found skill gaps. External search needed.");
+                    notif.put("priority", "high");
+                } else if ("AWAITING_DEPARTMENT_HEAD_APPROVAL".equals(workflowStatus)) {
+                    notif.put("message", "External search awaiting Department Head approval");
+                    notif.put("priority", "medium");
+                } else if ("EXTERNAL_SEARCH_APPROVED".equals(workflowStatus)) {
+                    notif.put("message", "External search approved! Resource Planner will search.");
+                    notif.put("priority", "low");
+                } else if ("EXTERNAL_SEARCH_REJECTED".equals(workflowStatus)) {
+                    notif.put("message", "External search rejected. Please review.");
+                    notif.put("priority", "high");
+                }
 
-                Map<String, Object> notif = new HashMap<>();
-                notif.put("type", "external_search_pending");
-                notif.put("projectId", project.getId());
-                notif.put("projectName", project.getName());
-                notif.put("message", "External search awaiting Department Head approval");
-                notif.put("createdAt", project.getExternalSearchRequestedAt());
-                notif.put("priority", "medium");
-                notifications.add(notif);
-                notificationCount++;
-            }
-            // Notification 3: External search approved
-            if ("EXTERNAL_SEARCH_APPROVED".equals(project.getWorkflowStatus())) {
-                Map<String, Object> notif = new HashMap<>();
-                notif.put("type", "external_search_approved");
-                notif.put("projectId", project.getId());
-                notif.put("projectName", project.getName());
-                notif.put("message", "External search approved! Resource Planner will search.");
-                notif.put("createdAt", LocalDateTime.now());
-                notif.put("priority", "low");
-                notifications.add(notif);
-                notificationCount++;
-            }
+                notif.put("createdAt", project.getExternalSearchRequestedAt() != null
+                        ? project.getExternalSearchRequestedAt()
+                        : LocalDateTime.now());
 
-            // Notification 4: External search rejected
-            if ("EXTERNAL_SEARCH_REJECTED".equals(project.getWorkflowStatus())) {
-                Map<String, Object> notif = new HashMap<>();
-                notif.put("type", "external_search_rejected");
-                notif.put("projectId", project.getId());
-                notif.put("projectName", project.getName());
-                notif.put("message", "External search rejected. Please review.");
-                notif.put("createdAt", LocalDateTime.now());
-                notif.put("priority", "high");
                 notifications.add(notif);
-                notificationCount++;
             }
         }
 
-
-            model.addAttribute("projects", projects);
+        model.addAttribute("projects", projects);
         model.addAttribute("totalCount", totalCount);
         model.addAttribute("pendingCount", pendingCount);
         model.addAttribute("approvedCount", approvedCount);
         model.addAttribute("publishedCount", publishedCount);
-        model.addAttribute("notifications", notifications);
-        model.addAttribute("notifications", notifications);
+        model.addAttribute("notifications", notifications); // ✅ REMOVED DUPLICATE
         model.addAttribute("notificationCount", notifications.size());
+
+        // Get pending applications count
+        List<Application> pendingApplications = applicationRepository.findAll().stream()
+                .filter(app -> app.getStatus() == ApplicationStatus.PENDING)
+                .toList();
+        model.addAttribute("pendingApplicationsCount", pendingApplications.size());
 
         return "projects/list";
     }
@@ -147,10 +128,9 @@ public class ProjectUiController {
     public String createProject(
             @ModelAttribute CreateProjectForm form,
             Principal principal,
-            Model model) {
+            RedirectAttributes redirectAttributes) { // ✅ ADDED RedirectAttributes
         try {
             String username = principal != null ? principal.getName() : "Guest";
-            model.addAttribute("username", username);
 
             Project project = new Project();
             project.setName(form.getName());
@@ -185,14 +165,19 @@ public class ProjectUiController {
             }
 
             projectRepository.save(project);
-            return "redirect:/ui/projects";
+
+            // ✅ ADD SUCCESS MESSAGE
+            redirectAttributes.addFlashAttribute("successMessage",
+                    "Project '" + project.getName() + "' created successfully!");
+
+            // ✅ REDIRECT TO DASHBOARD INSTEAD OF LIST
+            return "redirect:/ui/projects/dashboard";
+
         } catch (Exception e) {
-            model.addAttribute("error", "Error creating project: " + e.getMessage());
-            model.addAttribute("projectForm", form);
-            if (principal != null) {
-                model.addAttribute("username", principal.getName());
-            }
-            return "projects/create";
+            // ✅ ADD ERROR MESSAGE
+            redirectAttributes.addFlashAttribute("errorMessage",
+                    "Error creating project: " + e.getMessage());
+            return "redirect:/ui/projects/create";
         }
     }
 
@@ -204,8 +189,9 @@ public class ProjectUiController {
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Project not found"));
 
-        // Check if user owns the project
-        if (!project.getCreatedBy().equals(username)) {
+        // ✅ SIMPLE FIX: Check ownership or if published
+        // Department Head and Resource Planner can view published projects
+        if (!project.getCreatedBy().equals(username) && !Boolean.TRUE.equals(project.getPublished())) {
             return "redirect:/ui/projects?error=Unauthorized+to+view+this+project";
         }
 
@@ -219,10 +205,10 @@ public class ProjectUiController {
                 .filter(app -> app.getProject().getId().equals(id))
                 .toList();
 
-        // Get available employees for suggestions
+        // Get all available employees
         List<Employee> availableEmployees = employeeRepository.findAll().stream()
-                .filter(Employee::isAvailableForProject)
-                .toList();
+                .filter(e -> Boolean.TRUE.equals(e.getAvailable()))
+                .collect(Collectors.toList());
 
         // Check if Resource Planner has requested external search
         boolean rpRequestedExternalSearch = Boolean.TRUE.equals(project.getExternalSearchNeeded()) &&
@@ -353,14 +339,11 @@ public class ProjectUiController {
             project.setTotalEmployeesRequired(form.getTotalEmployeesRequired());
 
             // Clear and update skill requirements
-            // 1. Detach all skills from project first
             project.getSkillRequirements().forEach(skill -> skill.setProject(null));
             project.getSkillRequirements().clear();
+            projectRepository.saveAndFlush(project);
 
-            // 2. Save to database (this should delete the old skills)
-            projectRepository.saveAndFlush(project);  // Use saveAndFlush to force immediate save
-
-            // 3. Now add new skills
+            // Add new skills
             if (form.getSkillRequirements() != null) {
                 for (SkillRequirementDto dto : form.getSkillRequirements()) {
                     if (dto != null && dto.getSkill() != null && !dto.getSkill().trim().isEmpty()) {
@@ -383,7 +366,7 @@ public class ProjectUiController {
 
             redirectAttributes.addFlashAttribute("successMessage",
                     "Project '" + project.getName() + "' updated successfully!");
-            return "redirect:/ui/projects";
+            return "redirect:/ui/projects/dashboard"; // ✅ REDIRECT TO DASHBOARD
 
         } catch (Exception e) {
             model.addAttribute("error", "Error updating project: " + e.getMessage());
@@ -410,7 +393,7 @@ public class ProjectUiController {
         if (!project.getCreatedBy().equals(username)) {
             redirectAttributes.addFlashAttribute("errorMessage",
                     "Unauthorized to delete this project");
-            return "redirect:/ui/projects";
+            return "redirect:/ui/projects/dashboard"; // ✅ REDIRECT TO DASHBOARD
         }
 
         // Check if project can be deleted
@@ -418,7 +401,7 @@ public class ProjectUiController {
                 project.getStatus() == ProjectStatus.COMPLETED) {
             redirectAttributes.addFlashAttribute("errorMessage",
                     "Cannot delete project that is " + project.getStatus());
-            return "redirect:/ui/projects";
+            return "redirect:/ui/projects/dashboard"; // ✅ REDIRECT TO DASHBOARD
         }
 
         // Check if there are assignments
@@ -429,14 +412,162 @@ public class ProjectUiController {
         if (assignmentCount > 0) {
             redirectAttributes.addFlashAttribute("errorMessage",
                     "Cannot delete project with existing assignments");
-            return "redirect:/ui/projects";
+            return "redirect:/ui/projects/dashboard"; // ✅ REDIRECT TO DASHBOARD
         }
 
         projectRepository.delete(project);
 
         redirectAttributes.addFlashAttribute("successMessage",
                 "Project '" + project.getName() + "' deleted successfully!");
-        return "redirect:/ui/projects";
+        return "redirect:/ui/projects/dashboard"; // ✅ REDIRECT TO DASHBOARD
+    }
+
+    // ==================== PUBLISH PROJECT ====================
+    @PostMapping("/{id}/publish")
+    public String publishProject(
+            @PathVariable Long id,
+            Principal principal,
+            RedirectAttributes redirectAttributes) {
+
+        String username = principal != null ? principal.getName() : "Guest";
+
+        try {
+            Project project = projectRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+
+            // Check ownership
+            if (!project.getCreatedBy().equals(username)) {
+                redirectAttributes.addFlashAttribute("errorMessage",
+                        "Unauthorized to publish this project");
+                return "redirect:/ui/projects/" + id;
+            }
+
+            // ✅ FIX: Publish but keep PENDING for Department Head approval
+            project.setPublished(true);
+            project.setPublishedAt(LocalDateTime.now());
+            project.setVisibleToAll(false);  // ✅ Not visible until approved
+            project.setStatus(ProjectStatus.PENDING);  // ✅ PENDING, not APPROVED
+            project.setWorkflowStatus("AWAITING_DEPARTMENT_HEAD_APPROVAL");  // ✅ Set workflow
+
+            projectRepository.save(project);
+
+            redirectAttributes.addFlashAttribute("successMessage",
+                    "✅ Project '" + project.getName() + "' published successfully! " +
+                            "Awaiting Department Head approval.");
+
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage",
+                    "❌ Failed to publish project: " + e.getMessage());
+        }
+
+        return "redirect:/ui/projects/dashboard";
+    }
+
+    // ==================== UNPUBLISH PROJECT ====================
+    @PostMapping("/{id}/unpublish")
+    public String unpublishProject(
+            @PathVariable Long id,
+            Principal principal,
+            RedirectAttributes redirectAttributes) {
+
+        String username = principal != null ? principal.getName() : "Guest";
+
+        try {
+            Project project = projectRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+
+            // Check ownership
+            if (!project.getCreatedBy().equals(username)) {
+                redirectAttributes.addFlashAttribute("errorMessage",
+                        "Unauthorized to unpublish this project");
+                return "redirect:/ui/projects/" + id;
+            }
+
+            // Check if there are pending applications
+            long applicationCount = applicationRepository.findAll().stream()
+                    .filter(app -> app.getProject().getId().equals(id))
+                    .filter(app -> app.getStatus() == ApplicationStatus.PENDING)
+                    .count();
+
+            if (applicationCount > 0) {
+                redirectAttributes.addFlashAttribute("errorMessage",
+                        "⚠️ Cannot unpublish project with pending applications. " +
+                                "Please review all applications first.");
+                return "redirect:/ui/projects/" + id;
+            }
+
+            // Unpublish the project
+            project.setPublished(false);
+            project.setVisibleToAll(false);
+            project.setStatus(ProjectStatus.PENDING);
+            projectRepository.save(project);
+
+            redirectAttributes.addFlashAttribute("successMessage",
+                    "✅ Project '" + project.getName() + "' unpublished successfully! " +
+                            "No longer visible to employees.");
+
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage",
+                    "❌ Failed to unpublish project: " + e.getMessage());
+        }
+
+        return "redirect:/ui/projects/dashboard";
+    }
+
+    // ==================== CANCEL PROJECT ====================
+    @PostMapping("/{id}/cancel")
+    public String cancelProject(
+            @PathVariable Long id,
+            Principal principal,
+            RedirectAttributes redirectAttributes) {
+
+        String username = principal != null ? principal.getName() : "Guest";
+
+        try {
+            Project project = projectRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+
+            // Check ownership
+            if (!project.getCreatedBy().equals(username)) {
+                redirectAttributes.addFlashAttribute("errorMessage",
+                        "Unauthorized to cancel this project");
+                return "redirect:/ui/projects/dashboard";
+            }
+
+            // Check if project can be cancelled
+            if (project.getStatus() == ProjectStatus.COMPLETED) {
+                redirectAttributes.addFlashAttribute("errorMessage",
+                        "Cannot cancel a completed project");
+                return "redirect:/ui/projects/" + id;
+            }
+
+            // Cancel the project
+            project.setStatus(ProjectStatus.CANCELLED);
+            project.setPublished(false);
+            project.setVisibleToAll(false);
+            projectRepository.save(project);
+
+            // Free all assigned employees
+            List<Assignment> assignments = assignmentRepository.findAll().stream()
+                    .filter(a -> a.getProject().getId().equals(id))
+                    .toList();
+
+            for (Assignment assignment : assignments) {
+                Employee employee = assignment.getEmployee();
+                employee.setAvailable(true);
+                employeeRepository.save(employee);
+            }
+
+            redirectAttributes.addFlashAttribute("successMessage",
+                    "✅ Project '" + project.getName() + "' cancelled successfully! " +
+                            "All employees freed.");
+
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage",
+                    "❌ Failed to cancel project: " + e.getMessage());
+        }
+
+        return "redirect:/ui/projects/dashboard";
     }
 
     // ==================== PROJECT APPLICATIONS ====================
@@ -524,10 +655,10 @@ public class ProjectUiController {
                 .filter(a -> a.getProject().getId().equals(id))
                 .toList();
 
-        // Get available employees for new assignments
+        // Get all available employees
         List<Employee> availableEmployees = employeeRepository.findAll().stream()
-                .filter(Employee::isAvailableForProject)
-                .toList();
+                .filter(e -> Boolean.TRUE.equals(e.getAvailable()))
+                .collect(Collectors.toList());
 
         model.addAttribute("username", username);
         model.addAttribute("project", project);
@@ -612,15 +743,12 @@ public class ProjectUiController {
         project.setExternalSearchNeeded(true);
         projectRepository.save(project);
 
-        // TODO: In real implementation, integrate with external APIs
-
         redirectAttributes.addFlashAttribute("successMessage",
                 "External search triggered for project: " + project.getName() +
                         ". The recruitment team has been notified.");
         return "redirect:/ui/projects/" + id;
     }
 
-    // Add this method to ProjectUiController.java
     @PostMapping("/{id}/request-external-search")
     public String requestExternalSearch(
             @PathVariable Long id,
@@ -631,7 +759,6 @@ public class ProjectUiController {
         String username = principal != null ? principal.getName() : "Guest";
 
         try {
-            // Pass the justification to the service
             String processInstanceId = externalSearchService.triggerExternalSearch(id, username, justification);
 
             redirectAttributes.addFlashAttribute("successMessage",
@@ -646,7 +773,6 @@ public class ProjectUiController {
         return "redirect:/ui/projects/" + id;
     }
 
-    // Add this method to view external search status
     @GetMapping("/{id}/external-search-status")
     public String viewExternalSearchStatus(
             @PathVariable Long id,
@@ -708,6 +834,6 @@ public class ProjectUiController {
         model.addAttribute("recentProjects", recentProjects);
         model.addAttribute("projects", myProjects);
 
-        return "project-manager/dashboard";
+        return "projects/dashboard";
     }
 }

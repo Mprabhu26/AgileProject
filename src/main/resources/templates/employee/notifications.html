@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Notifications - Employee Portal</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .nav-links {
+            display: flex;
+            gap: 15px;
+        }
+        .nav-link {
+            padding: 8px 16px;
+            background: #2563eb;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .nav-link:hover {
+            background: #1d4ed8;
+        }
+        .badge {
+            background: #ef4444;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 5px;
+        }
+        .message {
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .message-success {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #86efac;
+        }
+        .message-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+        .notification-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-left: 4px solid #2563eb;
+        }
+        .notification-card.unread {
+            background: #eff6ff;
+            border-left-color: #ef4444;
+        }
+        .notification-card.read {
+            opacity: 0.7;
+        }
+        .notification-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .notification-title {
+            font-weight: 600;
+            color: #1f2937;
+            font-size: 16px;
+        }
+        .notification-time {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .notification-message {
+            color: #374151;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+        .notification-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 8px;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <div>
+        <h1>🔔 Notifications</h1>
+        <p>Welcome, <strong th:text="${username}">User</strong></p>
+    </div>
+    <div class="nav-links">
+        <a href="/ui/employee/projects" class="nav-link">← Back to Projects</a>
+        <a href="/ui/employee/assignments" class="nav-link">📋 My Assignments</a>
+        <form th:action="@{/ui/employee/notifications/read-all}" method="post" style="display: inline;">
+            <button type="submit" class="nav-link" style="border: none; cursor: pointer;">
+                ✓ Mark All Read
+            </button>
+        </form>
+    </div>
+</div>
+
+<div th:if="${success}" class="message message-success" th:text="${success}"></div>
+<div th:if="${error}" class="message message-error" th:text="${error}"></div>
+
+<!-- Unread Notifications -->
+<div th:if="${!#lists.isEmpty(unreadNotifications)}">
+    <h2 style="margin-bottom: 15px; color: #1f2937;">
+        Unread <span class="badge" th:text="${unreadCount}">0</span>
+    </h2>
+    <div th:each="notif : ${unreadNotifications}" class="notification-card unread">
+        <div class="notification-header">
+            <div class="notification-title" th:text="${notif.title}">Notification Title</div>
+            <div class="notification-time" th:text="${#temporals.format(notif.createdAt, 'yyyy-MM-dd HH:mm')}">
+                2025-01-10 14:30
+            </div>
+        </div>
+        <div class="notification-message" th:text="${notif.message}">
+            Notification message here
+        </div>
+        <div class="notification-actions">
+            <form th:action="@{/ui/employee/notifications/{id}/read(id=${notif.id})}" method="post" style="display: inline;">
+                <button type="submit" class="btn btn-primary">✓ Mark as Read</button>
+            </form>
+            <a th:if="${notif.relatedAssignmentId != null}"
+               href="/ui/employee/assignments"
+               class="btn btn-success">
+                View Assignment
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Read Notifications -->
+<div th:if="${!#lists.isEmpty(readNotifications)}" style="margin-top: 30px;">
+    <h2 style="margin-bottom: 15px; color: #6b7280;">Previously Read</h2>
+    <div th:each="notif : ${readNotifications}" class="notification-card read">
+        <div class="notification-header">
+            <div class="notification-title" th:text="${notif.title}">Notification Title</div>
+            <div class="notification-time" th:text="${#temporals.format(notif.createdAt, 'yyyy-MM-dd HH:mm')}">
+                2025-01-10 14:30
+            </div>
+        </div>
+        <div class="notification-message" th:text="${notif.message}">
+            Notification message here
+        </div>
+    </div>
+</div>
+
+<!-- Empty State -->
+<div th:if="${#lists.isEmpty(unreadNotifications) && #lists.isEmpty(readNotifications)}" class="empty-state">
+    <h3>No Notifications</h3>
+    <p>You don't have any notifications yet.</p>
+</div>
+</body>
+</html>
