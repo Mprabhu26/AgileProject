@@ -64,6 +64,15 @@
             gap: 15px;
         }
 
+        .badge-count {
+            background: #ef4444;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin-left: 5px;
+        }
+
         .btn {
             padding: 10px 20px;
             border-radius: 8px;
@@ -552,13 +561,15 @@
                     <a th:href="@{'/ui/projects/' + ${project.id} + '/assignments'}" class="action-btn btn-primary">
                         <i class="fas fa-users"></i> Assignments
                     </a>
-                    <a th:href="@{'/ui/projects/' + ${project.id} + '/applications'}" class="action-btn btn-success">
-                        <i class="fas fa-file-alt"></i> Applications
-                        <span th:if="${applications != null and applications.size() > 0}"
-                              style="background: white; color: #10b981; padding: 2px 8px; border-radius: 10px; font-size: 12px; margin-left: 5px;">
-                            <span th:text="${applications.size()}">0</span>
-                        </span>
+                    <a th:href="@{'/ui/projects/' + ${project.id} + '/applications'}"
+                       class="action-btn view-btn"
+                       style="background: #10b981;">
+                        <i class="fas fa-clipboard-list"></i> Applications
+                        <span th:if="${applications != null && applications.size() > 0}"
+                              class="badge-count"
+                              th:text="${applications.size()}">0</span>
                     </a>
+
                 </div>
             </div>
 

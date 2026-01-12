@@ -32,7 +32,7 @@ public class SkillGapAnalysisService {
 
         // Get all available employees
         List<Employee> availableEmployees = employeeRepository.findAll().stream()
-                .filter(Employee::isAvailableForProject)
+                .filter(e -> Boolean.TRUE.equals(e.getAvailable()))  // ← CHANGE THIS LINE
                 .collect(Collectors.toList());
 
         // For each required skill

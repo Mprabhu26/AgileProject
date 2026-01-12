@@ -30,6 +30,7 @@ public class ResourcePlannerUIController {
     private final ApplicationRepository applicationRepository;
     private final ExternalSearchService externalSearchService;
     private final NotificationService notificationService;
+    private final NotificationRepository notificationRepository;
 
     @Autowired
     private SkillGapAnalysisService skillGapAnalysisService;
@@ -44,7 +45,8 @@ public class ResourcePlannerUIController {
             AssignmentRepository assignmentRepository,
             ApplicationRepository applicationRepository,
             ExternalSearchService externalSearchService,
-            NotificationService notificationService,          // ADD THIS
+            NotificationService notificationService,
+            NotificationRepository notificationRepository,
             SkillGapAnalysisService skillGapAnalysisService) {
         this.projectRepository = projectRepository;
         this.employeeRepository = employeeRepository;
@@ -52,6 +54,7 @@ public class ResourcePlannerUIController {
         this.applicationRepository = applicationRepository;
         this.externalSearchService = externalSearchService;      // INITIALIZE
         this.notificationService = notificationService;
+        this.notificationRepository = notificationRepository;
         this.skillGapAnalysisService = skillGapAnalysisService;
     }
 
@@ -368,6 +371,43 @@ public class ResourcePlannerUIController {
         return "resource-planner/project-staffing";
     }
 
+    @GetMapping("/employees/{employeeId}/matching-projects")
+    public String findMatchingProjects(
+            @PathVariable Long employeeId,
+            Model model) {
+
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new RuntimeException("Employee not found"));
+
+        // Get all published and approved projects
+        List<Project> publishedProjects = projectRepository.findAll().stream()
+                .filter(p -> Boolean.TRUE.equals(p.getPublished()))
+                .filter(p -> p.getStatus() == ProjectStatus.APPROVED ||
+                        p.getStatus() == ProjectStatus.STAFFING)
+                .collect(Collectors.toList());
+
+        // Find matching projects based on employee skills
+        List<Project> matchingProjects = new ArrayList<>();
+
+        for (Project project : publishedProjects) {
+            if (project.getSkillRequirements() != null && !project.getSkillRequirements().isEmpty()) {
+                for (ProjectSkillRequirement req : project.getSkillRequirements()) {
+                    if (employee.getSkills() != null &&
+                            employee.getSkills().contains(req.getSkill())) {
+                        matchingProjects.add(project);
+                        break; // Found at least one matching skill
+                    }
+                }
+            }
+        }
+
+        model.addAttribute("employee", employee);
+        model.addAttribute("matchingProjects", matchingProjects);
+        model.addAttribute("totalMatches", matchingProjects.size());
+
+        return "resource-planner/matching-projects";
+    }
+
 
     @PostMapping("/project/{projectId}/propose")
     public String proposeEmployee(
@@ -382,8 +422,9 @@ public class ResourcePlannerUIController {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new RuntimeException("Employee not found"));
 
-        // USE THE VALIDATION SERVICE (replaces the old duplicate check)
-        AssignmentValidationService.ValidationResult validation = validationService.canAssignEmployeeToProject(projectId, employeeId);
+        // USE THE VALIDATION SERVICE
+        AssignmentValidationService.ValidationResult validation =
+                validationService.canAssignEmployeeToProject(projectId, employeeId);
 
         if (validation.isError()) {
             redirectAttributes.addFlashAttribute("error",
@@ -391,23 +432,34 @@ public class ResourcePlannerUIController {
             return "redirect:/ui/resource-planner/project/" + projectId;
         }
 
-        // Create PENDING assignment (shows in UI immediately)
+        // Create PENDING assignment
         Assignment pendingAssignment = new Assignment(project, employee, AssignmentStatus.PENDING);
         pendingAssignment.setAssignedAt(java.time.LocalDateTime.now());
         assignmentRepository.save(pendingAssignment);
 
-        // Employee stays unavailable until reject
-        employee.setAvailable(false);
-        employeeRepository.save(employee);
+        // ✅ FIXED: Employee STAYS available until they confirm
+        // (Remove the lines that set employee.setAvailable(false))
 
-        // Log for workflow (your existing code)
-        System.out.println("Resource Planner proposing employee " + employee.getName() +
+        // ✅ ADD: Create notification for employee
+        Notification notification = new Notification(
+                employee.getId(),
+                "New Assignment Proposed",
+                "You have been proposed for project: " + project.getName() +
+                        ". Please review and confirm your assignment in the Assignments section.",
+                NotificationType.ASSIGNMENT_PROPOSED
+        );
+        notification.setRelatedAssignmentId(pendingAssignment.getId());
+        notificationRepository.save(notification);
+
+        // Log for workflow
+        System.out.println("🔹 Resource Planner proposing employee " + employee.getName() +
                 " for project " + project.getName() +
                 (notes != null ? ". Notes: " + notes : ""));
+        System.out.println("🔔 Notification created for employee ID: " + employee.getId());
 
         redirectAttributes.addFlashAttribute("success",
-                "Proposed " + employee.getName() + " for " + project.getName() +
-                        ". Awaiting Department Head approval.");
+                "✅ Proposed " + employee.getName() + " for " + project.getName() +
+                        ". Employee notified and awaiting confirmation.");
 
         return "redirect:/ui/resource-planner/project/" + projectId;
     }

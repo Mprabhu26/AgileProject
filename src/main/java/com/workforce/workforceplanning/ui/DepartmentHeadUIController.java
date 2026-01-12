@@ -15,6 +15,8 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import com.workforce.workforceplanning.model.ProjectStatus;
 import java.security.Principal;
 import java.util.*;
+import org.flowable.variable.api.history.HistoricVariableInstance;
+import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/ui/department-head")
@@ -42,6 +44,8 @@ public class DepartmentHeadUIController {
         String username = principal != null ? principal.getName() : "Guest";
         model.addAttribute("username", username);
 
+        // ==================== WORKFLOW TASKS ====================
+
         // Get all pending approval tasks for Department Head
         List<Task> pendingTasks = taskService.createTaskQuery()
                 .taskCandidateGroup("DepartmentHead")
@@ -49,8 +53,8 @@ public class DepartmentHeadUIController {
                 .orderByTaskCreateTime()
                 .desc()
                 .list();
-        Map<String, String> taskProjectNames = new HashMap<>();
 
+        Map<String, String> taskProjectNames = new HashMap<>();
         for (Task t : pendingTasks) {
             try {
                 Map<String, Object> vars = runtimeService.getVariables(t.getProcessInstanceId());
@@ -66,9 +70,6 @@ public class DepartmentHeadUIController {
             }
         }
 
-        model.addAttribute("taskProjectNames", taskProjectNames);
-
-
         // Get external search approval tasks
         List<Task> pendingExternalSearchTasks = taskService.createTaskQuery()
                 .taskCandidateGroup("DepartmentHead")
@@ -78,7 +79,21 @@ public class DepartmentHeadUIController {
                 .desc()
                 .list();
 
-        // Get recently completed tasks (last 50)
+        // ==================== PUBLISHED PROJECTS (Non-Workflow) ====================
+
+        // Get PUBLISHED projects that haven't been formally approved yet
+        // These are projects the PM published but didn't trigger external search workflow
+        List<Project> publishedProjects = projectRepository.findAll().stream()
+                .filter(p -> Boolean.TRUE.equals(p.getPublished()))
+                .filter(p -> p.getStatus() == ProjectStatus.APPROVED)
+                .filter(p -> p.getWorkflowStatus() == null ||
+                        p.getWorkflowStatus().isEmpty() ||
+                        "NONE".equals(p.getWorkflowStatus()))
+                .collect(Collectors.toList());
+
+        // ==================== RECENT APPROVALS ====================
+
+        // Get recently completed tasks (last 10)
         List<HistoricTaskInstance> recentTasks = historyService.createHistoricTaskInstanceQuery()
                 .taskCandidateGroup("DepartmentHead")
                 .finished()
@@ -88,6 +103,8 @@ public class DepartmentHeadUIController {
                 .stream()
                 .limit(10)
                 .toList();
+
+        // ==================== STATISTICS ====================
 
         // Calculate approval rate
         long totalApprovals = historyService.createHistoricTaskInstanceQuery()
@@ -104,12 +121,28 @@ public class DepartmentHeadUIController {
             approvalRate = (approvedCount * 100.0) / totalApprovals;
         }
 
+        // ==================== ADD TO MODEL ====================
+
         model.addAttribute("pendingTasks", pendingTasks);
         model.addAttribute("recentTasks", recentTasks);
-        model.addAttribute("pendingCount", pendingTasks.size());
+        model.addAttribute("taskProjectNames", taskProjectNames);
+
+        // Counts
+        int totalPendingCount = pendingTasks.size() + publishedProjects.size();
+        model.addAttribute("pendingCount", totalPendingCount);
+        model.addAttribute("pendingExternalSearchCount", pendingExternalSearchTasks.size());
+        model.addAttribute("publishedProjectsCount", publishedProjects.size());
+
+        // Projects
+        model.addAttribute("publishedProjects", publishedProjects);
+        model.addAttribute("pendingExternalSearchTasks", pendingExternalSearchTasks);
+
+        // Statistics
         model.addAttribute("totalApprovals", totalApprovals);
         model.addAttribute("approvedCount", approvedCount);
         model.addAttribute("approvalRate", approvalRate);
+        model.addAttribute("publishedProjects", publishedProjects);
+        model.addAttribute("publishedProjectsCount", publishedProjects.size());
         model.addAttribute("pendingExternalSearchCount", pendingExternalSearchTasks.size());
 
         return "department-head/dashboard";
@@ -345,10 +378,64 @@ public class DepartmentHeadUIController {
 
         return "department-head/history";
     }
+
+    @GetMapping("/history/project/{taskId}")
+    public String viewProjectFromHistory(
+            @PathVariable String taskId,
+            RedirectAttributes redirectAttributes) {
+
+        try {
+            // Get historical task instance
+            HistoricTaskInstance taskInstance = historyService.createHistoricTaskInstanceQuery()
+                    .taskId(taskId)
+                    .singleResult();
+
+            if (taskInstance == null) {
+                redirectAttributes.addFlashAttribute("error", "Task not found");
+                return "redirect:/ui/department-head/history";
+            }
+
+            // Get process variables to find project ID
+            Map<String, Object> processVariables = historyService.createHistoricVariableInstanceQuery()
+                    .processInstanceId(taskInstance.getProcessInstanceId())
+                    .list()
+                    .stream()
+                    .collect(Collectors.toMap(
+                            HistoricVariableInstance::getVariableName,
+                            HistoricVariableInstance::getValue
+                    ));
+
+            // Extract project ID
+            Long projectId = null;
+            if (processVariables.containsKey("projectId")) {
+                Object projectIdObj = processVariables.get("projectId");
+                if (projectIdObj instanceof Long) {
+                    projectId = (Long) projectIdObj;
+                } else if (projectIdObj instanceof Integer) {
+                    projectId = ((Integer) projectIdObj).longValue();
+                } else if (projectIdObj instanceof String) {
+                    projectId = Long.parseLong((String) projectIdObj);
+                }
+            }
+
+            if (projectId == null) {
+                redirectAttributes.addFlashAttribute("error", "Project ID not found in task");
+                return "redirect:/ui/department-head/history";
+            }
+
+            // Redirect to project view
+            return "redirect:/ui/projects/" + projectId;
+
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Error loading project: " + e.getMessage());
+            return "redirect:/ui/department-head/history";
+        }
+    }
         // ==================== VIEW SPECIFIC HISTORY TASK ====================
     @GetMapping("/history/task/{taskId}")
     public String viewHistoryTask(@PathVariable String taskId, Model model, Principal principal) {
         String username = principal != null ? principal.getName() : "Guest";
+
 
         // Get historical task
         HistoricTaskInstance task = historyService.createHistoricTaskInstanceQuery()
@@ -359,6 +446,7 @@ public class DepartmentHeadUIController {
         if (task == null) {
             return "redirect:/ui/department-head/history?error=Task+not+found+in+history";
         }
+
 
         // Get historical variables
         Map<String, Object> variables = historyService.createHistoricVariableInstanceQuery()
@@ -380,6 +468,8 @@ public class DepartmentHeadUIController {
         model.addAttribute("variables", variables);
         model.addAttribute("project", project);
         model.addAttribute("projectId", projectId);
+
+
 
         return "department-head/history-detail";
     }

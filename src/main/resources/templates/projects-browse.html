@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
@@ -28,7 +29,7 @@
             overflow: hidden;
         }
 
-        /* Header */
+        /* Header - FIXED */
         .header {
             background: linear-gradient(90deg, #3b82f6, #1d4ed8);
             color: white;
@@ -59,48 +60,163 @@
             opacity: 0.9;
         }
 
+        /* Navigation Buttons */
         .header-buttons {
             display: flex;
-            gap: 15px;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
         }
 
-        .btn {
-            padding: 10px 20px;
+        .nav-btn {
+            padding: 10px 18px;
             border-radius: 8px;
             text-decoration: none;
             font-weight: 600;
-            display: flex;
+            font-size: 14px;
+            display: inline-flex;
             align-items: center;
             gap: 8px;
-            transition: all 0.3s;
+            transition: all 0.3s ease;
             border: none;
-            font-size: 14px;
             cursor: pointer;
+            position: relative;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
-        .btn-back {
+        .btn-text {
+            display: inline;
+        }
+
+        @media (max-width: 768px) {
+            .btn-text {
+                display: none;
+            }
+            .nav-btn {
+                padding: 10px;
+            }
+        }
+
+        /* Notifications Button */
+        .btn-notifications {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+        }
+
+        .btn-notifications:hover {
+            background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(245, 158, 11, 0.3);
+        }
+
+        /* Notification Badge */
+        .notification-badge {
+            background: #ef4444;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        /* Assignments Button */
+        .btn-assignments {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+        }
+
+        .btn-assignments:hover {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+        }
+
+        /* Profile Button */
+        .btn-profile {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            color: white;
+        }
+
+        .btn-profile:hover {
+            background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(139, 92, 246, 0.3);
+        }
+
+        /* Home Button */
+        .btn-home {
             background: rgba(255, 255, 255, 0.2);
             color: white;
-            border: 1px solid rgba(255, 255, 255, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
         }
 
-        .btn-back:hover {
+        .btn-home:hover {
             background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
         }
 
+        /* Logout Button */
         .btn-logout {
-            background: rgba(255, 255, 255, 0.1);
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
             color: white;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            font-family: inherit;
         }
 
         .btn-logout:hover {
-            background: rgba(255, 255, 255, 0.2);
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
+        }
+
+        /* Icon styles */
+        .nav-btn i {
+            font-size: 16px;
         }
 
         /* Main Content */
         .content {
             padding: 30px;
+        }
+
+        /* Stats */
+        .stats-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f1f5f9;
+            border-radius: 10px;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: #64748b;
+            margin-top: 5px;
         }
 
         /* Search Bar */
@@ -148,6 +264,20 @@
 
         .search-btn:hover {
             background: #2563eb;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+            border: none;
+            font-size: 14px;
+            cursor: pointer;
         }
 
         /* Project Grid */
@@ -354,35 +484,6 @@
             margin-right: auto;
         }
 
-        /* Stats */
-        .stats-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #f1f5f9;
-            border-radius: 10px;
-        }
-
-        .stat-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .stat-value {
-            font-size: 24px;
-            font-weight: 700;
-            color: #1e293b;
-        }
-
-        .stat-label {
-            font-size: 13px;
-            color: #64748b;
-            margin-top: 5px;
-        }
-
         /* Responsive */
         @media (max-width: 900px) {
             .project-grid {
@@ -404,7 +505,7 @@
                 width: 100%;
             }
 
-            .btn {
+            .nav-btn {
                 width: 100%;
                 justify-content: center;
             }
@@ -422,7 +523,7 @@
 <body>
 
 <div class="container">
-    <!-- Header -->
+    <!-- Header - PROPERLY STRUCTURED -->
     <div class="header">
         <div class="header-left">
             <h2><i class="fas fa-briefcase"></i> Available Projects</h2>
@@ -433,13 +534,38 @@
         </div>
 
         <div class="header-buttons">
-            <a th:href="@{/}" class="btn btn-back">
-                <i class="fas fa-home"></i> Home
+            <!-- Notifications Button with Badge -->
+            <a href="/ui/employee/notifications" class="nav-btn btn-notifications">
+                <i class="fas fa-bell"></i>
+                <span class="btn-text">Notifications</span>
+                <span th:if="${unreadNotifications != null && unreadNotifications > 0}"
+                      class="notification-badge"
+                      th:text="${unreadNotifications}">0</span>
             </a>
 
-            <form th:action="@{/logout}" method="post" style="margin: 0;">
-                <button type="submit" class="btn btn-logout">
-                    <i class="fas fa-sign-out-alt"></i> Logout
+            <!-- Assignments Button -->
+            <a href="/ui/employee/assignments" class="nav-btn btn-assignments">
+                <i class="fas fa-tasks"></i>
+                <span class="btn-text">My Assignments</span>
+            </a>
+
+            <!-- Profile Button -->
+            <a href="/ui/employee/profile" class="nav-btn btn-profile">
+                <i class="fas fa-user"></i>
+                <span class="btn-text">Profile</span>
+            </a>
+
+            <!-- Home Button -->
+            <a href="/" class="nav-btn btn-home">
+                <i class="fas fa-home"></i>
+                <span class="btn-text">Home</span>
+            </a>
+
+            <!-- Logout Button -->
+            <form th:action="@{/logout}" method="post" style="margin: 0; display: inline;">
+                <button type="submit" class="nav-btn btn-logout">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span class="btn-text">Logout</span>
                 </button>
             </form>
         </div>
@@ -465,7 +591,7 @@
         <!-- Search Bar -->
         <div class="search-container">
             <div class="search-box">
-                <form method="get" action="/ui/employee/projects" style="display: flex; width: 100%;">
+                <form method="get" action="/ui/employee/projects" style="display: flex; width: 100%; gap: 10px;">
                     <input type="text"
                            name="skill"
                            class="search-input"
@@ -557,9 +683,31 @@
                             <span th:text="${#temporals.format(project.createdAt, 'MMM dd, yyyy')}">Jan 10, 2025</span>
                         </span>
                     </div>
-                    <button class="apply-btn disabled" title="Apply functionality coming soon">
-                        <i class="fas fa-paper-plane"></i> Apply
-                    </button>
+
+                    <!-- Check if employee is assigned to this project -->
+                    <div th:if="${assignedProjectIds != null and assignedProjectIds.contains(project.id)}">
+                        <button class="apply-btn" style="background: #10b981; cursor: default;" disabled>
+                            <i class="fas fa-check-circle"></i> Assigned
+                        </button>
+                    </div>
+
+                    <!-- Check if employee has already applied -->
+                    <div th:if="${assignedProjectIds == null or !assignedProjectIds.contains(project.id)}">
+                        <div th:if="${appliedProjectIds != null and appliedProjectIds.contains(project.id)}">
+                            <button class="apply-btn" style="background: #f59e0b; cursor: default;" disabled>
+                                <i class="fas fa-hourglass-half"></i> Applied
+                            </button>
+                        </div>
+
+                        <!-- Show Apply button only if not assigned and not applied -->
+                        <div th:if="${appliedProjectIds == null or !appliedProjectIds.contains(project.id)}">
+                            <form th:action="@{/ui/employee/projects/{id}/apply(id=${project.id})}" method="post" style="display: inline; margin: 0;">
+                                <button type="submit" class="apply-btn" style="border: none; cursor: pointer;">
+                                    <i class="fas fa-paper-plane"></i> Apply
+                                </button>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -599,30 +747,6 @@
         </div>
     </div>
 </div>
-
-<script>
-    // Simple skill filter highlighting
-    document.addEventListener('DOMContentLoaded', function() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const searchSkill = urlParams.get('skill');
-
-        if (searchSkill) {
-            // Highlight matching skills
-            const skillTags = document.querySelectorAll('.skill-tag');
-            skillTags.forEach(tag => {
-                const skillText = tag.textContent.toLowerCase();
-                if (skillText.includes(searchSkill.toLowerCase())) {
-                    tag.style.background = '#fef3c7';
-                    tag.style.color = '#92400e';
-                    tag.style.border = '2px solid #f59e0b';
-                }
-            });
-
-            // Update page title
-            document.title = `Projects with "${searchSkill}" | Workforce Planning`;
-        }
-    });
-</script>
 
 </body>
 </html>

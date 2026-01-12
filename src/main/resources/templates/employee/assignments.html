@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>My Assignments - Employee Portal</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .nav-links {
+            display: flex;
+            gap: 15px;
+        }
+        .nav-link {
+            padding: 8px 16px;
+            background: #2563eb;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .badge {
+            background: #ef4444;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 5px;
+        }
+        .message {
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .message-success {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #86efac;
+        }
+        .message-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        .assignment-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .assignment-card.pending {
+            border-left: 4px solid #f59e0b;
+        }
+        .assignment-card.confirmed {
+            border-left: 4px solid #10b981;
+        }
+        .assignment-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .project-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .status-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .status-confirmed {
+            background: #dcfce7;
+            color: #166534;
+        }
+        .status-rejected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .project-details {
+            color: #6b7280;
+            line-height: 1.8;
+            margin-bottom: 15px;
+        }
+        .project-details div {
+            margin-bottom: 5px;
+        }
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-confirm {
+            background: #10b981;
+            color: white;
+        }
+        .btn-reject {
+            background: #ef4444;
+            color: white;
+        }
+        .btn-confirm:hover {
+            background: #059669;
+        }
+        .btn-reject:hover {
+            background: #dc2626;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            background: white;
+            border-radius: 8px;
+            color: #6b7280;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background: white;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 500px;
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <div>
+        <h1>📋 My Assignments</h1>
+        <p>Welcome, <strong th:text="${username}">User</strong></p>
+    </div>
+    <div class="nav-links">
+        <a href="/ui/employee/projects" class="nav-link">← Back to Projects</a>
+        <a href="/ui/employee/notifications" class="nav-link">
+            🔔 Notifications
+            <span th:if="${unreadNotifications > 0}" class="badge" th:text="${unreadNotifications}">0</span>
+        </a>
+    </div>
+</div>
+
+<div th:if="${success}" class="message message-success" th:text="${success}"></div>
+<div th:if="${error}" class="message message-error" th:text="${error}"></div>
+
+<!-- PENDING ASSIGNMENTS (Priority!) -->
+<div th:if="${!#lists.isEmpty(pendingAssignments)}" style="margin-bottom: 30px;">
+    <h2 class="section-title">⏳ Pending Assignments (Awaiting Your Confirmation)</h2>
+    <div th:each="assignment : ${pendingAssignments}" class="assignment-card pending">
+        <div class="assignment-header">
+            <div class="project-name" th:text="${assignment.project.name}">Project Name</div>
+            <span class="status-badge status-pending">⏳ PENDING</span>
+        </div>
+        <div class="project-details">
+            <div><strong>Description:</strong> <span th:text="${assignment.project.description}">Description</span></div>
+            <div><strong>Start Date:</strong> <span th:text="${assignment.project.startDate}">2025-01-15</span></div>
+            <div><strong>End Date:</strong> <span th:text="${assignment.project.endDate}">2025-06-30</span></div>
+            <div><strong>Budget:</strong> $<span th:text="${assignment.project.budget}">100,000</span></div>
+            <div><strong>Assigned At:</strong> <span th:text="${#temporals.format(assignment.assignedAt, 'yyyy-MM-dd HH:mm')}">2025-01-10 14:30</span></div>
+        </div>
+        <div class="actions">
+            <form th:action="@{/ui/employee/assignments/{id}/confirm(id=${assignment.id})}" method="post" style="display: inline;">
+                <button type="submit" class="btn btn-confirm"
+                        onclick="return confirm('Are you sure you want to CONFIRM this assignment? You will be marked as unavailable.')">
+                    ✓ Confirm Assignment
+                </button>
+            </form>
+            <button class="btn btn-reject"
+                    th:onclick="'showRejectModal(' + ${assignment.id} + ')'">
+                ✗ Reject Assignment
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- CONFIRMED ASSIGNMENTS -->
+<div th:if="${!#lists.isEmpty(confirmedAssignments)}" style="margin-bottom: 30px;">
+    <h2 class="section-title">✅ Confirmed Assignments</h2>
+    <div th:each="assignment : ${confirmedAssignments}" class="assignment-card confirmed">
+        <div class="assignment-header">
+            <div class="project-name" th:text="${assignment.project.name}">Project Name</div>
+            <span class="status-badge status-confirmed">✅ CONFIRMED</span>
+        </div>
+        <div class="project-details">
+            <div><strong>Description:</strong> <span th:text="${assignment.project.description}">Description</span></div>
+            <div><strong>Start Date:</strong> <span th:text="${assignment.project.startDate}">2025-01-15</span></div>
+            <div><strong>End Date:</strong> <span th:text="${assignment.project.endDate}">2025-06-30</span></div>
+        </div>
+    </div>
+</div>
+
+<!-- IN PROGRESS ASSIGNMENTS -->
+<div th:if="${!#lists.isEmpty(inProgressAssignments)}" style="margin-bottom: 30px;">
+    <h2 class="section-title">🚀 In Progress</h2>
+    <div th:each="assignment : ${inProgressAssignments}" class="assignment-card confirmed">
+        <div class="assignment-header">
+            <div class="project-name" th:text="${assignment.project.name}">Project Name</div>
+            <span class="status-badge status-confirmed">🚀 IN PROGRESS</span>
+        </div>
+        <div class="project-details">
+            <div><strong>Description:</strong> <span th:text="${assignment.project.description}">Description</span></div>
+        </div>
+    </div>
+</div>
+
+<!-- Empty State -->
+<div th:if="${#lists.isEmpty(pendingAssignments) && #lists.isEmpty(confirmedAssignments) && #lists.isEmpty(inProgressAssignments)}" class="empty-state">
+    <h3>No Assignments</h3>
+    <p>You don't have any assignments yet.</p>
+    <a href="/ui/employee/projects" class="btn btn-confirm" style="margin-top: 20px;">Browse Available Projects</a>
+</div>
+
+<!-- Reject Modal -->
+<div id="rejectModal" class="modal">
+    <div class="modal-content">
+        <h2>Reject Assignment</h2>
+        <p>Please provide a reason for rejecting this assignment:</p>
+        <form id="rejectForm" method="post">
+            <textarea name="reason" rows="4" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; margin-top: 10px;" placeholder="Enter your reason..."></textarea>
+            <div class="modal-buttons">
+                <button type="button" class="btn" style="background: #6b7280; color: white;" onclick="closeRejectModal()">Cancel</button>
+                <button type="submit" class="btn btn-reject">Confirm Rejection</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function showRejectModal(assignmentId) {
+        document.getElementById('rejectModal').style.display = 'block';
+        document.getElementById('rejectForm').action = '/ui/employee/assignments/' + assignmentId + '/reject';
+    }
+
+    function closeRejectModal() {
+        document.getElementById('rejectModal').style.display = 'none';
+    }
+
+    // Close modal if clicked outside
+    window.onclick = function(event) {
+        const modal = document.getElementById('rejectModal');
+        if (event.target == modal) {
+            closeRejectModal();
+        }
+    }
+</script>
+</body>
+</html>

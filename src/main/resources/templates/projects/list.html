@@ -287,7 +287,10 @@
                             <div th:each="notification : ${notifications}" style="padding: 12px 15px; border-bottom: 1px solid #f8fafc;">
                                 <strong style="display: block; font-size: 13px;" th:text="${notification.projectName}"></strong>
                                 <p style="margin: 4px 0; font-size: 12px; color: #64748b;" th:text="${notification.message}"></p>
-                                <a th:href="@{'/ui/projects/' + ${notification.projectId}}" style="font-size: 11px; color: #4f46e5; text-decoration: none; font-weight: 600;">View Project</a>
+                                <a th:href="@{'/ui/notifications/' + ${notif.id} + '/read?projectId=' + ${notif.projectId}}"
+                                   class="btn btn-sm btn-primary">
+                                    <i class="fas fa-eye"></i> View Project
+                                </a>
                             </div>
                         </div>
                         <div th:if="${notifications == null or #lists.isEmpty(notifications)}" style="text-align: center; padding: 30px; color: #94a3b8;">

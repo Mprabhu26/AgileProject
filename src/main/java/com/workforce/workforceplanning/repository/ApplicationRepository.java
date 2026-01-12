@@ -39,7 +39,7 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
 
     // Check if employee is assigned to project
     boolean existsByProjectIdAndEmployeeId(Long projectId, Long employeeId);
-
+    List<Application> findByEmployeeIdOrderByAppliedAtDesc(Long employeeId);
     long countByProjectId(Long projectId);
 
     // Custom query to find applications for projects created by specific user
