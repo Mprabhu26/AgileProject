@@ -11,17 +11,14 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import com.workforce.workforceplanning.service.ExternalSearchService;
 import com.workforce.workforceplanning.service.NotificationService;
-import com.workforce.workforceplanning.service.SkillGapAnalysisService;
-import org.slf4j.Logger; // Add this import
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.security.Principal;
 import java.util.*;
-import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/ui/resource-planner")
-
 public class ResourcePlannerUIController {
     private static final Logger log = LoggerFactory.getLogger(ResourcePlannerUIController.class);
     private final ProjectRepository projectRepository;
@@ -34,7 +31,6 @@ public class ResourcePlannerUIController {
 
     @Autowired
     private SkillGapAnalysisService skillGapAnalysisService;
-
 
     @Autowired
     private AssignmentValidationService validationService;
@@ -52,7 +48,7 @@ public class ResourcePlannerUIController {
         this.employeeRepository = employeeRepository;
         this.assignmentRepository = assignmentRepository;
         this.applicationRepository = applicationRepository;
-        this.externalSearchService = externalSearchService;      // INITIALIZE
+        this.externalSearchService = externalSearchService;
         this.notificationService = notificationService;
         this.notificationRepository = notificationRepository;
         this.skillGapAnalysisService = skillGapAnalysisService;
@@ -60,7 +56,7 @@ public class ResourcePlannerUIController {
 
     @GetMapping("/dashboard")
     public String dashboard(Model model,
-                            @RequestParam(required = false) String view) {
+                            @RequestParam(value = "view", required = false) String view) {
 
         // Default view
         String activeView = (view != null) ? view : "projects";
@@ -148,7 +144,7 @@ public class ResourcePlannerUIController {
     }
 
     @GetMapping("/project/{projectId}")
-    public String viewProjectStaffing(@PathVariable Long projectId, Model model) {
+    public String viewProjectStaffing(@PathVariable("projectId") Long projectId, Model model) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Project not found"));
 
@@ -170,6 +166,51 @@ public class ResourcePlannerUIController {
         Set<String> allSkills = employeeRepository.findAll().stream()
                 .flatMap(e -> e.getSkills().stream())
                 .collect(Collectors.toSet());
+
+        // ----- CHECK IF SKILLS ARE AVAILABLE INTERNALLY -----
+        boolean skillsAvailableInternally = areSkillsAvailableInternally(project);
+        model.addAttribute("skillsAvailableInternally", skillsAvailableInternally);
+
+        // ----- CALCULATE SKILL AVAILABILITY (Required vs Available) -----
+        Map<String, Map<String, Object>> skillAvailabilityDetails = new LinkedHashMap<>();
+
+        if (project.getSkillRequirements() != null) {
+            // Get all available employees
+            List<Employee> allAvailableEmployees = employeeRepository.findAll().stream()
+                    .filter(e -> Boolean.TRUE.equals(e.getAvailable()))
+                    .collect(Collectors.toList());
+
+            for (ProjectSkillRequirement req : project.getSkillRequirements()) {
+                String skill = req.getSkill();
+                int required = req.getRequiredCount();
+
+                // Count available employees with this skill
+                List<Employee> employeesWithSkill = allAvailableEmployees.stream()
+                        .filter(e -> e.getSkills().stream()
+                                .anyMatch(s -> s.equalsIgnoreCase(skill)))
+                        .collect(Collectors.toList());
+
+                int available = employeesWithSkill.size();
+                boolean hasGap = available < required;
+                int gap = Math.max(0, required - available);
+
+                // Create detailed skill info
+                Map<String, Object> skillInfo = new HashMap<>();
+                skillInfo.put("skill", skill);
+                skillInfo.put("required", required);
+                skillInfo.put("available", available);
+                skillInfo.put("hasGap", hasGap);
+                skillInfo.put("gap", gap);
+                skillInfo.put("employeesWithSkill", employeesWithSkill.stream()
+                        .map(Employee::getName)
+                        .collect(Collectors.toList()));
+                skillInfo.put("isAvailable", available >= required);
+
+                skillAvailabilityDetails.put(skill, skillInfo);
+            }
+        }
+
+        model.addAttribute("skillAvailabilityDetails", skillAvailabilityDetails);
 
         // ----- SKILL COVERAGE CALCULATION (Based on assigned employees) -----
 
@@ -371,9 +412,39 @@ public class ResourcePlannerUIController {
         return "resource-planner/project-staffing";
     }
 
+    private boolean areSkillsAvailableInternally(Project project) {
+        if (project.getSkillRequirements() == null || project.getSkillRequirements().isEmpty()) {
+            return true; // No skill requirements = skills are "available"
+        }
+
+        // Get all available employees
+        List<Employee> availableEmployees = employeeRepository.findAll().stream()
+                .filter(e -> Boolean.TRUE.equals(e.getAvailable()))
+                .collect(Collectors.toList());
+
+        // Check if all required skills are available
+        for (ProjectSkillRequirement req : project.getSkillRequirements()) {
+            String requiredSkill = req.getSkill().toLowerCase().trim();
+            int requiredCount = req.getRequiredCount();
+
+            // Count employees with this skill
+            long employeesWithSkill = availableEmployees.stream()
+                    .filter(e -> e.getSkills().stream()
+                            .anyMatch(skill -> skill.toLowerCase().trim().equals(requiredSkill)))
+                    .count();
+
+            // If we don't have enough employees with this skill
+            if (employeesWithSkill < requiredCount) {
+                return false; // Skill gap exists
+            }
+        }
+
+        return true; // All skills are available
+    }
+
     @GetMapping("/employees/{employeeId}/matching-projects")
     public String findMatchingProjects(
-            @PathVariable Long employeeId,
+            @PathVariable("employeeId") Long employeeId,
             Model model) {
 
         Employee employee = employeeRepository.findById(employeeId)
@@ -408,12 +479,11 @@ public class ResourcePlannerUIController {
         return "resource-planner/matching-projects";
     }
 
-
     @PostMapping("/project/{projectId}/propose")
     public String proposeEmployee(
-            @PathVariable Long projectId,
-            @RequestParam Long employeeId,
-            @RequestParam(required = false) String notes,
+            @PathVariable("projectId") Long projectId,
+            @RequestParam("employeeId") Long employeeId,
+            @RequestParam(value = "notes", required = false) String notes,
             RedirectAttributes redirectAttributes) {
 
         Project project = projectRepository.findById(projectId)
@@ -466,9 +536,9 @@ public class ResourcePlannerUIController {
 
     @GetMapping("/search")
     public String searchEmployees(
-            @RequestParam(required = false) String skills,
-            @RequestParam(required = false) String department,
-            @RequestParam(required = false) Boolean available,
+            @RequestParam(value = "skills", required = false) String skills,
+            @RequestParam(value = "department", required = false) String department,
+            @RequestParam(value = "available", required = false) Boolean available,
             Model model) {
 
         List<Employee> employees = employeeRepository.findAll();
@@ -517,8 +587,8 @@ public class ResourcePlannerUIController {
 
     @PostMapping("/assignment/{assignmentId}/remove")
     public String removeAssignment(
-            @PathVariable Long assignmentId,
-            @RequestParam(required = false) String reason,
+            @PathVariable("assignmentId") Long assignmentId,
+            @RequestParam(value = "reason", required = false) String reason,
             RedirectAttributes redirectAttributes) {
 
         Assignment assignment = assignmentRepository.findById(assignmentId)
@@ -541,7 +611,6 @@ public class ResourcePlannerUIController {
     }
 
     // Helper method to find employees matching project requirements
-    // Helper method to find employees matching project requirements (CASE-INSENSITIVE)
     private List<Employee> findMatchingEmployees(Project project) {
         if (project.getSkillRequirements() == null || project.getSkillRequirements().isEmpty()) {
             // If no specific skills required, return all available employees
@@ -599,7 +668,7 @@ public class ResourcePlannerUIController {
 
     @PostMapping("/assignment/{assignmentId}/cancel")
     @ResponseBody
-    public String cancelProposal(@PathVariable Long assignmentId) {
+    public String cancelProposal(@PathVariable("assignmentId") Long assignmentId) {
         Assignment assignment = assignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new RuntimeException("Assignment not found"));
 
@@ -619,8 +688,8 @@ public class ResourcePlannerUIController {
 
     @PostMapping("/project/{id}/external-search")
     public String triggerExternalSearch(
-            @PathVariable Long id,
-            @RequestParam(required = false) String notes,
+            @PathVariable("id") Long id,
+            @RequestParam(value = "notes", required = false) String notes,
             RedirectAttributes redirectAttributes) {
 
         Project project = projectRepository.findById(id)
@@ -641,9 +710,8 @@ public class ResourcePlannerUIController {
         return "redirect:/ui/resource-planner/project/" + id;
     }
 
-    // Add this method to view external candidates (placeholder)
     @GetMapping("/project/{id}/external-candidates")
-    public String viewExternalCandidates(@PathVariable Long id, Model model) {
+    public String viewExternalCandidates(@PathVariable("id") Long id, Model model) {
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Project not found"));
 
@@ -676,11 +744,10 @@ public class ResourcePlannerUIController {
         return "resource-planner/external-candidates";
     }
 
-    // Add this method to ResourcePlannerUIController.java
     @PostMapping("/project/{projectId}/notify-pm-skill-gap")
     public String notifyPMSkillGap(
-            @PathVariable Long projectId,
-            @RequestParam(required = false) String message,
+            @PathVariable("projectId") Long projectId,
+            @RequestParam(value = "message", required = false) String message,
             Principal principal,
             RedirectAttributes redirectAttributes) {
 
@@ -723,9 +790,6 @@ public class ResourcePlannerUIController {
         return "redirect:/ui/resource-planner/project/" + projectId;
     }
 
-
-
-
     // Helper class for staffing information
     private static class StaffingInfo {
         int assignedCount;
@@ -738,11 +802,5 @@ public class ResourcePlannerUIController {
 
         public int getAssignedCount() { return assignedCount; }
         public int getMatchingEmployeesCount() { return matchingEmployeesCount; }
-    }
-
-    // Custom functional interface for 3 parameters
-    @FunctionalInterface
-    interface TriFunction<T, U, V, R> {
-        R apply(T t, U u, V v);
     }
 }

@@ -1,4 +1,4 @@
-// FILE: SkillGapAnalysisService.java
+// FILE: SkillGapAnalysisService.java - ENHANCED VERSION
 package com.workforce.workforceplanning.service;
 
 import com.workforce.workforceplanning.model.Project;
@@ -32,7 +32,7 @@ public class SkillGapAnalysisService {
 
         // Get all available employees
         List<Employee> availableEmployees = employeeRepository.findAll().stream()
-                .filter(e -> Boolean.TRUE.equals(e.getAvailable()))  // ← CHANGE THIS LINE
+                .filter(e -> Boolean.TRUE.equals(e.getAvailable()))
                 .collect(Collectors.toList());
 
         // For each required skill
@@ -69,6 +69,108 @@ public class SkillGapAnalysisService {
     }
 
     /**
+     * NEW: Get skill availability in "Required: X | Available: Y" format
+     * Returns a map with detailed information for each skill
+     */
+    public Map<String, Map<String, Object>> getSkillAvailabilityDetails(Project project) {
+        Map<String, Map<String, Object>> skillDetails = new LinkedHashMap<>();
+
+        if (project.getSkillRequirements() == null || project.getSkillRequirements().isEmpty()) {
+            return skillDetails;
+        }
+
+        // Get all available employees
+        List<Employee> availableEmployees = employeeRepository.findAll().stream()
+                .filter(e -> Boolean.TRUE.equals(e.getAvailable()))
+                .collect(Collectors.toList());
+
+        // For each required skill
+        for (ProjectSkillRequirement requirement : project.getSkillRequirements()) {
+            String skill = requirement.getSkill();
+            int requiredCount = requirement.getRequiredCount();
+
+            // Find employees with this skill
+            List<Employee> employeesWithSkill = availableEmployees.stream()
+                    .filter(e -> e.getSkills().stream()
+                            .anyMatch(empSkill -> empSkill.equalsIgnoreCase(skill)))
+                    .collect(Collectors.toList());
+
+            int availableCount = employeesWithSkill.size();
+            boolean isAvailable = availableCount >= requiredCount;
+
+            // Calculate gap
+            int gap = requiredCount - availableCount;
+            boolean hasGap = gap > 0;
+
+            // Create detailed info map
+            Map<String, Object> skillInfo = new HashMap<>();
+            skillInfo.put("skill", skill);
+            skillInfo.put("required", requiredCount);
+            skillInfo.put("available", availableCount);
+            skillInfo.put("isAvailable", isAvailable);
+            skillInfo.put("hasGap", hasGap);
+            skillInfo.put("gap", gap);
+            skillInfo.put("employees", employeesWithSkill.stream()
+                    .map(Employee::getName)
+                    .collect(Collectors.toList()));
+
+            skillDetails.put(skill, skillInfo);
+        }
+
+        return skillDetails;
+    }
+
+    /**
+     * NEW: Get formatted string for UI display "Required: X | Available: Y"
+     */
+    public String getSkillAvailabilityFormatted(Project project) {
+        if (project.getSkillRequirements() == null || project.getSkillRequirements().isEmpty()) {
+            return "No specific skill requirements";
+        }
+
+        Map<String, Map<String, Object>> details = getSkillAvailabilityDetails(project);
+        List<String> formatted = new ArrayList<>();
+
+        for (Map<String, Object> skillInfo : details.values()) {
+            String skill = (String) skillInfo.get("skill");
+            int required = (int) skillInfo.get("required");
+            int available = (int) skillInfo.get("available");
+            boolean hasGap = (boolean) skillInfo.get("hasGap");
+
+            String status = hasGap ? "❌ " : "✅ ";
+            formatted.add(status + skill + ": Required: " + required + " | Available: " + available);
+        }
+
+        return String.join("\n", formatted);
+    }
+
+    /**
+     * NEW: Get skill availability summary for display in tables/cards
+     */
+    public List<Map<String, Object>> getSkillAvailabilityList(Project project) {
+        List<Map<String, Object>> skillList = new ArrayList<>();
+
+        if (project.getSkillRequirements() == null || project.getSkillRequirements().isEmpty()) {
+            return skillList;
+        }
+
+        Map<String, Map<String, Object>> details = getSkillAvailabilityDetails(project);
+
+        for (Map.Entry<String, Map<String, Object>> entry : details.entrySet()) {
+            Map<String, Object> skillInfo = new HashMap<>(entry.getValue());
+
+            // Add display properties
+            skillInfo.put("displayText",
+                    "Required: " + skillInfo.get("required") +
+                            " | Available: " + skillInfo.get("available"));
+
+            skillList.add(skillInfo);
+        }
+
+        return skillList;
+    }
+
+    /**
      * Get skill coverage percentage (0-100%)
      */
     public double getSkillCoveragePercentage(Project project) {
@@ -85,10 +187,17 @@ public class SkillGapAnalysisService {
         if (totalRequired == 0) return 100.0;
 
         int totalAvailable = gaps.values().stream()
-                .mapToInt(gap -> Math.max(0, gap)) // Count only available (positive gaps)
+                .mapToInt(gap -> {
+                    // For each skill, count only up to required count
+                    // Positive gaps mean we have more than needed, so count only what's needed
+                    // Negative gaps mean shortage, so count 0
+                    return gap >= 0 ? 0 : Math.abs(gap);
+                })
                 .sum();
 
-        return (totalAvailable * 100.0) / totalRequired;
+        int totalCovered = totalRequired - totalAvailable;
+
+        return (totalCovered * 100.0) / totalRequired;
     }
 
     /**
@@ -103,13 +212,20 @@ public class SkillGapAnalysisService {
             return actions;
         }
 
+        // Get detailed availability for better recommendations
+        Map<String, Map<String, Object>> details = getSkillAvailabilityDetails(project);
+
         for (Map.Entry<String, Integer> entry : criticalGaps.entrySet()) {
             String skill = entry.getKey();
             int shortage = entry.getValue();
 
-            if (shortage > 0) {
-                actions.add("❌ Need " + shortage + " more employee(s) with " + skill + " skills");
-            }
+            // Get available count for this skill
+            Map<String, Object> skillInfo = details.get(skill);
+            int available = skillInfo != null ? (int) skillInfo.get("available") : 0;
+            int required = skillInfo != null ? (int) skillInfo.get("required") : 0;
+
+            actions.add("❌ " + skill + ": Required: " + required + " | Available: " + available +
+                    " (Need " + shortage + " more)");
         }
 
         // Add general recommendations

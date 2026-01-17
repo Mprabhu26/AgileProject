@@ -112,7 +112,7 @@ public class ProjectUiController {
                 .toList();
         model.addAttribute("pendingApplicationsCount", pendingApplications.size());
 
-        return "projects/list";
+        return "projects/dashboard";
     }
 
     // ==================== CREATE PROJECT ====================
