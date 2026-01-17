@@ -264,8 +264,8 @@
                                     th:data-bs-target="'#details-' + ${row.task.id}">
                                 <i class="fas fa-chevron-down me-1"></i>Details
                             </button>
-                            <a href="#" class="btn btn-outline-info btn-sm">
-                                <i class="fas fa-external-link-alt me-1"></i>View Project
+                            <a th:href="@{'/ui/notifications/' + ${notification.id} + '/read?projectId=' + ${notification.relatedProjectId}}">
+                                <i class="fas fa-eye"></i> View Project
                             </a>
                         </div>
                     </div>

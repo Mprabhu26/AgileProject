@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Matching Projects</title>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        h1 { color: #1f2937; }
+        .btn-back {
+            padding: 10px 20px;
+            background: #6b7280;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+        }
+        .employee-info {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        .project-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+        .project-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 10px;
+        }
+        .skill-tag {
+            display: inline-block;
+            padding: 4px 10px;
+            background: #e0e7ff;
+            color: #4f46e5;
+            border-radius: 12px;
+            font-size: 12px;
+            margin: 2px;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #9ca3af;
+        }
+        .empty-state i { font-size: 60px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1><i class="fas fa-search"></i> Matching Projects</h1>
+        <a href="/ui/resource-planner/employee-search" class="btn-back">
+            <i class="fas fa-arrow-left"></i> Back
+        </a>
+    </div>
+
+    <div class="employee-info">
+        <h3 th:text="${employee.name}">Employee Name</h3>
+        <p><strong>Department:</strong> <span th:text="${employee.department}"></span></p>
+        <p><strong>Skills:</strong></p>
+        <div>
+            <span class="skill-tag" th:each="skill : ${employee.skills}" th:text="${skill}"></span>
+        </div>
+    </div>
+
+    <h2>Found <span th:text="${totalMatches}">0</span> Matching Projects</h2>
+
+    <div th:if="${matchingProjects != null && !matchingProjects.isEmpty()}">
+        <div class="project-card" th:each="project : ${matchingProjects}">
+            <div class="project-name" th:text="${project.name}"></div>
+            <p th:text="${project.description}"></p>
+            <p style="margin-top: 10px;"><strong>Required Skills:</strong></p>
+            <div>
+                    <span class="skill-tag"
+                          th:each="req : ${project.skillRequirements}"
+                          th:text="${req.skill + ' (' + req.requiredCount + ')'}">
+                    </span>
+            </div>
+        </div>
+    </div>
+
+    <div th:if="${matchingProjects == null || matchingProjects.isEmpty()}" class="empty-state">
+        <i class="fas fa-inbox"></i>
+        <h3>No Matching Projects Found</h3>
+        <p>This employee's skills don't match any currently available projects.</p>
+    </div>
+</div>
+</body>
+</html>
