@@ -23,32 +23,37 @@ public class NotificationController {
      */
     @GetMapping("/{id}/read")
     public String markAsReadAndRedirect(
-            @PathVariable Long id,
-            @RequestParam(required = false) Long projectId,
+            @PathVariable("id") String id,
+            @RequestParam(value = "projectId", required = false) Long projectId,
             Principal principal,
             RedirectAttributes redirectAttributes) {
 
         try {
-            // Find and mark notification as read
-            Notification notification = notificationRepository.findById(id)
-                    .orElseThrow(() -> new RuntimeException("Notification not found"));
+            // ALWAYS try to get projectId from the ID parameter first
+            Long actualProjectId = null;
 
-            notification.setIsRead(true);  // ← CHANGED from setRead(true)
-            notificationRepository.save(notification);
-
-            // Redirect to project if projectId provided
-            if (projectId != null) {
-                return "redirect:/ui/projects/" + projectId;
+            // If ID is "project-123" format
+            if (id.startsWith("project-")) {
+                actualProjectId = Long.parseLong(id.substring("project-".length()));
+            }
+            // If projectId parameter was provided
+            else if (projectId != null) {
+                actualProjectId = projectId;
             }
 
-            // Otherwise redirect back to notifications
-            return "redirect:/ui/employee/notifications";
+            // If we have a projectId, redirect to it
+            if (actualProjectId != null) {
+                return "redirect:/ui/projects/" + actualProjectId;
+            }
+
+            // Otherwise go to dashboard
+            return "redirect:/ui/projects";
 
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("error", "Error: " + e.getMessage());
-            return "redirect:/ui/employee/notifications";
+            return "redirect:/ui/projects";
         }
     }
+
 
     /**
      * Mark all notifications as read
@@ -57,14 +62,18 @@ public class NotificationController {
     public String markAllAsRead(Principal principal, RedirectAttributes redirectAttributes) {
         try {
             String username = principal.getName();
-            // Assuming you have employee ID from username
-            // You'll need to get employee first, then their notifications
+            // Simple implementation - mark all user's notifications as read
+            var notifications = notificationRepository.findByUsernameAndIsReadFalseOrderByCreatedAtDesc(username);
+            for (Notification notification : notifications) {
+                notification.setIsRead(true);
+            }
+            notificationRepository.saveAll(notifications);
 
             redirectAttributes.addFlashAttribute("success", "All notifications marked as read");
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", "Error: " + e.getMessage());
         }
 
-        return "redirect:/ui/employee/notifications";
+        return "redirect:/ui/projects";
     }
 }

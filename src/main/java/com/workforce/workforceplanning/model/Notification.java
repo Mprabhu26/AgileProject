@@ -11,8 +11,11 @@ public class Notification {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "employee_id", nullable = false)
-    private Long employeeId;  // Changed from username to employeeId
+    @Column(name = "employee_id")  // REMOVED: nullable = false
+    private Long employeeId;  // For employee notifications (can be null)
+
+    @Column(name = "username")
+    private String username;  // For PM notifications by username (can be null)
 
     private String title;
 
@@ -34,9 +37,16 @@ public class Notification {
     @Column(name = "project_id")
     private Long projectId;
 
-    // Constructors
-    public Notification() {}
+    @Column(name = "project_name")
+    private String projectName;  // Store project name for display
 
+    // ===== CONSTRUCTORS =====
+    // Constructor 1: Default
+    public Notification() {
+        this.createdAt = LocalDateTime.now();
+    }
+
+    // Constructor 2: For employee notifications (employeeId is Long)
     public Notification(Long employeeId, String title, String message, NotificationType type) {
         this.employeeId = employeeId;
         this.title = title;
@@ -46,12 +56,25 @@ public class Notification {
         this.createdAt = LocalDateTime.now();
     }
 
-    // Getters and setters
+    // Constructor 3: For PM notifications (username is String)
+    public Notification(String username, String title, String message, NotificationType type) {
+        this.username = username;
+        this.title = title;
+        this.message = message;
+        this.type = type;
+        this.isRead = false;
+        this.createdAt = LocalDateTime.now();
+    }
+
+    // Getters and setters remain the same...
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
     public Long getEmployeeId() { return employeeId; }
     public void setEmployeeId(Long employeeId) { this.employeeId = employeeId; }
+
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
 
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
@@ -73,4 +96,7 @@ public class Notification {
 
     public Long getProjectId() { return projectId; }
     public void setProjectId(Long projectId) { this.projectId = projectId; }
+
+    public String getProjectName() { return projectName; }
+    public void setProjectName(String projectName) { this.projectName = projectName; }
 }

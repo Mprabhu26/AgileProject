@@ -63,6 +63,7 @@
             display: flex;
             align-items: center;
             gap: 15px;
+            position: relative;
         }
 
         .btn {
@@ -235,10 +236,15 @@
         .empty-state { text-align: center; padding: 60px 20px; }
         .empty-state i { font-size: 60px; color: #cbd5e1; margin-bottom: 20px; }
 
+        /* Notification Dropdown */
+        .notification-container {
+            position: relative;
+        }
+
         #notificationDropdown {
             display: none;
             position: absolute;
-            top: 55px;
+            top: 45px;
             right: 0;
             background: white;
             border-radius: 10px;
@@ -249,12 +255,35 @@
             border: 1px solid #e2e8f0;
         }
 
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ef4444;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .header { flex-direction: column; gap: 20px; }
             .header-buttons { width: 100%; flex-direction: column; }
             .btn { width: 100%; justify-content: center; }
             .table-container { overflow-x: auto; }
+            #notificationDropdown {
+                position: fixed;
+                top: 100px;
+                right: 20px;
+                left: 20px;
+                width: auto;
+            }
         }
     </style>
 </head>
@@ -271,36 +300,66 @@
         </div>
 
         <div class="header-buttons">
-            <div style="position: relative;">
+            <div class="notification-container">
                 <button onclick="toggleNotifications()" class="btn" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">
                     <i class="fas fa-bell"></i>
-                    <span th:if="${notificationCount > 0}"
-                          style="position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; display: flex; align-items: center; justify-content: center; font-weight: bold;">
+                    <span th:if="${notificationCount != null and notificationCount > 0}" class="notification-badge">
                         <span th:text="${notificationCount}">0</span>
                     </span>
                 </button>
 
                 <div id="notificationDropdown">
-                    <div style="padding: 15px; border-bottom: 1px solid #f1f5f9; font-weight: 600;">Notifications</div>
+                    <div style="padding: 15px; border-bottom: 1px solid #f1f5f9; font-weight: 600;">
+                        Notifications
+                    </div>
                     <div style="max-height: 300px; overflow-y: auto;">
                         <div th:if="${notifications != null and not #lists.isEmpty(notifications)}">
-                            <div th:each="notification : ${notifications}" style="padding: 12px 15px; border-bottom: 1px solid #f8fafc;">
-                                <strong style="display: block; font-size: 13px;" th:text="${notification.projectName}"></strong>
-                                <p style="margin: 4px 0; font-size: 12px; color: #64748b;" th:text="${notification.message}"></p>
-                                <button type="button"
-                                        th:onclick="|markAsReadAndOpen(${notification['projectId']})|"
-                                        style="all: unset; cursor: pointer; font-size: 11px; color: #4f46e5; font-weight: 600;">
-                                    View Project
-                                </button>
+                            <div th:each="notification : ${notifications}"
+                                 style="padding: 12px 15px; border-bottom: 1px solid #f8fafc;"
+                                 th:style="${notification['isDbNotification']} ? 'background: #e0f2fe;' : 'background: #fef3c7;'">
 
+                                <!-- For DB notifications (from Resource Planner) -->
+                                <div th:if="${notification['isDbNotification']}">
+                                    <strong style="display: block; font-size: 13px;"
+                                            th:text="${notification.title} ?: 'Notification'"></strong>
+                                    <p style="margin: 4px 0; font-size: 12px; color: #64748b;"
+                                       th:text="${notification.message}"></p>
+                                    <div style="margin-top: 8px;">
+                                        <a th:href="@{/ui/notifications/{id}/read(id=${notification.id}, projectId=${notification.projectId})}"
+                                           onclick="updateNotificationCount()"
+                                           style="background: #4f46e5; color: white; padding: 4px 12px; border-radius: 4px; text-decoration: none; font-size: 11px; display: inline-block; margin-right: 8px;">
+                                            View Project
+                                        </a>
+                                        <span style="font-size: 10px; color: #94a3b8;">
+                                            <i class="fas fa-clock"></i>
+                                            <span th:text="${#temporals.format(notification.createdAt, 'MMM dd, HH:mm')}"></span>
+                                        </span>
+                                    </div>
+                                </div>
 
-
-
-
-
+                                <!-- For project-based notifications (existing logic) -->
+                                <div th:unless="${notification['isDbNotification']}">
+                                    <strong style="display: block; font-size: 13px;"
+                                            th:text="${notification.projectName} ?: 'Project Notification'"></strong>
+                                    <p style="margin: 4px 0; font-size: 12px; color: #64748b;"
+                                       th:text="${notification.message}"></p>
+                                    <div style="margin-top: 8px;">
+                                        <!-- CHANGE THIS LINE: Use notification.id which is "project-123" format -->
+                                        <a th:href="@{/ui/notifications/{id}/read(id=${notification.id}, projectId=${notification.projectId})}"
+                                           onclick="updateNotificationCount()"
+                                           style="background: #4f46e5; color: white; padding: 4px 12px; border-radius: 4px; text-decoration: none; font-size: 11px; display: inline-block; margin-right: 8px;">
+                                            View Project
+                                        </a>
+                                        <span style="font-size: 10px; color: #94a3b8;">
+            <i class="fas fa-clock"></i>
+            <span th:text="${#temporals.format(notification.createdAt, 'MMM dd, HH:mm')}"></span>
+        </span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div th:if="${notifications == null or #lists.isEmpty(notifications)}" style="text-align: center; padding: 30px; color: #94a3b8;">
+                        <div th:if="${notifications == null or #lists.isEmpty(notifications)}"
+                             style="text-align: center; padding: 30px; color: #94a3b8;">
                             <i class="fas fa-bell-slash" style="font-size: 24px; margin-bottom: 10px;"></i>
                             <p style="font-size: 13px;">No new notifications</p>
                         </div>
@@ -369,17 +428,17 @@
                         <div style="font-size: 12px; color: #64748b;" th:text="${project.description} ?: 'No description'"></div>
                     </td>
                     <td>
-                            <span class="status-badge"
-                                  th:classappend="'status-' + ${project.status.name().toLowerCase().replace('_', '-')}"
-                                  th:text="${project.status}"></span>
+                        <span class="status-badge"
+                              th:classappend="'status-' + ${project.status.name().toLowerCase().replace('_', '-')}"
+                              th:text="${project.status}"></span>
                     </td>
                     <td>
-                            <span th:if="${project.published}" class="published-badge published-yes">
-                                <i class="fas fa-check-circle"></i> Published
-                            </span>
+                        <span th:if="${project.published}" class="published-badge published-yes">
+                            <i class="fas fa-check-circle"></i> Published
+                        </span>
                         <span th:unless="${project.published}" class="published-badge published-no">
-                                <i class="fas fa-times-circle"></i> Draft
-                            </span>
+                            <i class="fas fa-times-circle"></i> Draft
+                        </span>
                         <div th:if="${project.publishedAt}" style="font-size: 11px; color: #64748b; margin-top: 4px;">
                             <i class="fas fa-calendar-alt"></i> <span th:text="${#temporals.format(project.publishedAt, 'MMM dd, yyyy')}"></span>
                         </div>
@@ -400,10 +459,10 @@
                     </td>
                     <td>
                         <div class="skill-tags">
-                                <span class="skill-tag" th:each="skill : ${project.skillRequirements}" th:if="${skill.skill != null}">
-                                    <span th:text="${skill.skill}"></span>
-                                    <span style="background: #4f46e5; color: white; border-radius: 50%; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; margin-left: 4px;" th:text="${skill.requiredCount}"></span>
-                                </span>
+                            <span class="skill-tag" th:each="skill : ${project.skillRequirements}" th:if="${skill.skill != null}">
+                                <span th:text="${skill.skill}"></span>
+                                <span style="background: #4f46e5; color: white; border-radius: 50%; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; margin-left: 4px;" th:text="${skill.requiredCount}"></span>
+                            </span>
                         </div>
                     </td>
                     <td>
@@ -451,31 +510,48 @@
             </div>
             <p>Publish projects to make them visible to resource planners. Only Pending or Approved projects can be edited or deleted.</p>
         </div>
-    </div> </div> <script th:inline="javascript">
+    </div>
+</div>
+
+<script th:inline="javascript">
     function toggleNotifications() {
         const dropdown = document.getElementById('notificationDropdown');
-        dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+        if (dropdown.style.display === 'block') {
+            dropdown.style.display = 'none';
+        } else {
+            dropdown.style.display = 'block';
+        }
     }
 
+    // Close dropdown when clicking outside
     document.addEventListener('click', function(event) {
         const dropdown = document.getElementById('notificationDropdown');
-        const bellBtn = event.target.closest('.header-buttons');
-        if (!bellBtn && dropdown) {
+        const bellBtn = event.target.closest('.notification-container');
+
+        if (!bellBtn && dropdown && dropdown.style.display === 'block') {
             dropdown.style.display = 'none';
         }
     });
 
-    function markAsReadAndOpen(projectId) {
-        // Hide notification badge immediately
-        const badge = document.querySelector('.fa-bell + span');
+    function updateNotificationCount() {
+        // Update the badge count in the UI
+        const badge = document.querySelector('.notification-badge');
         if (badge) {
-            badge.remove();
+            const currentCount = parseInt(badge.textContent);
+            if (currentCount > 0) {
+                badge.textContent = currentCount - 1;
+                if (currentCount - 1 === 0) {
+                    badge.style.display = 'none';
+                }
+            }
         }
 
-        // Redirect to project
-        window.location.href = `/ui/projects/${projectId}`;
+        // Also hide the dropdown
+        const dropdown = document.getElementById('notificationDropdown');
+        if (dropdown) {
+            dropdown.style.display = 'none';
+        }
     }
-
 </script>
 
 </body>

@@ -512,7 +512,7 @@ public class ResourcePlannerUIController {
 
         // ✅ ADD: Create notification for employee
         Notification notification = new Notification(
-                employee.getId(),
+                employee.getId(),  // This is correct for employee notifications
                 "New Assignment Proposed",
                 "You have been proposed for project: " + project.getName() +
                         ". Please review and confirm your assignment in the Assignments section.",
@@ -743,7 +743,6 @@ public class ResourcePlannerUIController {
 
         return "resource-planner/external-candidates";
     }
-
     @PostMapping("/project/{projectId}/notify-pm-skill-gap")
     public String notifyPMSkillGap(
             @PathVariable("projectId") Long projectId,
@@ -752,11 +751,30 @@ public class ResourcePlannerUIController {
             RedirectAttributes redirectAttributes) {
 
         try {
+            log.info("=== DEBUG: notifyPMSkillGap START ===");
+            log.info("Project ID: {}", projectId);
+            log.info("Message: {}", message);
+
             Project project = projectRepository.findById(projectId)
                     .orElseThrow(() -> new RuntimeException("Project not found"));
 
+            log.info("Project found: {}", project.getName());
+            log.info("Created by (PM): {}", project.getCreatedBy());
+            log.info("Current workflowStatus: {}", project.getWorkflowStatus());
+            log.info("Current externalSearchNeeded: {}", project.getExternalSearchNeeded());
+
+            // Check if PM has already been notified
+            if (Boolean.TRUE.equals(project.getExternalSearchNeeded()) &&
+                    "AWAITING_PM_DECISION".equals(project.getWorkflowStatus())) {
+                log.info("⚠️ PM already notified about skill gaps");
+                redirectAttributes.addFlashAttribute("warning",
+                        "Project Manager has already been notified about skill gaps.");
+                return "redirect:/ui/resource-planner/project/" + projectId;
+            }
+
             // Check skill gaps
             Map<String, Integer> skillGaps = skillGapAnalysisService.getCriticalGaps(project);
+            log.info("Skill gaps found: {}", skillGaps);
 
             if (skillGaps.isEmpty()) {
                 redirectAttributes.addFlashAttribute("warning",
@@ -770,25 +788,53 @@ public class ResourcePlannerUIController {
                     skillGaps.keySet() + ". " + (message != null ? message : ""));
             project.setExternalSearchRequestedAt(java.time.LocalDateTime.now());
             project.setWorkflowStatus("AWAITING_PM_DECISION"); // NEW STATUS
+            project.setPmNotificationSeen(false); // PM hasn't seen this notification yet
+
+            log.info("Setting externalSearchNeeded to: true");
+            log.info("Setting workflowStatus to: AWAITING_PM_DECISION");
+            log.info("Setting pmNotificationSeen to: false");
+
+            // ========== NOTIFICATION FOR PM ==========
+            String skillGapMessage = skillGaps.entrySet().stream()
+                    .map(entry -> entry.getKey() + " (missing " + entry.getValue() + " employee" +
+                            (entry.getValue() > 1 ? "s" : "") + ")")
+                    .collect(Collectors.joining(", "));
+
+            String pmUsername = project.getCreatedBy();
+
+            // Create notification for PM using username constructor
+            Notification pmNotification = new Notification(
+                    pmUsername,  // PM's username (String)
+                    "Skill Gap Alert - " + project.getName(),
+                    "Resource Planner found skill gaps in your project: " + skillGapMessage +
+                            (message != null ? ". Note from Resource Planner: " + message : ""),
+                    NotificationType.ASSIGNMENT_PROPOSED
+            );
+            pmNotification.setProjectId(projectId);
+            pmNotification.setProjectName(project.getName());
+
+            notificationRepository.save(pmNotification);
+            log.info("✅ Notification saved for PM: {}", pmUsername);
+
+            // Save project changes
             projectRepository.save(project);
+            log.info("✅ Project saved with new workflow status");
 
-            // Log notification
-            String rpUsername = principal != null ? principal.getName() : "planner";
-            log.info("🔔 Resource Planner {} notified PM {} about skill gaps for project: {}",
-                    rpUsername, project.getCreatedBy(), project.getName());
-            log.info("Missing skills: {}", skillGaps.keySet());
+            log.info("=== DEBUG: notifyPMSkillGap END ===");
 
+            // Success message - this will be displayed on the redirected page
             redirectAttributes.addFlashAttribute("success",
-                    "✅ Project Manager notified about skill gaps: " + skillGaps.keySet());
+                    "✅ Project Manager has been notified about skill gaps! They will see a notification when they log in.");
 
         } catch (Exception e) {
-            log.error("Error notifying PM about skill gaps", e);
+            log.error("❌ Error notifying PM about skill gaps", e);
             redirectAttributes.addFlashAttribute("error",
                     "Failed to notify Project Manager: " + e.getMessage());
         }
 
         return "redirect:/ui/resource-planner/project/" + projectId;
     }
+
 
     // Helper class for staffing information
     private static class StaffingInfo {

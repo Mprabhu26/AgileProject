@@ -40,7 +40,6 @@ com\workforce\workforceplanning\workflow\SkillGapAnalysisDelegate.class
 com\workforce\workforceplanning\ui\EmployeePortalController.class
 com\workforce\workforceplanning\model\Project.class
 com\workforce\workforceplanning\service\EmployeeService.class
-com\workforce\workforceplanning\ui\ResourcePlannerUIController$TriFunction.class
 com\workforce\workforceplanning\ui\ProjectUiController.class
 com\workforce\workforceplanning\model\ApplicationStatus.class
 com\workforce\workforceplanning\service\AssignmentService.class

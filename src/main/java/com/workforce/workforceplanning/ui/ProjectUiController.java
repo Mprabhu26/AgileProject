@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import com.workforce.workforceplanning.repository.NotificationRepository;
 
 @Controller
 @RequestMapping("/ui/projects")
@@ -29,6 +30,7 @@ public class ProjectUiController {
     private final EmployeeRepository employeeRepository;
     private final ExternalSearchService externalSearchService;
     private final SkillGapAnalysisService skillGapAnalysisService;
+    private final NotificationRepository notificationRepository;
 
     public ProjectUiController(
             ProjectRepository projectRepository,
@@ -36,13 +38,15 @@ public class ProjectUiController {
             ApplicationRepository applicationRepository,
             ExternalSearchService externalSearchService,
             SkillGapAnalysisService skillGapAnalysisService,
-            EmployeeRepository employeeRepository) {
+            EmployeeRepository employeeRepository,
+            NotificationRepository notificationRepository){
         this.projectRepository = projectRepository;
         this.assignmentRepository = assignmentRepository;
         this.applicationRepository = applicationRepository;
         this.employeeRepository = employeeRepository;
         this.externalSearchService = externalSearchService;
         this.skillGapAnalysisService = skillGapAnalysisService;
+        this.notificationRepository = notificationRepository;
     }
 
     // ==================== PROJECT LIST ====================
@@ -59,8 +63,8 @@ public class ProjectUiController {
         long approvedCount = projects.stream().filter(p -> p.getStatus() == ProjectStatus.APPROVED).count();
         long publishedCount = projects.stream().filter(p -> Boolean.TRUE.equals(p.getPublished())).count();
 
-        // ✅ SIMPLIFIED NOTIFICATIONS - NO MORE ERRORS
-        List<Map<String, Object>> notifications = new ArrayList<>();
+        // KEEP EXISTING PROJECT-BASED NOTIFICATIONS
+        List<Map<String, Object>> projectNotifications = new ArrayList<>();
 
         for (Project project : projects) {
             // Notification 1: Resource Planner found skill gaps
@@ -70,7 +74,7 @@ public class ProjectUiController {
 
 
                 Map<String, Object> notif = new HashMap<>();
-                notif.put("id", project.getId()); // ✅ Always set ID
+                notif.put("id", "project-" + project.getId()); // Use string ID to differentiate
                 notif.put("projectId", project.getId());
                 notif.put("projectName", project.getName());
 
@@ -90,12 +94,37 @@ public class ProjectUiController {
                     notif.put("priority", "high");
                 }
 
+                notif.put("isDbNotification", false);
                 notif.put("createdAt", project.getExternalSearchRequestedAt() != null
                         ? project.getExternalSearchRequestedAt()
                         : LocalDateTime.now());
 
-                notifications.add(notif);
+                projectNotifications.add(notif);
             }
+        }
+
+        //DATABASE NOTIFICATIONS (FROM RESOURCE PLANNER)
+        List<Notification> dbNotifications = notificationRepository
+                .findByUsernameAndIsReadFalseOrderByCreatedAtDesc(username);
+
+        // Combine both types of notifications
+        List<Map<String, Object>> allNotifications = new ArrayList<>();
+
+        // Add project notifications first
+        allNotifications.addAll(projectNotifications);
+
+        // Add database notifications
+        for (Notification notification : dbNotifications) {
+            Map<String, Object> notif = new HashMap<>();
+            notif.put("id", notification.getId());
+            notif.put("title", notification.getTitle() != null ? notification.getTitle() : "Notification");
+            notif.put("message", notification.getMessage());
+            notif.put("projectId", notification.getProjectId());
+            notif.put("projectName", notification.getProjectName());
+            notif.put("createdAt", notification.getCreatedAt());
+            notif.put("isRead", notification.getIsRead());
+            notif.put("isDbNotification", true); // Mark as DB notification
+            allNotifications.add(notif);
         }
 
         model.addAttribute("projects", projects);
@@ -103,8 +132,8 @@ public class ProjectUiController {
         model.addAttribute("pendingCount", pendingCount);
         model.addAttribute("approvedCount", approvedCount);
         model.addAttribute("publishedCount", publishedCount);
-        model.addAttribute("notifications", notifications); // ✅ REMOVED DUPLICATE
-        model.addAttribute("notificationCount", notifications.size());
+        model.addAttribute("notifications", allNotifications); // Combined list
+        model.addAttribute("notificationCount", allNotifications.size()); // Total count
 
         // Get pending applications count
         List<Application> pendingApplications = applicationRepository.findAll().stream()
@@ -183,7 +212,7 @@ public class ProjectUiController {
 
     // ==================== VIEW PROJECT DETAILS ====================
     @GetMapping("/{id}")
-    public String viewProject(@PathVariable Long id, Model model, Principal principal) {
+    public String viewProject(@PathVariable("id") Long id, Model model, Principal principal) {
         String username = principal != null ? principal.getName() : "Guest";
 
         Project project = projectRepository.findById(id)
@@ -273,7 +302,7 @@ public class ProjectUiController {
 
     // ==================== EDIT PROJECT ====================
     @GetMapping("/{id}/edit")
-    public String showEditForm(@PathVariable Long id, Model model, Principal principal) {
+    public String showEditForm(@PathVariable("id") Long id, Model model, Principal principal) {
         String username = principal != null ? principal.getName() : "Guest";
 
         Project project = projectRepository.findById(id)
@@ -313,7 +342,7 @@ public class ProjectUiController {
 
     @PostMapping("/{id}/edit")
     public String updateProject(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @ModelAttribute CreateProjectForm form,
             Principal principal,
             Model model,
@@ -380,7 +409,7 @@ public class ProjectUiController {
     // ==================== DELETE PROJECT ====================
     @PostMapping("/{id}/delete")
     public String deleteProject(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             Principal principal,
             RedirectAttributes redirectAttributes) {
 
@@ -425,7 +454,7 @@ public class ProjectUiController {
     // ==================== PUBLISH PROJECT ====================
     @PostMapping("/{id}/publish")
     public String publishProject(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             Principal principal,
             RedirectAttributes redirectAttributes) {
 
@@ -466,7 +495,7 @@ public class ProjectUiController {
     // ==================== UNPUBLISH PROJECT ====================
     @PostMapping("/{id}/unpublish")
     public String unpublishProject(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             Principal principal,
             RedirectAttributes redirectAttributes) {
 
@@ -517,7 +546,7 @@ public class ProjectUiController {
     // ==================== CANCEL PROJECT ====================
     @PostMapping("/{id}/cancel")
     public String cancelProject(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             Principal principal,
             RedirectAttributes redirectAttributes) {
 
@@ -573,7 +602,7 @@ public class ProjectUiController {
     // ==================== PROJECT APPLICATIONS ====================
     @GetMapping("/{id}/applications")
     public String viewApplications(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             Model model,
             Principal principal) {
 
@@ -601,7 +630,7 @@ public class ProjectUiController {
 
     @PostMapping("/applications/{applicationId}/approve")
     public String approveApplication(
-            @PathVariable Long applicationId,
+            @PathVariable("id") Long applicationId,
             RedirectAttributes redirectAttributes) {
 
         Application application = applicationRepository.findById(applicationId)
@@ -618,7 +647,7 @@ public class ProjectUiController {
 
     @PostMapping("/applications/{applicationId}/reject")
     public String rejectApplication(
-            @PathVariable Long applicationId,
+            @PathVariable("id") Long applicationId,
             RedirectAttributes redirectAttributes) {
 
         Application application = applicationRepository.findById(applicationId)
@@ -636,7 +665,7 @@ public class ProjectUiController {
     // ==================== PROJECT ASSIGNMENTS ====================
     @GetMapping("/{id}/assignments")
     public String viewAssignments(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             Model model,
             Principal principal) {
 
@@ -670,7 +699,7 @@ public class ProjectUiController {
 
     @PostMapping("/{id}/assignments/create")
     public String createAssignment(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @RequestParam Long employeeId,
             RedirectAttributes redirectAttributes) {
 
@@ -733,7 +762,7 @@ public class ProjectUiController {
     // ==================== TRIGGER EXTERNAL SEARCH ====================
     @PostMapping("/{id}/external-search")
     public String triggerExternalSearch(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             RedirectAttributes redirectAttributes) {
 
         Project project = projectRepository.findById(id)
@@ -751,7 +780,7 @@ public class ProjectUiController {
 
     @PostMapping("/{id}/request-external-search")
     public String requestExternalSearch(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @RequestParam(required = false) String justification,
             Principal principal,
             RedirectAttributes redirectAttributes) {
@@ -775,7 +804,7 @@ public class ProjectUiController {
 
     @GetMapping("/{id}/external-search-status")
     public String viewExternalSearchStatus(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             Model model,
             Principal principal) {
 
@@ -825,6 +854,29 @@ public class ProjectUiController {
                 .limit(5)
                 .toList();
 
+        // Get notifications for the dashboard (ADD THIS SECTION)
+        List<Notification> unreadNotifications  = notificationRepository
+                .findByUsernameAndIsReadFalseOrderByCreatedAtDesc(username);
+        long notificationCount = unreadNotifications.size();
+
+        // Get notifications for this PM
+        List<Notification> pmNotifications = notificationRepository
+                .findByUsernameOrderByCreatedAtDesc(username);
+
+        // Convert to map for template
+        List<Map<String, Object>> notificationList = new ArrayList<>();
+        for (Notification notification : pmNotifications) {
+            Map<String, Object> notif = new HashMap<>();
+            notif.put("id", notification.getId());
+            notif.put("title", notification.getTitle() != null ? notification.getTitle() : "Notification");
+            notif.put("message", notification.getMessage());
+            notif.put("projectId", notification.getProjectId());
+            notif.put("projectName", notification.getProjectName());
+            notif.put("createdAt", notification.getCreatedAt());
+            notif.put("isRead", notification.getIsRead());
+            notificationList.add(notif);
+        }
+
         model.addAttribute("username", username);
         model.addAttribute("totalProjects", totalProjects);
         model.addAttribute("pendingProjects", pendingProjects);
@@ -833,6 +885,13 @@ public class ProjectUiController {
         model.addAttribute("pendingApplications", pendingApplications);
         model.addAttribute("recentProjects", recentProjects);
         model.addAttribute("projects", myProjects);
+
+        // Add notification attributes (ADD THESE LINES)
+        model.addAttribute("notifications", notificationList);
+        model.addAttribute("notificationCount", notificationCount);
+        model.addAttribute("pmNotifications", pmNotifications);
+        model.addAttribute("unreadNotifications", unreadNotifications);
+        model.addAttribute("notificationCount", unreadNotifications.size());
 
         return "projects/dashboard";
     }
