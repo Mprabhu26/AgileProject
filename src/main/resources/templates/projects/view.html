@@ -565,10 +565,11 @@
                        class="action-btn view-btn"
                        style="background: #10b981;">
                         <i class="fas fa-clipboard-list"></i> Applications
-                        <span th:if="${applications != null && applications.size() > 0}"
+                        <span th:if="${pendingApplicationsCount > 0}"
                               class="badge-count"
-                              th:text="${applications.size()}">0</span>
+                              th:text="${pendingApplicationsCount}">0</span>
                     </a>
+
 
                 </div>
             </div>
@@ -850,16 +851,14 @@
             <div class="action-buttons">
                 <!-- Publish/Unpublish -->
                 <form th:action="@{/projects/{id}/publish(id=${project.id})}"
-                      method="post" style="display: inline;"
-                      th:if="${not project.published}">
+                      method="post" style="display: inline;" th:if="${!project.published}">
                     <button type="submit" class="action-btn btn-success">
                         <i class="fas fa-globe"></i> Publish Project
                     </button>
                 </form>
 
                 <form th:action="@{/projects/{id}/unpublish(id=${project.id})}"
-                      method="post" style="display: inline;"
-                      th:if="${project.published}">
+                      method="post" style="display: inline;" th:if="${project.published}">
                     <button type="submit" class="action-btn btn-warning">
                         <i class="fas fa-eye-slash"></i> Unpublish Project
                     </button>

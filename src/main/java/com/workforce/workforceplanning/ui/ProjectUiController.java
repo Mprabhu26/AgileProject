@@ -218,44 +218,45 @@ public class ProjectUiController {
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Project not found"));
 
-        // ✅ SIMPLE FIX: Check ownership or if published
-        // Department Head and Resource Planner can view published projects
-        if (!project.getCreatedBy().equals(username) && !Boolean.TRUE.equals(project.getPublished())) {
+        // Check if the project is published or if the user is authorized to view the project
+        boolean isPublished = Boolean.TRUE.equals(project.getPublished());
+        boolean isOwner = project.getCreatedBy().equals(username);  // Owner of the project (PM)
+        boolean isDepartmentHead = "DepartmentHead".equals(username);  // Example check for Department Head (adjust as per your logic)
+
+        // Only show project details if it's published or if the user is the owner
+        if (!isPublished && !isOwner) {
             return "redirect:/ui/projects?error=Unauthorized+to+view+this+project";
         }
 
-
-        // Get related data
+        // Get related data like assignments, applications, pending applications count, etc.
         List<Assignment> assignments = assignmentRepository.findAll().stream()
                 .filter(a -> a.getProject().getId().equals(id))
-                .toList();
+                .collect(Collectors.toList());
 
         List<Application> applications = applicationRepository.findAll().stream()
                 .filter(app -> app.getProject().getId().equals(id))
-                .toList();
+                .collect(Collectors.toList());
 
-        // Get all available employees
+        long pendingApplicationsCount = applicationRepository.countByStatusAndProject_CreatedBy(
+                ApplicationStatus.PENDING, username);
+        model.addAttribute("pendingApplicationsCount", pendingApplicationsCount);
+
+        // Get available employees for assignment
         List<Employee> availableEmployees = employeeRepository.findAll().stream()
                 .filter(e -> Boolean.TRUE.equals(e.getAvailable()))
                 .collect(Collectors.toList());
 
-        // Check if Resource Planner has requested external search
+        // Logic for external search and skill gap analysis
         boolean rpRequestedExternalSearch = Boolean.TRUE.equals(project.getExternalSearchNeeded()) &&
                 "AWAITING_PM_DECISION".equals(project.getWorkflowStatus());
-
-        // Check current workflow status
         String workflowStatus = project.getWorkflowStatus();
-        boolean canTriggerExternalSearch = rpRequestedExternalSearch ||
-                ("AWAITING_PM_DECISION".equals(workflowStatus));
-
-        // Get external search notes from Resource Planner
+        boolean canTriggerExternalSearch = rpRequestedExternalSearch || "AWAITING_PM_DECISION".equals(workflowStatus);
         String externalSearchNotes = project.getExternalSearchNotes();
 
-        // ============ ADD SKILL GAP ANALYSIS ============
+        // Skill gap analysis
         Map<String, Integer> skillGaps = new HashMap<>();
         boolean hasSkillGaps = false;
 
-        // Analyze skill gaps between project requirements and assigned employees
         if (project.getSkillRequirements() != null && !project.getSkillRequirements().isEmpty()) {
             for (ProjectSkillRequirement requirement : project.getSkillRequirements()) {
                 String skill = requirement.getSkill();
@@ -284,21 +285,24 @@ public class ProjectUiController {
         model.addAttribute("canTriggerExternalSearch", canTriggerExternalSearch);
         model.addAttribute("assignedCount", assignments.size());
         model.addAttribute("requiredCount", project.getTotalEmployeesRequired());
-
-        // Add skill gap attributes
         model.addAttribute("hasSkillGaps", hasSkillGaps);
         model.addAttribute("skillGaps", skillGaps);
         model.addAttribute("externalSearchNotes", externalSearchNotes);
 
-        // ✅ Mark PM notification as seen
+        // Show or hide buttons based on project status
+        model.addAttribute("isPublished", isPublished);
+        model.addAttribute("isOwner", isOwner);
+        model.addAttribute("isDepartmentHead", isDepartmentHead);
+
+        // Mark PM notification as seen
         if (Boolean.FALSE.equals(project.getPmNotificationSeen())) {
             project.setPmNotificationSeen(true);
             projectRepository.save(project);
         }
 
-
         return "projects/view";
     }
+
 
     // ==================== EDIT PROJECT ====================
     @GetMapping("/{id}/edit")
@@ -493,6 +497,7 @@ public class ProjectUiController {
     }
 
     // ==================== UNPUBLISH PROJECT ====================
+    // ==================== UNPUBLISH PROJECT ====================
     @PostMapping("/{id}/unpublish")
     public String unpublishProject(
             @PathVariable("id") Long id,
@@ -525,15 +530,25 @@ public class ProjectUiController {
                 return "redirect:/ui/projects/" + id;
             }
 
-            // Unpublish the project
-            project.setPublished(false);
-            project.setVisibleToAll(false);
-            project.setStatus(ProjectStatus.PENDING);
+            // ✅ FIX: Properly reset workflow status so it's removed from Department Head view
+            project.setPublished(false);  // Unpublish it
+            project.setPublishedAt(LocalDateTime.now());
+            project.setVisibleToAll(false);  // Don't show it to employees
+            project.setStatus(ProjectStatus.DRAFT);  // Mark as DRAFT
+
+            // ✅ IMPORTANT: Set workflow status to something that WON'T appear in Department Head dashboard
+            project.setWorkflowStatus("DRAFT");  // Changed from "PROJECT_CANCELLED" to "DRAFT"
+
+            // ✅ Clear any approval-related fields
+            project.setApprovedAt(null);
+            project.setApprovedBy(null);
+            project.setApprovalComments(null);
+
             projectRepository.save(project);
 
             redirectAttributes.addFlashAttribute("successMessage",
                     "✅ Project '" + project.getName() + "' unpublished successfully! " +
-                            "No longer visible to employees.");
+                            "No longer visible to employees or Department Head.");
 
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("errorMessage",
@@ -542,6 +557,7 @@ public class ProjectUiController {
 
         return "redirect:/ui/projects/dashboard";
     }
+
 
     // ==================== CANCEL PROJECT ====================
     @PostMapping("/{id}/cancel")
@@ -630,7 +646,7 @@ public class ProjectUiController {
 
     @PostMapping("/applications/{applicationId}/approve")
     public String approveApplication(
-            @PathVariable("id") Long applicationId,
+            @PathVariable("applicationId") Long applicationId,
             RedirectAttributes redirectAttributes) {
 
         Application application = applicationRepository.findById(applicationId)
@@ -640,14 +656,30 @@ public class ProjectUiController {
         application.setReviewedAt(LocalDateTime.now());
         applicationRepository.save(application);
 
+        // ✅ CREATE ASSIGNMENT (END-TO-END FLOW)
+        Assignment assignment = new Assignment();
+        assignment.setProject(application.getProject());
+        assignment.setEmployee(application.getEmployee());
+        assignment.setStatus(AssignmentStatus.ASSIGNED);
+        assignmentRepository.save(assignment);
+
+        // ✅ Mark employee unavailable
+        Employee employee = application.getEmployee();
+        employee.setAvailable(false);
+        employeeRepository.save(employee);
+
         redirectAttributes.addFlashAttribute("successMessage",
-                "Application approved for employee: " + application.getEmployee().getName());
-        return "redirect:/ui/projects/" + application.getProject().getId() + "/applications";
+                "Application approved and employee assigned: " +
+                        employee.getName());
+
+        return "redirect:/ui/projects/" +
+                application.getProject().getId() + "/applications";
     }
+
 
     @PostMapping("/applications/{applicationId}/reject")
     public String rejectApplication(
-            @PathVariable("id") Long applicationId,
+            @PathVariable("applicationId") Long applicationId,
             RedirectAttributes redirectAttributes) {
 
         Application application = applicationRepository.findById(applicationId)
@@ -738,7 +770,7 @@ public class ProjectUiController {
 
     @PostMapping("/assignments/{assignmentId}/remove")
     public String removeAssignment(
-            @PathVariable Long assignmentId,
+            @PathVariable("assignmentId") Long assignmentId,
             RedirectAttributes redirectAttributes) {
 
         Assignment assignment = assignmentRepository.findById(assignmentId)
@@ -754,10 +786,14 @@ public class ProjectUiController {
         employee.setAvailable(true);
         employeeRepository.save(employee);
 
-        redirectAttributes.addFlashAttribute("successMessage",
-                employee.getName() + " removed from project");
+        redirectAttributes.addFlashAttribute(
+                "successMessage",
+                employee.getName() + " removed from project"
+        );
+
         return "redirect:/ui/projects/" + projectId + "/assignments";
     }
+
 
     // ==================== TRIGGER EXTERNAL SEARCH ====================
     @PostMapping("/{id}/external-search")
@@ -833,20 +869,31 @@ public class ProjectUiController {
         // Calculate statistics
         long totalProjects = myProjects.size();
         long pendingProjects = myProjects.stream()
-                .filter(p -> p.getStatus() == ProjectStatus.PENDING)
+                .filter(p ->
+                        p.getStatus() == ProjectStatus.PENDING &&
+                                Boolean.TRUE.equals(p.getPublished())
+                )
                 .count();
         long activeProjects = myProjects.stream()
                 .filter(p -> p.getStatus() == ProjectStatus.IN_PROGRESS)
                 .count();
-        long publishedProjects = myProjects.stream()
-                .filter(p -> Boolean.TRUE.equals(p.getPublished()))
-                .count();
+        // Get published projects for department head
+        List<Project> publishedProjects = projectRepository.findAll().stream()
+                .filter(p -> Boolean.TRUE.equals(p.getPublished()))  // Only include published projects
+                .filter(p -> p.getStatus() == ProjectStatus.PENDING)
+                .filter(p -> "AWAITING_DEPARTMENT_HEAD_APPROVAL".equals(p.getWorkflowStatus()))
+                .collect(Collectors.toList());
 
-        // Get pending applications count
-        long pendingApplications = applicationRepository.findAll().stream()
-                .filter(app -> app.getStatus() == ApplicationStatus.PENDING)
-                .filter(app -> app.getProject().getCreatedBy().equals(username))
-                .count();
+
+        long pendingApplicationsCount =
+                applicationRepository.countByStatusAndProject_CreatedBy(
+                        ApplicationStatus.PENDING,
+                        username
+                );
+
+        model.addAttribute("pendingApplicationsCount", pendingApplicationsCount);
+
+
 
         // Recent projects (last 5)
         List<Project> recentProjects = myProjects.stream()
@@ -882,7 +929,7 @@ public class ProjectUiController {
         model.addAttribute("pendingProjects", pendingProjects);
         model.addAttribute("activeProjects", activeProjects);
         model.addAttribute("publishedProjects", publishedProjects);
-        model.addAttribute("pendingApplications", pendingApplications);
+        model.addAttribute("pendingApplicationsCount", pendingApplicationsCount);
         model.addAttribute("recentProjects", recentProjects);
         model.addAttribute("projects", myProjects);
 

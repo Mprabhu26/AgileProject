@@ -82,12 +82,13 @@ public class DepartmentHeadUIController {
 
         // ==================== PUBLISHED PROJECTS AWAITING APPROVAL ====================
 
-        // ✅ FIX: Get projects awaiting Department Head approval
+        // Get published projects for department head
         List<Project> publishedProjects = projectRepository.findAll().stream()
-                .filter(p -> Boolean.TRUE.equals(p.getPublished()))
-                .filter(p -> p.getStatus() == ProjectStatus.PENDING)  // ✅ PENDING, not APPROVED
-                .filter(p -> "AWAITING_DEPARTMENT_HEAD_APPROVAL".equals(p.getWorkflowStatus()))
+                .filter(p -> Boolean.TRUE.equals(p.getPublished()))  // Only include published projects
+                .filter(p -> p.getStatus() == ProjectStatus.PENDING)  // Only projects that are pending approval
+                .filter(p -> "AWAITING_DEPARTMENT_HEAD_APPROVAL".equals(p.getWorkflowStatus())) // Awaiting approval
                 .collect(Collectors.toList());
+
 
         // ==================== RECENT APPROVALS ====================
 
@@ -153,10 +154,11 @@ public class DepartmentHeadUIController {
                     .orElseThrow(() -> new RuntimeException("Project not found"));
 
             // Department Head can view published projects awaiting approval
-            if (!Boolean.TRUE.equals(project.getPublished())) {
+            if (!Boolean.TRUE.equals(project.getPublished()) ||
+                    !"AWAITING_DEPARTMENT_HEAD_APPROVAL".equals(project.getWorkflowStatus()) ||
+                    "DRAFT".equals(project.getWorkflowStatus())) {  // ✅ NEW CHECK
                 return "redirect:/ui/department-head/dashboard?error=Project+not+accessible";
             }
-
             model.addAttribute("project", project);
             model.addAttribute("username", username);
 
@@ -170,7 +172,7 @@ public class DepartmentHeadUIController {
     // ==================== APPROVE PUBLISHED PROJECT ====================
     @PostMapping("/projects/{projectId}/approve")
     public String approvePublishedProject(
-            @PathVariable Long projectId,
+            @PathVariable("projectId") Long projectId,
             @RequestParam(required = false) String approvalNotes,
             Principal principal,
             RedirectAttributes redirectAttributes) {
