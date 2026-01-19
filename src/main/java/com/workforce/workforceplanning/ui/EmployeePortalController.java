@@ -10,6 +10,10 @@ import java.util.Set;
 import java.security.Principal;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.Arrays;
+import java.util.Collections;
+
+
 
 @Controller
 @RequestMapping("/ui/employee")
@@ -20,18 +24,21 @@ public class EmployeePortalController {
     private final ApplicationRepository applicationRepository;
     private final EmployeeRepository employeeRepository;
     private final NotificationRepository notificationRepository;
+    private final UserRepository userRepository;
 
     public EmployeePortalController(
             ProjectRepository projectRepository,
             AssignmentRepository assignmentRepository,
             ApplicationRepository applicationRepository,
             EmployeeRepository employeeRepository,
-            NotificationRepository notificationRepository) {
+            NotificationRepository notificationRepository,
+            UserRepository userRepository) {
         this.projectRepository = projectRepository;
         this.assignmentRepository = assignmentRepository;
         this.applicationRepository = applicationRepository;
         this.employeeRepository = employeeRepository;
         this.notificationRepository = notificationRepository;
+        this.userRepository = userRepository;
     }
 
     // ==================== DASHBOARD ====================
@@ -348,6 +355,78 @@ public class EmployeePortalController {
         }
 
         return "redirect:/ui/employee/assignments";
+    }
+    // CORRECTED VERSION - Add these methods to EmployeePortalController.java
+
+    @GetMapping("/profile")
+    public String showProfile(Model model, Principal principal) {
+        String username = principal.getName();
+
+        // Get user details
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Get employee details if linked
+        Employee employee = user.getEmployee();  // ✅ FIXED
+
+        // Get employee's applications
+        List<Application> applications = Collections.emptyList();
+        if (employee != null) {
+            applications = applicationRepository.findByEmployeeIdOrderByAppliedAtDesc(employee.getId());
+        }
+
+        // Get employee's assignments
+        List<Assignment> assignments = Collections.emptyList();
+        if (employee != null) {
+            assignments = assignmentRepository.findByEmployeeId(employee.getId());
+        }
+
+        model.addAttribute("user", user);
+        model.addAttribute("employee", employee);
+        model.addAttribute("applications", applications);
+        model.addAttribute("assignments", assignments);
+
+        return "employees/profile";
+    }
+
+    @PostMapping("/profile/update")
+    public String updateProfile(@RequestParam String name,
+                                @RequestParam String email,
+                                @RequestParam(required = false) String skills,
+                                @RequestParam(required = false, defaultValue = "0") Integer experience,
+                                Principal principal,
+                                RedirectAttributes redirectAttributes) {
+        try {
+            String username = principal.getName();
+            User user = userRepository.findByUsername(username)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            Employee employee = user.getEmployee();
+            if (employee != null) {
+
+                // Update employee details
+                employee.setName(name);
+                employee.setEmail(email);
+
+                // Parse and update skills
+                if (skills != null && !skills.trim().isEmpty()) {
+                    Set<String> skillSet = Arrays.stream(skills.split(","))
+                            .map(String::trim)
+                            .filter(s -> !s.isEmpty())
+                            .collect(Collectors.toSet());
+                    employee.setSkills(skillSet);
+                }
+
+                employeeRepository.save(employee);
+                redirectAttributes.addFlashAttribute("success", "Profile updated successfully!");
+            } else {
+                redirectAttributes.addFlashAttribute("error", "No employee record found for this user");
+            }
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Failed to update profile: " + e.getMessage());
+        }
+
+        return "redirect:/ui/employee/profile";
     }
 
     // ==================== 📝 APPLY FOR PROJECT (PRIORITY #4) ====================
