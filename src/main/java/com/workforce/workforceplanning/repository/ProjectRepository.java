@@ -15,12 +15,26 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
 
     List<Project> findByCreatedBy(String createdBy);
 
-    // In ProjectRepository.java - ADD THIS METHOD
+
     @Query("SELECT p FROM Project p WHERE p.published = true AND p.status = :status AND p.workflowStatus = :workflowStatus")
     List<Project> findPublishedProjectsForApproval(
             @Param("status") ProjectStatus status,
             @Param("workflowStatus") String workflowStatus
     );
+
+    // =========================
+    // For Dept Head Dashboard
+    // =========================
+    @Query("""
+        SELECT p FROM Project p
+        WHERE p.published = true
+          AND p.status = :status
+    """)
+    List<Project> findPublishedByStatus(
+            @Param("status") ProjectStatus status
+    );
+
+
 
 
 }

@@ -202,14 +202,14 @@
             <h5 class="card-title mb-0">
                 <i class="fas fa-list-ol me-2"></i>
                 Decision History
-                <span class="badge bg-secondary ms-2" th:text="${completedTasks != null ? completedTasks.size() : 0}">
-                        0
-                    </span>
+                <span class="badge bg-secondary ms-2" th:text="${approvalHistory != null ? approvalHistory.size() : 0}">
+                0
+            </span>
             </h5>
         </div>
         <div class="card-body">
             <!-- Empty State -->
-            <div th:if="${historyWithStatus == null or historyWithStatus.size() == 0}" class="text-center py-5">
+            <div th:if="${approvalHistory == null or approvalHistory.size() == 0}" class="text-center py-5">
                 <i class="fas fa-history fa-3x text-muted mb-3"></i>
                 <h4 class="text-muted">No History Available</h4>
                 <p class="text-muted">You haven't made any approval decisions yet.</p>
@@ -219,120 +219,54 @@
             </div>
 
             <!-- History Items -->
-            <div th:unless="${historyWithStatus == null or historyWithStatus.size() == 0}">
-                <div th:each="row : ${historyWithStatus}"
-                     th:classappend="${row.approved} ? 'history-item approved' : 'history-item rejected'"
+            <div th:unless="${approvalHistory == null or approvalHistory.size() == 0}">
+                <div th:each="item : ${approvalHistory}"
+                     th:classappend="${item.approved} ? 'history-item approved' : 'history-item rejected'"
                      class="history-item">
                     <div class="row align-items-center">
                         <div class="col-md-8">
                             <h6 class="mb-1">
                                 <i class="fas"
-                                   th:classappend="${row.approved} ? 'fa-check-circle text-success' : 'fa-times-circle text-danger'">
+                                   th:classappend="${item.approved} ? 'fa-check-circle text-success' : 'fa-times-circle text-danger'">
                                 </i>
-                                <span th:text="${row.task.name}"></span>
+                                <span th:text="${item.projectName}">Project Name</span>
+                                <small class="text-muted"> - <span th:text="${item.taskName}">Task Name</span></small>
                             </h6>
                             <p class="text-muted small mb-1">
                                 <i class="fas fa-calendar-alt me-1"></i>
                                 Completed:
-                                <span th:text="${#dates.format(row.task.endTime, 'MMM dd, yyyy HH:mm:ss')}">
-                                    Jan 01, 2024 10:00:00
-                                </span>
-                                <span class="mx-2">•</span>
-                                Duration:
-                                <span th:if="${row.task.durationInMillis != null}"
-                                      th:text="${(row.task.durationInMillis / 1000) + ' seconds'}">
-                                        30 seconds
-                                </span>
+                                <span th:text="${#dates.format(item.timestamp, 'MMM dd, yyyy HH:mm:ss')}">
+                                Jan 01, 2024 10:00:00
+                            </span>
                             </p>
                             <p class="text-muted small mb-0">
-                                <i class="fas fa-user me-1"></i>
-                                Task ID: <code th:text="${row.task.id}">TASK_123</code>
-                                <span class="mx-2">•</span>
-                                Process: <code th:text="${row.task.processInstanceId}">PROC_123</code>
+                                <i class="fas fa-id-card me-1"></i>
+                                Project ID: <code th:text="${item.projectId}">PROJ_123</code>
                             </p>
-                            <div th:if="${!row.approved}" class="mt-2">
-                                <span class="badge bg-danger">Rejected</span>
-                            </div>
 
-                            <div th:if="${row.approved}" class="mt-2">
-                                <span class="badge bg-success">Approved</span>
+                            <div th:if="${item.comments != null and !item.comments.isEmpty()}" class="mt-2">
+                                <p class="small mb-0">
+                                    <strong>Notes:</strong>
+                                    <span th:text="${item.comments}">No comments</span>
+                                </p>
                             </div>
                         </div>
                         <div class="col-md-4 text-md-end mt-2 mt-md-0">
-                            <button class="btn btn-outline-primary btn-sm"
-                                    data-bs-toggle="collapse"
-                                    th:data-bs-target="'#details-' + ${row.task.id}">
-                                <i class="fas fa-chevron-down me-1"></i>Details
-                            </button>
-                            <a th:href="@{'/ui/notifications/' + ${notification.id} + '/read?projectId=' + ${notification.relatedProjectId}}">
-                                <i class="fas fa-eye"></i> View Project
-                            </a>
-                        </div>
-                    </div>
-
-                    <!-- Collapsible Details -->
-                    <div class="collapse mt-3" th:id="'details-' + ${row.task.id}">
-                        <div class="card card-body bg-light">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <h6>Task Information</h6>
-                                    <p class="small mb-1">
-                                        <strong>Start Time:</strong>
-                                        <span th:text="${#dates.format(row.task.startTime, 'MMM dd, yyyy HH:mm:ss')}">
-                                                Jan 01, 2024 10:00:00
-                                            </span>
-                                    </p>
-                                    <p class="small mb-1">
-                                        <strong>Assignee:</strong>
-                                        <span th:text="${row.task.assignee != null ? row.task.assignee : 'Unassigned'}">
-                                                Department Head
-                                            </span>
-                                    </p>
-                                    <p class="small mb-0">
-                                        <strong>Owner:</strong>
-                                        <span th:text="${row.task.owner != null ? row.task.owner : 'System'}">
-                                                System
-                                            </span>
-                                    </p>
-                                </div>
-                                <div class="col-md-6">
-                                    <h6>Additional Info</h6>
-                                    <p class="small mb-1">
-                                        <strong>Task Definition Key:</strong>
-                                        <code th:text="${row.task.taskDefinitionKey}">departmentApprovalTask</code>
-                                    </p>
-                                    <p class="small mb-0">
-                                        <strong>Description:</strong>
-                                        <span th:text="${row.task.description != null ? row.task.description : 'No description'}">
-                                                Department Head approval task
-                                            </span>
-                                    </p>
-                                </div>
+                            <div th:if="${item.approved}">
+                                <span class="badge bg-success">APPROVED</span>
+                            </div>
+                            <div th:unless="${item.approved}">
+                                <span class="badge bg-danger">REJECTED</span>
+                            </div>
+                            <div class="mt-2">
+                                <a th:href="@{'/ui/department-head/projects/' + ${item.projectId}}"
+                                   class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-eye me-1"></i>View Project
+                                </a>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-
-            <!-- Pagination -->
-            <div th:if="${completedTasks != null and completedTasks.size() > 0}" class="mt-4">
-                <nav aria-label="History pagination">
-                    <ul class="pagination justify-content-center">
-                        <li class="page-item disabled">
-                            <a class="page-link" href="#" tabindex="-1">
-                                <i class="fas fa-chevron-left"></i>
-                            </a>
-                        </li>
-                        <li class="page-item active"><a class="page-link" href="#">1</a></li>
-                        <li class="page-item"><a class="page-link" href="#">2</a></li>
-                        <li class="page-item"><a class="page-link" href="#">3</a></li>
-                        <li class="page-item">
-                            <a class="page-link" href="#">
-                                <i class="fas fa-chevron-right"></i>
-                            </a>
-                        </li>
-                    </ul>
-                </nav>
             </div>
         </div>
     </div>
