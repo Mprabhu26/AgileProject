@@ -85,8 +85,8 @@ public class DepartmentHeadUIController {
         // Get published projects for department head
         List<Project> publishedProjects = projectRepository.findAll().stream()
                 .filter(p -> Boolean.TRUE.equals(p.getPublished()))  // Only include published projects
-                .filter(p -> p.getStatus() == ProjectStatus.PENDING)  // Only projects that are pending approval
-                .filter(p -> "AWAITING_DEPARTMENT_HEAD_APPROVAL".equals(p.getWorkflowStatus())) // Awaiting approval
+                .filter(p -> p.getStatus() == ProjectStatus.PENDING_APPROVAL)  // Only projects that are pending approval
+                .filter(p -> "RUNNING".equals(p.getWorkflowStatus())) // Awaiting approval
                 .collect(Collectors.toList());
 
 
@@ -184,7 +184,7 @@ public class DepartmentHeadUIController {
                     .orElseThrow(() -> new RuntimeException("Project not found"));
 
             // Validate project state
-            if (!"AWAITING_DEPARTMENT_HEAD_APPROVAL".equals(project.getWorkflowStatus())) {
+            if (!"RUNNING".equals(project.getWorkflowStatus())) {
                 redirectAttributes.addFlashAttribute("errorMessage",
                         "❌ Project is not awaiting approval");
                 return "redirect:/ui/department-head/dashboard";
@@ -228,7 +228,7 @@ public class DepartmentHeadUIController {
                     .orElseThrow(() -> new RuntimeException("Project not found"));
 
             // Validate project state
-            if (!"AWAITING_DEPARTMENT_HEAD_APPROVAL".equals(project.getWorkflowStatus())) {
+            if (!"RUNNING".equals(project.getWorkflowStatus())) {
                 redirectAttributes.addFlashAttribute("errorMessage",
                         "❌ Project is not awaiting approval");
                 return "redirect:/ui/department-head/dashboard";

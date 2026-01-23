@@ -169,7 +169,7 @@ public class ProjectUiController {
             project.setBudget(form.getBudget());
             project.setTotalEmployeesRequired(form.getTotalEmployeesRequired());
             project.setCreatedBy(username);
-            project.setStatus(ProjectStatus.PENDING);
+            project.setStatus(ProjectStatus.DRAFT);
 
             // Initialize skill requirements list
             project.setSkillRequirements(new ArrayList<>());

@@ -184,7 +184,7 @@
                         <div>
                             <h6 class="card-subtitle mb-2 opacity-75">Total Pending</h6>
                             <h2 class="card-title" th:text="${pendingCount}">0</h2>
-                            <small class="opacity-75">Workflow + Published Projects</small>
+                            <small class="opacity-75">Published Projects</small>
                         </div>
                         <i class="fas fa-clock"></i>
                     </div>
@@ -282,80 +282,6 @@
                                                 <i class="fas fa-times me-1"></i>Reject
                                             </button>
                                         </form>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Pending Workflow Approvals -->
-            <div class="card shadow-sm">
-                <div class="card-header bg-white border-bottom-0 pb-0">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-tasks text-primary me-2"></i>
-                        Pending Workflow Approvals
-                        <span class="badge bg-primary ms-2" th:text="${pendingTasks != null ? pendingTasks.size() : 0}">0</span>
-                    </h5>
-                    <p class="text-muted small mb-0 mt-2">Projects requiring formal workflow approval</p>
-                </div>
-                <div class="card-body">
-                    <!-- Empty State -->
-                    <div th:if="${pendingTasks == null or pendingTasks.isEmpty()}" class="empty-state">
-                        <i class="fas fa-check-circle text-success"></i>
-                        <h4 class="mt-3">All Caught Up!</h4>
-                        <p class="text-muted">No pending workflow approvals at the moment.</p>
-                    </div>
-
-                    <!-- Task List -->
-                    <div th:unless="${pendingTasks == null or pendingTasks.isEmpty()}">
-                        <div th:each="task : ${pendingTasks}" class="card task-card mb-3 shadow-sm">
-                            <div class="card-body">
-                                <div class="row align-items-center">
-                                    <div class="col-md-8">
-                                        <h6 class="card-title mb-1">
-                                            <i class="fas fa-file-alt me-2 text-primary"></i>
-                                            <span th:text="${taskProjectNames[task.id]}">Project</span>
-                                        </h6>
-                                        <p class="card-text text-muted small mb-2">
-                                            <i class="fas fa-calendar-alt me-1"></i>
-                                            Created:
-                                            <span th:text="${#dates.format(task.createTime, 'MMM dd, yyyy HH:mm')}">
-                                                Jan 01, 2024 10:00
-                                            </span>
-                                        </p>
-                                        <p class="card-text small mb-0">
-                                            <i class="fas fa-info-circle me-1"></i>
-                                            Task: <strong th:text="${task.name}">Approve Project</strong>
-                                        </p>
-                                    </div>
-                                    <div class="col-md-4 text-md-end mt-3 mt-md-0">
-                                        <div class="d-grid gap-2 d-md-block">
-                                            <a th:href="@{'/ui/department-head/tasks/' + ${task.id}}"
-                                               class="btn btn-primary btn-action mb-1">
-                                                <i class="fas fa-eye me-1"></i>Review
-                                            </a>
-                                            <form th:action="@{'/ui/department-head/tasks/' + ${task.id} + '/approve'}"
-                                                  method="post" class="d-inline">
-                                                <input type="hidden" th:if="${_csrf != null}"
-                                                       th:name="${_csrf.parameterName}"
-                                                       th:value="${_csrf.token}"/>
-                                                <button type="submit" class="btn btn-success btn-action mb-1">
-                                                    <i class="fas fa-check me-1"></i>Approve
-                                                </button>
-                                            </form>
-                                            <form th:action="@{'/ui/department-head/tasks/' + ${task.id} + '/reject'}"
-                                                  method="post" class="d-inline">
-                                                <input type="hidden" th:if="${_csrf != null}"
-                                                       th:name="${_csrf.parameterName}"
-                                                       th:value="${_csrf.token}"/>
-                                                <button type="submit" class="btn btn-danger btn-action mb-1"
-                                                        onclick="return confirm('Are you sure you want to reject this project?')">
-                                                    <i class="fas fa-times me-1"></i>Reject
-                                                </button>
-                                            </form>
-                                        </div>
                                     </div>
                                 </div>
                             </div>
