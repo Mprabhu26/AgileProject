@@ -128,6 +128,7 @@ public class DepartmentHeadUIController {
 
         // Counts
         int totalPendingCount = pendingTasks.size() + publishedProjects.size();
+        int totalProject =  publishedProjects.size();
         model.addAttribute("pendingCount", totalPendingCount);
         model.addAttribute("pendingExternalSearchCount", pendingExternalSearchTasks.size());
         model.addAttribute("publishedProjectsCount", publishedProjects.size());
@@ -154,11 +155,10 @@ public class DepartmentHeadUIController {
                     .orElseThrow(() -> new RuntimeException("Project not found"));
 
             // Department Head can view published projects awaiting approval
-            if (!Boolean.TRUE.equals(project.getPublished()) ||
-                    !"AWAITING_DEPARTMENT_HEAD_APPROVAL".equals(project.getWorkflowStatus()) ||
-                    "DRAFT".equals(project.getWorkflowStatus())) {  // ✅ NEW CHECK
-                return "redirect:/ui/department-head/dashboard?error=Project+not+accessible";
-            }
+            //if (!Boolean.TRUE.equals(project.getPublished()) ||
+              //      !"RUNNING".equals(project.getWorkflowStatus())) {  // ✅ NEW CHECK
+                //return "redirect:/ui/department-head/dashboard?error=Project+not+accessible";
+           // }
             model.addAttribute("project", project);
             model.addAttribute("username", username);
 

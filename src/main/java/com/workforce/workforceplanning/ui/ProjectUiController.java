@@ -59,9 +59,12 @@ public class ProjectUiController {
 
         // Calculate statistics
         long totalCount = projects.size();
-        long pendingCount = projects.stream().filter(p -> p.getStatus() == ProjectStatus.PENDING).count();
+        long pendingCount = projects.stream().filter(p -> p.getStatus() == ProjectStatus.PENDING_APPROVAL).count();
         long approvedCount = projects.stream().filter(p -> p.getStatus() == ProjectStatus.APPROVED).count();
         long publishedCount = projects.stream().filter(p -> Boolean.TRUE.equals(p.getPublished())).count();
+        long draftCount = projects.stream().filter(p -> p.getStatus() == ProjectStatus.DRAFT).count();
+        long rejectCount = projects.stream().filter(p -> p.getStatus() == ProjectStatus.REJECTED).count();
+        long staffingCount = projects.stream().filter(p -> p.getStatus() == ProjectStatus.STAFFING).count();
 
         // KEEP EXISTING PROJECT-BASED NOTIFICATIONS
         List<Map<String, Object>> projectNotifications = new ArrayList<>();
@@ -130,6 +133,9 @@ public class ProjectUiController {
         model.addAttribute("projects", projects);
         model.addAttribute("totalCount", totalCount);
         model.addAttribute("pendingCount", pendingCount);
+        model.addAttribute("draftCount", draftCount);
+        model.addAttribute("rejectCount", rejectCount);
+        model.addAttribute("staffingCount", staffingCount);
         model.addAttribute("approvedCount", approvedCount);
         model.addAttribute("publishedCount", publishedCount);
         model.addAttribute("notifications", allNotifications); // Combined list
@@ -431,7 +437,9 @@ public class ProjectUiController {
 
         // Check if project can be deleted
         if (project.getStatus() == ProjectStatus.IN_PROGRESS ||
-                project.getStatus() == ProjectStatus.COMPLETED) {
+                project.getStatus() == ProjectStatus.COMPLETED
+                ||
+                project.getStatus() == ProjectStatus.APPROVED) {
             redirectAttributes.addFlashAttribute("errorMessage",
                     "Cannot delete project that is " + project.getStatus());
             return "redirect:/ui/projects/dashboard"; // ✅ REDIRECT TO DASHBOARD
@@ -877,6 +885,15 @@ public class ProjectUiController {
         long activeProjects = myProjects.stream()
                 .filter(p -> p.getStatus() == ProjectStatus.IN_PROGRESS)
                 .count();
+
+        long totalCount = myProjects.size();
+        long pendingCount = myProjects.stream().filter(p -> p.getStatus() == ProjectStatus.PENDING_APPROVAL).count();
+        long approvedCount = myProjects.stream().filter(p -> p.getStatus() == ProjectStatus.APPROVED).count();
+        long publishedCount = myProjects.stream().filter(p -> Boolean.TRUE.equals(p.getPublished())).count();
+        long draftCount = myProjects.stream().filter(p -> p.getStatus() == ProjectStatus.DRAFT).count();
+        long rejectCount = myProjects.stream().filter(p -> p.getStatus() == ProjectStatus.REJECTED).count();
+        long staffingCount = myProjects.stream().filter(p -> p.getStatus() == ProjectStatus.STAFFING).count();
+
         // Get published projects for department head
         List<Project> publishedProjects = projectRepository.findAll().stream()
                 .filter(p -> Boolean.TRUE.equals(p.getPublished()))  // Only include published projects
@@ -932,6 +949,16 @@ public class ProjectUiController {
         model.addAttribute("pendingApplicationsCount", pendingApplicationsCount);
         model.addAttribute("recentProjects", recentProjects);
         model.addAttribute("projects", myProjects);
+
+
+        model.addAttribute("totalCount", totalCount);
+        model.addAttribute("pendingCount", pendingCount);
+        model.addAttribute("draftCount", draftCount);
+        model.addAttribute("rejectCount", rejectCount);
+        model.addAttribute("staffingCount", staffingCount);
+        model.addAttribute("approvedCount", approvedCount);
+        model.addAttribute("publishedCount", publishedCount);
+
 
         // Add notification attributes (ADD THESE LINES)
         model.addAttribute("notifications", notificationList);

@@ -515,7 +515,7 @@ public class ResourcePlannerUIController {
                 employee.getId(),  // This is correct for employee notifications
                 "New Assignment Proposed",
                 "You have been proposed for project: " + project.getName() +
-                        ". Please review and confirm your assignment in the Assignments section.",
+                        ". Please totalCount and confirm your assignment in the Assignments section.",
                 NotificationType.ASSIGNMENT_PROPOSED
         );
         notification.setRelatedAssignmentId(pendingAssignment.getId());

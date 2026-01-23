@@ -869,12 +869,15 @@
 
                 <!-- Delete Project -->
                 <form th:action="@{'/ui/projects/' + ${project.id} + '/delete'}"
-                      method="post" style="display: inline;"
+                      method="post"
+                      style="display: inline;"
+                      th:if="${!project.published}"
                       onsubmit="return confirm('Are you sure you want to delete this project? This action cannot be undone.');">
                     <button type="submit" class="action-btn btn-danger">
                         <i class="fas fa-trash"></i> Delete Project
                     </button>
                 </form>
+
             </div>
 
             <div style="margin-top: 20px; padding: 15px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #3b82f6;">
