@@ -2,6 +2,7 @@
 package com.workforce.workforceplanning.service;
 
 import com.workforce.workforceplanning.model.Project;
+import com.workforce.workforceplanning.model.ProjectStatus;
 import com.workforce.workforceplanning.repository.ProjectRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -110,6 +111,7 @@ public class ExternalSearchService {
         project.setProcessInstanceId(processInstanceId);
         project.setWorkflowStatus("AWAITING_DEPARTMENT_HEAD_APPROVAL");
         project.setExternalSearchRequestedAt(LocalDateTime.now());
+        project.setStatus(ProjectStatus.STAFFING);
         projectRepository.save(project);
 
         return processInstanceId;

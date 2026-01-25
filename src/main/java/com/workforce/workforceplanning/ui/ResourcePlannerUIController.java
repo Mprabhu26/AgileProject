@@ -345,8 +345,10 @@ public class ResourcePlannerUIController {
         // ----- EXTERNAL SEARCH & PM NOTIFICATION -----
 
         // Check if PM already notified
-        boolean pmNotified = Boolean.TRUE.equals(project.getExternalSearchNeeded()) &&
-                "AWAITING_PM_DECISION".equals(project.getWorkflowStatus());
+//        boolean pmNotified = Boolean.TRUE.equals(project.getExternalSearchNeeded()) &&
+//                "AWAITING_PM_DECISION".equals(project.getWorkflowStatus());
+
+        boolean pmNotified = "AWAITING_PM_DECISION".equals(project.getWorkflowStatus());
 
         // ----- AVAILABLE EMPLOYEES FOR GAP ANALYSIS -----
 
@@ -750,7 +752,6 @@ public class ResourcePlannerUIController {
         project.setExternalSearchRequestedAt(java.time.LocalDateTime.now());
         projectRepository.save(project);
 
-        // TODO: In real implementation, integrate with external APIs here
 
         redirectAttributes.addFlashAttribute("success",
                 "External search initiated for project: " + project.getName() +
@@ -769,7 +770,7 @@ public class ResourcePlannerUIController {
         // TODO: In real implementation, fetch from external APIs
         List<Map<String, String>> externalCandidates = new ArrayList<>();
 
-        // Placeholder data
+
         // Placeholder data with location
         externalCandidates.add(Map.of(
                 "name", "External Candidate 1",
@@ -832,7 +833,7 @@ public class ResourcePlannerUIController {
             }
 
             // Notify Project Manager (mark project for external search)
-            project.setExternalSearchNeeded(true);
+            project.setExternalSearchNeeded(false);
             project.setExternalSearchNotes("Project Manager notified about skill gaps: " +
                     skillGaps.keySet() + ". " + (message != null ? message : ""));
             project.setExternalSearchRequestedAt(java.time.LocalDateTime.now());

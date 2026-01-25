@@ -71,8 +71,7 @@ public class ProjectUiController {
 
         for (Project project : projects) {
             // Notification 1: Resource Planner found skill gaps
-            if (Boolean.TRUE.equals(project.getExternalSearchNeeded())
-                    && "AWAITING_PM_DECISION".equals(project.getWorkflowStatus())
+            if ("AWAITING_PM_DECISION".equals(project.getWorkflowStatus())
                     && Boolean.FALSE.equals(project.getPmNotificationSeen())) {
 
 
@@ -253,8 +252,8 @@ public class ProjectUiController {
                 .collect(Collectors.toList());
 
         // Logic for external search and skill gap analysis
-        boolean rpRequestedExternalSearch = Boolean.TRUE.equals(project.getExternalSearchNeeded()) &&
-                "AWAITING_PM_DECISION".equals(project.getWorkflowStatus());
+        boolean rpRequestedExternalSearch = "AWAITING_PM_DECISION".equals(project.getWorkflowStatus());
+
         String workflowStatus = project.getWorkflowStatus();
         boolean canTriggerExternalSearch = rpRequestedExternalSearch || "AWAITING_PM_DECISION".equals(workflowStatus);
         String externalSearchNotes = project.getExternalSearchNotes();
@@ -505,7 +504,7 @@ public class ProjectUiController {
     }
 
     // ==================== UNPUBLISH PROJECT ====================
-    // ==================== UNPUBLISH PROJECT ====================
+
     @PostMapping("/{id}/unpublish")
     public String unpublishProject(
             @PathVariable("id") Long id,
@@ -814,11 +813,12 @@ public class ProjectUiController {
 
         // Mark that external search is needed
         project.setExternalSearchNeeded(true);
+        //project.setStatus(ProjectStatus.STAFFING);
         projectRepository.save(project);
 
         redirectAttributes.addFlashAttribute("successMessage",
-                "External search triggered for project: " + project.getName() +
-                        ". The recruitment team has been notified.");
+                "Request for external search of candidate sent to department head " + project.getName() +
+                        ". Waiting for approval");
         return "redirect:/ui/projects/" + id;
     }
 
@@ -830,6 +830,9 @@ public class ProjectUiController {
             RedirectAttributes redirectAttributes) {
 
         String username = principal != null ? principal.getName() : "Guest";
+//        Project project = new Project();
+//        project.setStatus(ProjectStatus.STAFFING);
+//        projectRepository.save(project);
 
         try {
             String processInstanceId = externalSearchService.triggerExternalSearch(id, username, justification);
@@ -918,7 +921,7 @@ public class ProjectUiController {
                 .limit(5)
                 .toList();
 
-        // Get notifications for the dashboard (ADD THIS SECTION)
+        // Get notifications for the dashboard
         List<Notification> unreadNotifications  = notificationRepository
                 .findByUsernameAndIsReadFalseOrderByCreatedAtDesc(username);
         long notificationCount = unreadNotifications.size();
