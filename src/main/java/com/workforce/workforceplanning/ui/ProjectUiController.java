@@ -59,7 +59,9 @@ public class ProjectUiController {
 
         // Calculate statistics
         long totalCount = projects.size();
-        long pendingCount = projects.stream().filter(p -> p.getStatus() == ProjectStatus.PENDING_APPROVAL).count();
+        long approvalpendingCount = projects.stream().filter(p -> p.getStatus() == ProjectStatus.PENDING_APPROVAL).count();
+        long externalpendingcount =projects.stream().filter(p -> p.getStatus() == ProjectStatus.STAFFING).count();
+        long pendingCount=approvalpendingCount + externalpendingcount;
         long approvedCount = projects.stream().filter(p -> p.getStatus() == ProjectStatus.APPROVED).count();
         long publishedCount = projects.stream().filter(p -> Boolean.TRUE.equals(p.getPublished())).count();
         long draftCount = projects.stream().filter(p -> p.getStatus() == ProjectStatus.DRAFT).count();
@@ -223,6 +225,8 @@ public class ProjectUiController {
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Project not found"));
 
+        markAllProjectNotificationsAsRead(id, username);
+
         // Check if the project is published or if the user is authorized to view the project
         boolean isPublished = Boolean.TRUE.equals(project.getPublished());
         boolean isOwner = project.getCreatedBy().equals(username);  // Owner of the project (PM)
@@ -232,6 +236,7 @@ public class ProjectUiController {
         if (!isPublished && !isOwner) {
             return "redirect:/ui/projects?error=Unauthorized+to+view+this+project";
         }
+
 
         // Get related data like assignments, applications, pending applications count, etc.
         List<Assignment> assignments = assignmentRepository.findAll().stream()
@@ -971,5 +976,32 @@ public class ProjectUiController {
         model.addAttribute("notificationCount", unreadNotifications.size());
 
         return "projects/dashboard";
+    }
+
+    // Helper method to mark all project-related notifications as read
+    private void markAllProjectNotificationsAsRead(Long projectId, String username) {
+        try {
+            // Mark project-specific notification flag
+            Project project = projectRepository.findById(projectId).orElse(null);
+            if (project != null && Boolean.FALSE.equals(project.getPmNotificationSeen())) {
+                project.setPmNotificationSeen(true);
+                projectRepository.save(project);
+            }
+
+            // Mark all database notifications for this project and user as read
+            List<Notification> unreadNotifications = notificationRepository
+                    .findByUsernameAndIsReadFalseOrderByCreatedAtDesc(username);
+
+            for (Notification notification : unreadNotifications) {
+                if (projectId.equals(notification.getProjectId())) {
+                    notification.setIsRead(true);
+                }
+            }
+            notificationRepository.saveAll(unreadNotifications);
+
+        } catch (Exception e) {
+            // Log error but don't break the flow
+            System.err.println("Error marking notifications as read: " + e.getMessage());
+        }
     }
 }

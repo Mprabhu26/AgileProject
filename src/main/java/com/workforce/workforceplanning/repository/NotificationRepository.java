@@ -17,7 +17,7 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     boolean existsByEmployeeIdAndIsReadFalse(Long employeeId);
 
-    // Add these methods for username-based notifications:
+    // methods for username-based notifications:
     List<Notification> findByUsernameOrderByCreatedAtDesc(String username);
 
     List<Notification> findByUsernameAndIsReadFalseOrderByCreatedAtDesc(String username);

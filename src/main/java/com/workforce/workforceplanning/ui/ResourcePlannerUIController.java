@@ -65,7 +65,7 @@ public class ResourcePlannerUIController {
             // Get published & approved projects
             List<Project> availableProjects = projectRepository.findAll().stream()
                     .filter(p -> Boolean.TRUE.equals(p.getPublished()))
-                    .filter(p -> p.getStatus() == ProjectStatus.APPROVED)
+                    .filter(p -> p.getStatus() == ProjectStatus.APPROVED || p.getStatus() == ProjectStatus.STAFFING)
                     .collect(Collectors.toList());
             System.out.println("\n=== DEBUG: Dashboard - Available Projects ===");
             System.out.println("Total available projects: " + availableProjects.size());
