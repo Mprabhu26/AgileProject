@@ -80,6 +80,15 @@ public class DepartmentHeadUIController {
                 .desc()
                 .list();
 
+        // Get external search projects count
+        long externalSearchProjectsCount = projectRepository.findAll().stream()
+                .filter(p -> Boolean.TRUE.equals(p.getExternalSearchNeeded()))
+                .filter(p -> "AWAITING_DEPARTMENT_HEAD_APPROVAL".equals(p.getWorkflowStatus()))
+                .filter(p -> p.getStatus() == ProjectStatus.STAFFING)
+                .count();
+
+        model.addAttribute("pendingExternalSearchCount", externalSearchProjectsCount);
+
         // ==================== PUBLISHED PROJECTS AWAITING APPROVAL ====================
 
         // Get published projects for department head
@@ -87,6 +96,12 @@ public class DepartmentHeadUIController {
                 .filter(p -> Boolean.TRUE.equals(p.getPublished()))  // Only include published projects
                 .filter(p -> p.getStatus() == ProjectStatus.PENDING_APPROVAL)  // Only projects that are pending approval
                 .filter(p -> "RUNNING".equals(p.getWorkflowStatus())) // Awaiting approval
+                .collect(Collectors.toList());
+
+        List<Project> externalsearchProjects = projectRepository.findAll().stream()
+                .filter(p -> Boolean.TRUE.equals(p.getPublished()))  // Only include published projects
+                .filter(p -> p.getStatus() == ProjectStatus.STAFFING)  // Only projects that are pending approval
+                .filter(p -> "AWAITING_DEPARTMENT_HEAD_APPROVAL".equals(p.getWorkflowStatus())) // Awaiting approval
                 .collect(Collectors.toList());
 
 
@@ -125,6 +140,8 @@ public class DepartmentHeadUIController {
         model.addAttribute("pendingTasks", pendingTasks);
         model.addAttribute("recentTasks", recentTasks);
         model.addAttribute("taskProjectNames", taskProjectNames);
+        model.addAttribute("externalsearchProjects", externalsearchProjects);
+
 
         // Counts
         int totalPendingCount = pendingTasks.size() + publishedProjects.size();
@@ -156,7 +173,7 @@ public class DepartmentHeadUIController {
 
             // Department Head can view published projects awaiting approval
             //if (!Boolean.TRUE.equals(project.getPublished()) ||
-              //      !"RUNNING".equals(project.getWorkflowStatus())) {  // ✅ NEW CHECK
+              //      !"RUNNING".equals(project.getWorkflowStatus())) {
                 //return "redirect:/ui/department-head/dashboard?error=Project+not+accessible";
            // }
             model.addAttribute("project", project);
@@ -186,7 +203,7 @@ public class DepartmentHeadUIController {
             // Validate project state
             if (!"RUNNING".equals(project.getWorkflowStatus())) {
                 redirectAttributes.addFlashAttribute("errorMessage",
-                        "❌ Project is not awaiting approval");
+                        " Project is not awaiting approval");
                 return "redirect:/ui/department-head/dashboard";
             }
 
@@ -203,11 +220,11 @@ public class DepartmentHeadUIController {
             projectRepository.save(project);
 
             redirectAttributes.addFlashAttribute("successMessage",
-                    "✅ Project '" + project.getName() + "' approved successfully! Now available for staffing.");
+                    " Project '" + project.getName() + "' approved successfully! Now available for staffing.");
 
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("errorMessage",
-                    "❌ Error approving project: " + e.getMessage());
+                    " Error approving project: " + e.getMessage());
         }
 
         return "redirect:/ui/department-head/dashboard";
@@ -230,7 +247,7 @@ public class DepartmentHeadUIController {
             // Validate project state
             if (!"RUNNING".equals(project.getWorkflowStatus())) {
                 redirectAttributes.addFlashAttribute("errorMessage",
-                        "❌ Project is not awaiting approval");
+                        " Project is not awaiting approval");
                 return "redirect:/ui/department-head/dashboard";
             }
 
@@ -247,11 +264,11 @@ public class DepartmentHeadUIController {
             projectRepository.save(project);
 
             redirectAttributes.addFlashAttribute("successMessage",
-                    "❌ Project '" + project.getName() + "' rejected and unpublished.");
+                    " Project '" + project.getName() + "' rejected and unpublished.");
 
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("errorMessage",
-                    "❌ Error rejecting project: " + e.getMessage());
+                    " Error rejecting project: " + e.getMessage());
         }
 
         return "redirect:/ui/department-head/dashboard";
@@ -319,18 +336,18 @@ public class DepartmentHeadUIController {
             // Complete the task - This will trigger ProjectApprovalDelegate
             taskService.complete(taskId, variables);
 
-            System.out.println("✅ Approval task completed. Delegate will update project status.");
+            System.out.println(" Approval task completed. Delegate will update project status.");
             System.out.println("   Task ID: " + taskId);
             System.out.println("   Process Instance: " + processInstanceId);
 
             redirectAttributes.addFlashAttribute("successMessage",
-                    "✅ Project request approved successfully!");
+                    " Project request approved successfully!");
 
         } catch (Exception e) {
-            System.err.println("❌ Error approving project: " + e.getMessage());
+            System.err.println(" Error approving project: " + e.getMessage());
             e.printStackTrace();
             redirectAttributes.addFlashAttribute("errorMessage",
-                    "❌ Error approving project: " + e.getMessage());
+                    " Error approving project: " + e.getMessage());
         }
 
         return "redirect:/ui/department-head/dashboard";
@@ -364,11 +381,11 @@ public class DepartmentHeadUIController {
             taskService.complete(taskId, variables);
 
             redirectAttributes.addFlashAttribute("successMessage",
-                    "❌ Project request rejected.");
+                    "Project request rejected.");
 
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("errorMessage",
-                    "❌ Error rejecting project: " + e.getMessage());
+                    "Error rejecting project: " + e.getMessage());
         }
 
         return "redirect:/ui/department-head/dashboard";
@@ -384,7 +401,7 @@ public class DepartmentHeadUIController {
 
         if (taskIds == null || taskIds.isEmpty()) {
             redirectAttributes.addFlashAttribute("errorMessage",
-                    "⚠️ No tasks selected for approval");
+                    "No tasks selected for approval");
             return "redirect:/ui/department-head/dashboard";
         }
 
@@ -416,16 +433,16 @@ public class DepartmentHeadUIController {
 
             if (successCount > 0) {
                 redirectAttributes.addFlashAttribute("successMessage",
-                        "✅ Successfully approved " + successCount + " project(s)" +
+                        "Successfully approved " + successCount + " project(s)" +
                                 (failCount > 0 ? " (" + failCount + " failed)" : ""));
             } else {
                 redirectAttributes.addFlashAttribute("errorMessage",
-                        "❌ Failed to approve any projects");
+                        "Failed to approve any projects");
             }
 
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("errorMessage",
-                    "❌ Error during bulk approval: " + e.getMessage());
+                    "Error during bulk approval: " + e.getMessage());
         }
 
         return "redirect:/ui/department-head/dashboard";
@@ -459,7 +476,7 @@ public class DepartmentHeadUIController {
                     continue;
                 }
 
-                // ✅ FIX: Make vars final for lambda
+                //Make vars final for lambda
                 final Map<String, Object> finalVars = vars;
 
                 if (finalVars != null && finalVars.containsKey("projectId")) {
@@ -468,13 +485,13 @@ public class DepartmentHeadUIController {
                     projectRepository.findById(projectId).ifPresent(project -> {
                         Map<String, Object> notification = new HashMap<>();
 
-                        // ✅ ALWAYS SET projectId
+                        // ALWAYS SET projectId
                         notification.put("projectId", projectId);
                         notification.put("projectName", project.getName());
                         notification.put("taskName", task.getName());
                         notification.put("timestamp", task.getEndTime());
 
-                        // ✅ FIX: Create decision inside lambda
+                        // Create decision inside lambda
                         String decision = "COMPLETED";
                         if (finalVars.containsKey("approved")) {
                             Boolean approved = (Boolean) finalVars.get("approved");
@@ -482,7 +499,7 @@ public class DepartmentHeadUIController {
                         }
                         notification.put("decision", decision);
 
-                        // ✅ FIX: Create comments inside lambda
+                        //Create comments inside lambda
                         String comments = "";
                         if (finalVars.containsKey("approvalNotes")) {
                             comments = (String) finalVars.get("approvalNotes");
@@ -510,111 +527,121 @@ public class DepartmentHeadUIController {
         String username = principal != null ? principal.getName() : "Guest";
         model.addAttribute("username", username);
 
-        // Get all pending external search approval tasks
-        List<Task> pendingExternalSearchTasks = taskService.createTaskQuery()
-                .taskCandidateGroup("DepartmentHead")
-                .taskName("Approve External Search")
-                .active()
-                .orderByTaskCreateTime()
-                .desc()
-                .list();
+        // GET PROJECTS FROM DATABASE - not from Flowable
+        List<Project> externalSearchProjects = projectRepository.findAll().stream()
+                .filter(p -> Boolean.TRUE.equals(p.getExternalSearchNeeded()))  // External search needed
+                .filter(p -> "AWAITING_DEPARTMENT_HEAD_APPROVAL".equals(p.getWorkflowStatus()))  // Awaiting DH approval
+                .filter(p -> p.getStatus() == ProjectStatus.STAFFING)  // In staffing status
+                .collect(Collectors.toList());
 
-        // Group tasks with project info
+        // Prepare list for UI
         List<Map<String, Object>> externalSearchRequests = new ArrayList<>();
-        for (Task task : pendingExternalSearchTasks) {
-            Map<String, Object> processVariables = runtimeService.getVariables(task.getProcessInstanceId());
+
+        for (Project project : externalSearchProjects) {
             Map<String, Object> request = new HashMap<>();
-
-            request.put("task", task);
-            request.put("variables", processVariables);
-
-            // Get project details
-            if (processVariables.containsKey("projectId")) {
-                Long projectId = ((Number) processVariables.get("projectId")).longValue();
-                Project project = projectRepository.findById(projectId).orElse(null);
-                request.put("project", project);
-            }
+            request.put("project", project);
+            request.put("projectId", project.getId());
+            request.put("projectName", project.getName());
+            request.put("requestedBy", project.getCreatedBy());
+            request.put("requestedAt", project.getExternalSearchRequestedAt());
+            request.put("justification", project.getExternalSearchNotes());
 
             externalSearchRequests.add(request);
         }
 
         model.addAttribute("externalSearchRequests", externalSearchRequests);
-        model.addAttribute("pendingExternalSearchCount", pendingExternalSearchTasks.size());
+        model.addAttribute("pendingExternalSearchCount", externalSearchProjects.size());
 
         return "department-head/external-search-requests";
     }
 
     // ==================== APPROVE EXTERNAL SEARCH ====================
-    @PostMapping("/external-search/tasks/{taskId}/approve")
-    public String approveExternalSearchTask(
-            @PathVariable String taskId,
+    @PostMapping("/projects/{projectId}/approve-external-search")
+    public String approveExternalSearch(
+            @PathVariable Long projectId,
             @RequestParam(required = false) String approvalNotes,
-            RedirectAttributes redirectAttributes,
-            Principal principal) {
+            Principal principal,
+            RedirectAttributes redirectAttributes) {
+
+        String username = principal != null ? principal.getName() : "Guest";
 
         try {
-            String approver = principal != null ? principal.getName() : "DepartmentHead";
+            Project project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
 
-            Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
-            if (task == null) {
-                redirectAttributes.addFlashAttribute("errorMessage", "Task not found");
+            // Validate - must be awaiting DH approval
+            if (!"AWAITING_DEPARTMENT_HEAD_APPROVAL".equals(project.getWorkflowStatus())) {
+                redirectAttributes.addFlashAttribute("errorMessage",
+                        "Project is not awaiting external search approval");
                 return "redirect:/ui/department-head/external-search-requests";
             }
 
-            // Set approval variables
-            Map<String, Object> variables = new HashMap<>();
-            variables.put("approved", true);
-            variables.put("externalSearchApproved", true);
-            variables.put("approvalNotes", approvalNotes != null ? approvalNotes : "Approved by " + approver);
-            variables.put("approvedBy", approver);
+            // Approve external search
+            project.setExternalSearchNeeded(true);
+            project.setWorkflowStatus("EXTERNAL_SEARCH_APPROVED");
+            project.setStatus(ProjectStatus.APPROVED);
+//            project.setExternalSearchApprovedAt(LocalDateTime.now());
+//            project.setExternalSearchApprovedBy(username);
 
-            // Complete the task
-            taskService.complete(taskId, variables);
+            if (approvalNotes != null && !approvalNotes.isEmpty()) {
+                project.setExternalSearchNotes("Approved by " + username + ": " + approvalNotes);
+            } else {
+                project.setExternalSearchNotes("Approved by " + username);
+            }
+
+            projectRepository.save(project);
 
             redirectAttributes.addFlashAttribute("successMessage",
-                    "✅ External search approved successfully!");
+                    "External search approved for project '" + project.getName() + "'");
 
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("errorMessage",
-                    "❌ Error approving external search: " + e.getMessage());
+                    "Error approving external search: " + e.getMessage());
         }
 
         return "redirect:/ui/department-head/external-search-requests";
     }
 
     // ==================== REJECT EXTERNAL SEARCH ====================
-    @PostMapping("/external-search/tasks/{taskId}/reject")
-    public String rejectExternalSearchTask(
-            @PathVariable String taskId,
+    @PostMapping("/projects/{projectId}/reject-external-search")
+    public String rejectExternalSearch(
+            @PathVariable Long projectId,
             @RequestParam(required = false) String rejectionReason,
-            RedirectAttributes redirectAttributes,
-            Principal principal) {
+            Principal principal,
+            RedirectAttributes redirectAttributes) {
+
+        String username = principal != null ? principal.getName() : "Guest";
 
         try {
-            String rejector = principal != null ? principal.getName() : "DepartmentHead";
+            Project project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
 
-            Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
-            if (task == null) {
-                redirectAttributes.addFlashAttribute("errorMessage", "Task not found");
+            // Validate - must be awaiting DH approval
+            if (!"AWAITING_DEPARTMENT_HEAD_APPROVAL".equals(project.getWorkflowStatus())) {
+                redirectAttributes.addFlashAttribute("errorMessage",
+                        "Project is not awaiting external search approval");
                 return "redirect:/ui/department-head/external-search-requests";
             }
 
-            // Set rejection variables
-            Map<String, Object> variables = new HashMap<>();
-            variables.put("approved", false);
-            variables.put("externalSearchApproved", false);
-            variables.put("rejectionReason", rejectionReason != null ? rejectionReason : "Rejected by " + rejector);
-            variables.put("rejectedBy", rejector);
+            // Reject external search
+            project.setExternalSearchNeeded(false);
+            project.setWorkflowStatus("EXTERNAL_SEARCH_REJECTED");
+            project.setStatus(ProjectStatus.REJECTED); // Keep in staffing
 
-            // Complete the task
-            taskService.complete(taskId, variables);
+            if (rejectionReason != null && !rejectionReason.isEmpty()) {
+                project.setExternalSearchNotes("Rejected by " + username + ": " + rejectionReason);
+            } else {
+                project.setExternalSearchNotes("Rejected by " + username);
+            }
+
+            projectRepository.save(project);
 
             redirectAttributes.addFlashAttribute("successMessage",
-                    "❌ External search rejected.");
+                    "External search rejected for project '" + project.getName() + "'");
 
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("errorMessage",
-                    "❌ Error rejecting external search: " + e.getMessage());
+                    "Error rejecting external search: " + e.getMessage());
         }
 
         return "redirect:/ui/department-head/external-search-requests";

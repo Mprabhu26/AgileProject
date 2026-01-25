@@ -63,6 +63,7 @@ public class ExternalSearchService {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Project not found"));
 
+
         // Verify the PM is the creator
         if (!project.getCreatedBy().equals(pmUsername)) {
             throw new RuntimeException("Only the project creator can trigger external search");
@@ -80,8 +81,7 @@ public class ExternalSearchService {
         variables.put("externalSearchType", "skill_gap");
         variables.put("requestTime", LocalDateTime.now());
 
-        // Add skill gaps information
-        // You can add skill gap analysis here or pass from controller
+
 
         String processInstanceId;
 

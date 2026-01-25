@@ -347,6 +347,7 @@ public class ProjectUiController {
         }
         form.setSkillRequirements(skillDtos);
 
+
         model.addAttribute("username", username);
         model.addAttribute("projectForm", form);
         model.addAttribute("projectId", id);
@@ -404,12 +405,12 @@ public class ProjectUiController {
                     }
                 }
             }
-
+            project.setStatus(ProjectStatus.DRAFT);
             projectRepository.save(project);
 
             redirectAttributes.addFlashAttribute("successMessage",
                     "Project '" + project.getName() + "' updated successfully!");
-            return "redirect:/ui/projects/dashboard"; // ✅ REDIRECT TO DASHBOARD
+            return "redirect:/ui/projects/dashboard"; // REDIRECT TO DASHBOARD
 
         } catch (Exception e) {
             model.addAttribute("error", "Error updating project: " + e.getMessage());
@@ -436,7 +437,7 @@ public class ProjectUiController {
         if (!project.getCreatedBy().equals(username)) {
             redirectAttributes.addFlashAttribute("errorMessage",
                     "Unauthorized to delete this project");
-            return "redirect:/ui/projects/dashboard"; // ✅ REDIRECT TO DASHBOARD
+            return "redirect:/ui/projects/dashboard"; // REDIRECT TO DASHBOARD
         }
 
         // Check if project can be deleted
@@ -446,7 +447,7 @@ public class ProjectUiController {
                 project.getStatus() == ProjectStatus.APPROVED) {
             redirectAttributes.addFlashAttribute("errorMessage",
                     "Cannot delete project that is " + project.getStatus());
-            return "redirect:/ui/projects/dashboard"; // ✅ REDIRECT TO DASHBOARD
+            return "redirect:/ui/projects/dashboard"; // REDIRECT TO DASHBOARD
         }
 
         // Check if there are assignments
@@ -455,16 +456,16 @@ public class ProjectUiController {
                 .count();
 
         if (assignmentCount > 0) {
-            redirectAttributes.addFlashAttribute("errorMessage",
+            redirectAttributes.addFlashAttribute("successMessage",
                     "Cannot delete project with existing assignments");
-            return "redirect:/ui/projects/dashboard"; // ✅ REDIRECT TO DASHBOARD
+            return "redirect:/ui/projects/dashboard"; // REDIRECT TO DASHBOARD
         }
 
         projectRepository.delete(project);
 
         redirectAttributes.addFlashAttribute("successMessage",
                 "Project '" + project.getName() + "' deleted successfully!");
-        return "redirect:/ui/projects/dashboard"; // ✅ REDIRECT TO DASHBOARD
+        return "redirect:/ui/projects/dashboard"; // REDIRECT TO DASHBOARD
     }
 
     // ==================== PUBLISH PROJECT ====================
@@ -497,12 +498,12 @@ public class ProjectUiController {
             projectRepository.save(project);
 
             redirectAttributes.addFlashAttribute("successMessage",
-                    "✅ Project '" + project.getName() + "' published successfully! " +
+                    "Project '" + project.getName() + "' published successfully! " +
                             "Awaiting Department Head approval.");
 
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("errorMessage",
-                    "❌ Failed to publish project: " + e.getMessage());
+                    "Failed to publish project: " + e.getMessage());
         }
 
         return "redirect:/ui/projects/dashboard";
