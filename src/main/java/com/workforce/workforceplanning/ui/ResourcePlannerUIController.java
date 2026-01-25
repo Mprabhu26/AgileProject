@@ -71,8 +71,22 @@ public class ResourcePlannerUIController {
             System.out.println("Total available projects: " + availableProjects.size());
 
             // Get available employees
+//            List<Employee> availableEmployees = employeeRepository.findAll().stream()
+//                    .filter(e -> Boolean.TRUE.equals(e.getAvailable()))
+//                    .collect(Collectors.toList());
+
+            // Get available employees WITHOUT pending assignments
+            List<Assignment> pendingAssignments = assignmentRepository.findAll().stream()
+                    .filter(a -> a.getStatus() == AssignmentStatus.PENDING)
+                    .collect(Collectors.toList());
+
+            Set<Long> employeesWithPending = pendingAssignments.stream()
+                    .map(a -> a.getEmployee().getId())
+                    .collect(Collectors.toSet());
+
             List<Employee> availableEmployees = employeeRepository.findAll().stream()
                     .filter(e -> Boolean.TRUE.equals(e.getAvailable()))
+                    .filter(e -> !employeesWithPending.contains(e.getId()))
                     .collect(Collectors.toList());
 
             // Get all assignments
@@ -92,6 +106,7 @@ public class ResourcePlannerUIController {
 
                 // Find matching available employees
                 List<Employee> matchingEmployees = findMatchingEmployees(project);
+
 
                 projectStaffingInfo.put(project.getId(),
                         new StaffingInfo((int) assignedCount, matchingEmployees.size()));
@@ -230,42 +245,81 @@ public class ResourcePlannerUIController {
             }
         }
 
-        // Calculate coverage percentage
+        /// Calculate coverage percentage
         int totalSkillsNeeded = 0;
         int skillsCovered = 0;
 
+        int totalPositionsNeeded = 0;
+        int positionsFilled = 0;
+
         if (project.getSkillRequirements() != null) {
+            // Track which skills have been satisfied by which employees
+            Map<String, Integer> remainingSkillRequirements = new HashMap<>();
+            List<Employee> remainingEmployees = new ArrayList<>(assignedEmployees);
+
+            // Initialize with required counts
             for (ProjectSkillRequirement req : project.getSkillRequirements()) {
                 String reqSkill = req.getSkill().toLowerCase().trim();
-                int required = req.getRequiredCount();
-                int available = assignedSkillCounts.getOrDefault(reqSkill, 0);
+                remainingSkillRequirements.put(reqSkill, req.getRequiredCount());
+                totalPositionsNeeded += req.getRequiredCount();
+            }
 
-                totalSkillsNeeded += required;
-                skillsCovered += Math.min(available, required);
+            for (Employee emp : assignedEmployees) {
+                if (emp.getSkills() != null) {
+                    // Find the first remaining skill requirement this employee can satisfy
+                    for (String empSkill : emp.getSkills()) {
+                        String empSkillLower = empSkill.toLowerCase().trim();
+                        if (remainingSkillRequirements.containsKey(empSkillLower)
+                                && remainingSkillRequirements.get(empSkillLower) > 0) {
+                            // This employee can fill this skill position
+                            remainingSkillRequirements.put(empSkillLower,
+                                    remainingSkillRequirements.get(empSkillLower) - 1);
+                            positionsFilled++;
+                            break; // Employee can only fill one position
+                        }
+                    }
+                }
             }
         }
 
         // Calculate coverage based on assigned employees
+//        double calculatedCoveragePercentage = 0;
+//        if (totalSkillsNeeded > 0) {
+//            calculatedCoveragePercentage = ((double) skillsCovered / totalSkillsNeeded) * 100;
+//        }
         double calculatedCoveragePercentage = 0;
-        if (totalSkillsNeeded > 0) {
-            calculatedCoveragePercentage = ((double) skillsCovered / totalSkillsNeeded) * 100;
+        if (totalPositionsNeeded > 0) {
+            calculatedCoveragePercentage = ((double) positionsFilled / totalPositionsNeeded) * 100;
         }
-
         // ----- SKILL GAP CALCULATION (Based on assigned employees) -----
 
         Map<String, Integer> skillGaps = new HashMap<>();
         if (project.getSkillRequirements() != null) {
+            // Track remaining needs - initialize with required counts
+            Map<String, Integer> remainingNeeds = new HashMap<>();
+            for (ProjectSkillRequirement req : project.getSkillRequirements()) {
+                remainingNeeds.put(req.getSkill().toLowerCase().trim(), req.getRequiredCount());
+            }
+
+            // For each assigned employee, fill one position
+            for (Employee emp : assignedEmployees) {
+                if (emp.getSkills() != null) {
+                    for (String empSkill : emp.getSkills()) {
+                        String empSkillLower = empSkill.toLowerCase().trim();
+                        if (remainingNeeds.containsKey(empSkillLower) && remainingNeeds.get(empSkillLower) > 0) {
+                            remainingNeeds.put(empSkillLower, remainingNeeds.get(empSkillLower) - 1);
+                            break; // Each employee fills only one position
+                        }
+                    }
+                }
+            }
+
+            // Convert remaining needs to skill gaps
             for (ProjectSkillRequirement req : project.getSkillRequirements()) {
                 String reqSkill = req.getSkill().toLowerCase().trim();
-                int required = req.getRequiredCount();
-
-                // Count from assigned employees
-                int assignedCount = assignedSkillCounts.getOrDefault(reqSkill, 0);
-
-                // Calculate gap (positive = shortage)
-                int gap = required - assignedCount;
+                int gap = remainingNeeds.getOrDefault(reqSkill, 0);
                 if (gap > 0) {
-                    skillGaps.put(req.getSkill(), gap); // Use original case for display
+                    skillGaps.put(req.getSkill(), gap);
                 }
             }
         }
@@ -279,11 +333,10 @@ public class ResourcePlannerUIController {
 
         // Calculate covered skills count (skills that are fully met)
         int coveredSkillsCount = 0;
-        if (project.getSkillRequirements() != null) {
+        if (project.getSkillRequirements() != null && skillGaps != null) {
             for (ProjectSkillRequirement req : project.getSkillRequirements()) {
-                String reqSkill = req.getSkill().toLowerCase().trim();
-                int assignedCount = assignedSkillCounts.getOrDefault(reqSkill, 0);
-                if (assignedCount >= req.getRequiredCount()) {
+                String skill = req.getSkill();
+                if (!skillGaps.containsKey(skill) || skillGaps.get(skill) <= 0) {
                     coveredSkillsCount++;
                 }
             }
@@ -394,6 +447,7 @@ public class ResourcePlannerUIController {
         model.addAttribute("missingEmployeesCount", missingEmployeesCount);
         model.addAttribute("coveredSkillsCount", coveredSkillsCount);
         model.addAttribute("totalSkillsNeeded", totalSkillsNeeded);
+        model.addAttribute("totalPositionsNeeded", totalPositionsNeeded);
         model.addAttribute("skillsCovered", skillsCovered);
         model.addAttribute("assignedSkillCounts", assignedSkillCounts); // For debugging
         model.addAttribute("hasCoveredSkills", hasCoveredSkills);
@@ -612,44 +666,39 @@ public class ResourcePlannerUIController {
 
     // Helper method to find employees matching project requirements
     private List<Employee> findMatchingEmployees(Project project) {
+        // Get all available employees
+        List<Employee> allAvailable = employeeRepository.findAll().stream()
+                .filter(e -> Boolean.TRUE.equals(e.getAvailable()))
+                .collect(Collectors.toList());
+
+        // Filter out employees with pending assignments
+        List<Employee> availableWithoutPending = allAvailable.stream()
+                .filter(e -> !hasPendingAssignments(e.getId()))
+                .collect(Collectors.toList());
+
         if (project.getSkillRequirements() == null || project.getSkillRequirements().isEmpty()) {
-            // If no specific skills required, return all available employees
-            return employeeRepository.findAll().stream()
-                    .filter(e -> Boolean.TRUE.equals(e.getAvailable()))
-                    .collect(Collectors.toList());
+            return availableWithoutPending;
         }
 
-        // Get required skills from project (convert to lowercase for case-insensitive matching)
+        // Get required skills
         Set<String> requiredSkills = project.getSkillRequirements().stream()
                 .map(req -> req.getSkill().toLowerCase().trim())
                 .collect(Collectors.toSet());
 
-        // DEBUG: Print what we're looking for
-        System.out.println("Looking for skills (case-insensitive): " + requiredSkills);
-
-        // Find available employees with matching skills (CASE-INSENSITIVE)
-        return employeeRepository.findAll().stream()
-                .filter(e -> Boolean.TRUE.equals(e.getAvailable()))
+        // Filter by skills
+        return availableWithoutPending.stream()
                 .filter(e -> {
                     if (e.getSkills() == null || e.getSkills().isEmpty()) {
                         return false;
                     }
-
-                    // Convert employee skills to lowercase for comparison
                     Set<String> employeeSkills = e.getSkills().stream()
                             .map(skill -> skill.toLowerCase().trim())
                             .collect(Collectors.toSet());
-
-                    // Check if any required skill matches any employee skill
                     return requiredSkills.stream()
-                            .anyMatch(requiredSkill ->
-                                    employeeSkills.stream()
-                                            .anyMatch(employeeSkill ->
-                                                    employeeSkill.equals(requiredSkill)));
+                            .anyMatch(employeeSkills::contains);
                 })
                 .sorted((e1, e2) -> {
-                    // Sort by number of matching skills (descending)
-                    // Convert to lowercase for comparison
+                    // Sort by matching skill count
                     Set<String> e1Skills = e1.getSkills().stream()
                             .map(skill -> skill.toLowerCase().trim())
                             .collect(Collectors.toSet());
@@ -848,5 +897,11 @@ public class ResourcePlannerUIController {
 
         public int getAssignedCount() { return assignedCount; }
         public int getMatchingEmployeesCount() { return matchingEmployeesCount; }
+    }
+
+    private boolean hasPendingAssignments(Long employeeId) {
+        return assignmentRepository.findAll().stream()
+                .anyMatch(a -> a.getEmployee().getId().equals(employeeId)
+                        && a.getStatus() == AssignmentStatus.PENDING);
     }
 }
