@@ -1,8 +1,11 @@
 package com.workforce.workforceplanning.ui;
 
+import com.workforce.workforceplanning.model.Notification;
 import com.workforce.workforceplanning.model.Project;
 import com.workforce.workforceplanning.model.ProjectStatus;
+import com.workforce.workforceplanning.repository.NotificationRepository;
 import com.workforce.workforceplanning.repository.ProjectRepository;
+import com.workforce.workforceplanning.service.UserRoleService;
 import org.flowable.engine.HistoryService;
 import org.flowable.engine.RuntimeService;
 import org.flowable.engine.TaskService;
@@ -13,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-
+import com.workforce.workforceplanning.repository.NotificationRepository;
 import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -27,16 +30,20 @@ public class DepartmentHeadUIController {
     private final TaskService taskService;
     private final RuntimeService runtimeService;
     private final HistoryService historyService;
+    private final NotificationRepository notificationRepository;
     private final ProjectRepository projectRepository;
+    private final UserRoleService userRoleService;
 
     public DepartmentHeadUIController(TaskService taskService,
                                       RuntimeService runtimeService,
-                                      HistoryService historyService,
-                                      ProjectRepository projectRepository) {
+                                      HistoryService historyService, NotificationRepository notificationRepository,
+                                      ProjectRepository projectRepository, UserRoleService userRoleService) {
         this.taskService = taskService;
         this.runtimeService = runtimeService;
         this.historyService = historyService;
+        this.notificationRepository = notificationRepository;
         this.projectRepository = projectRepository;
+        this.userRoleService = userRoleService;
     }
 
     // ==================== DASHBOARD ====================
@@ -44,6 +51,40 @@ public class DepartmentHeadUIController {
     public String dashboard(Model model, Principal principal) {
         String username = principal != null ? principal.getName() : "Guest";
         model.addAttribute("username", username);
+        boolean isDepartmentHead = userRoleService.isUserDepartmentHead(username);
+
+        if (isDepartmentHead) {
+            // Get notifications for THIS specific Department Head user
+            long dhNotificationCount = notificationRepository.countByUsernameAndIsReadFalse(username);
+            model.addAttribute("dhNotificationCount", dhNotificationCount);
+
+            // Also check for "ALL_DEPARTMENT_HEADS" notifications
+            long allDhNotificationCount = notificationRepository.countByUsernameAndIsReadFalse("ALL_DEPARTMENT_HEADS");
+            long totalNotificationCount = dhNotificationCount + allDhNotificationCount;
+            model.addAttribute("dhNotificationCount", totalNotificationCount);
+
+            // Get DH notifications for display (personal + shared)
+            List<Notification> personalNotifications = notificationRepository
+                    .findByUsernameAndIsReadFalseOrderByCreatedAtDesc(username);
+
+            List<Notification> sharedNotifications = notificationRepository
+                    .findByUsernameAndIsReadFalseOrderByCreatedAtDesc("ALL_DEPARTMENT_HEADS");
+
+            // Combine notifications
+            List<Notification> allNotifications = new ArrayList<>();
+            allNotifications.addAll(personalNotifications);
+            allNotifications.addAll(sharedNotifications);
+
+            // Sort by creation time
+            allNotifications.sort((n1, n2) -> n2.getCreatedAt().compareTo(n1.getCreatedAt()));
+
+            model.addAttribute("dhNotifications", allNotifications);
+        } else {
+            // User is not a Department Head
+            model.addAttribute("dhNotificationCount", 0);
+            model.addAttribute("dhNotifications", Collections.emptyList());
+        }
+
 
         // ==================== WORKFLOW TASKS ====================
 
@@ -134,6 +175,15 @@ public class DepartmentHeadUIController {
         if (totalApprovals > 0) {
             approvalRate = (approvedCount * 100.0) / totalApprovals;
         }
+
+//        // Count DH notifications
+//        long dhNotificationCount = notificationRepository.countByUsernameAndIsReadFalse("DepartmentHead");
+//        model.addAttribute("dhNotificationCount", dhNotificationCount);
+//
+//        // Store notifications for display
+//        List<Notification> dhNotifications = notificationRepository
+//                .findByUsernameAndIsReadFalseOrderByCreatedAtDesc("DepartmentHead");
+//        model.addAttribute("dhNotifications", dhNotifications);
 
         // ==================== ADD TO MODEL ====================
 
@@ -645,5 +695,53 @@ public class DepartmentHeadUIController {
         }
 
         return "redirect:/ui/department-head/external-search-requests";
+    }
+
+    // ==================== DH NOTIFICATIONS ====================
+    @GetMapping("/notifications")
+    public String viewNotifications(Model model, Principal principal) {
+        String username = principal != null ? principal.getName() : "Guest";
+        model.addAttribute("username", username);
+
+        // Get DH notifications
+        List<Notification> notifications = notificationRepository
+                .findByUsernameOrderByCreatedAtDesc("DepartmentHead");
+
+        model.addAttribute("notifications", notifications);
+        model.addAttribute("unreadCount", notificationRepository.countByUsernameAndIsReadFalse("DepartmentHead"));
+
+        return "department-head/notifications";
+    }
+
+    @PostMapping("/notifications/{id}/read")
+    public String markNotificationAsRead(
+            @PathVariable Long id,
+            Principal principal,
+            RedirectAttributes redirectAttributes) {
+
+        Notification notification = notificationRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Notification not found"));
+
+        notification.setIsRead(true);
+        notificationRepository.save(notification);
+
+        return "redirect:/ui/department-head/notifications";
+    }
+
+    @PostMapping("/notifications/mark-all-read")
+    public String markAllNotificationsAsRead(
+            Principal principal,
+            RedirectAttributes redirectAttributes) {
+
+        List<Notification> notifications = notificationRepository
+                .findByUsernameAndIsReadFalseOrderByCreatedAtDesc("DepartmentHead");
+
+        for (Notification notification : notifications) {
+            notification.setIsRead(true);
+        }
+        notificationRepository.saveAll(notifications);
+
+        redirectAttributes.addFlashAttribute("successMessage", "All notifications marked as read");
+        return "redirect:/ui/department-head/notifications";
     }
 }

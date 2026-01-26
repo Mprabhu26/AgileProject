@@ -6,6 +6,7 @@ import com.workforce.workforceplanning.model.*;
 import com.workforce.workforceplanning.repository.*;
 import com.workforce.workforceplanning.service.ExternalSearchService;
 import com.workforce.workforceplanning.service.SkillGapAnalysisService;
+import com.workforce.workforceplanning.service.UserRoleService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -31,6 +32,8 @@ public class ProjectUiController {
     private final ExternalSearchService externalSearchService;
     private final SkillGapAnalysisService skillGapAnalysisService;
     private final NotificationRepository notificationRepository;
+    private final UserRoleService userRoleService;
+
 
     public ProjectUiController(
             ProjectRepository projectRepository,
@@ -39,7 +42,7 @@ public class ProjectUiController {
             ExternalSearchService externalSearchService,
             SkillGapAnalysisService skillGapAnalysisService,
             EmployeeRepository employeeRepository,
-            NotificationRepository notificationRepository){
+            NotificationRepository notificationRepository, UserRoleService userRoleService){
         this.projectRepository = projectRepository;
         this.assignmentRepository = assignmentRepository;
         this.applicationRepository = applicationRepository;
@@ -47,6 +50,7 @@ public class ProjectUiController {
         this.externalSearchService = externalSearchService;
         this.skillGapAnalysisService = skillGapAnalysisService;
         this.notificationRepository = notificationRepository;
+        this.userRoleService = userRoleService;
     }
 
     // ==================== PROJECT LIST ====================
@@ -102,7 +106,7 @@ public class ProjectUiController {
                 notif.put("createdAt", project.getExternalSearchRequestedAt() != null
                         ? project.getExternalSearchRequestedAt()
                         : LocalDateTime.now());
-
+                notif.put("isRead", false);
                 projectNotifications.add(notif);
             }
         }
@@ -836,21 +840,70 @@ public class ProjectUiController {
             RedirectAttributes redirectAttributes) {
 
         String username = principal != null ? principal.getName() : "Guest";
-//        Project project = new Project();
-//        project.setStatus(ProjectStatus.STAFFING);
-//        projectRepository.save(project);
+
 
         try {
+            Project project = projectRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+
             String processInstanceId = externalSearchService.triggerExternalSearch(id, username, justification);
 
+            List<String> departmentHeadUsernames = userRoleService.getDepartmentHeadUsernames();
+
+            // Create notification for each Department Head
+            if (departmentHeadUsernames.isEmpty()) {
+                Notification dhNotification = new Notification();
+                dhNotification.setUsername("ALL_DEPARTMENT_HEADS"); // Actual DH username
+                dhNotification.setTitle("External Search Request");
+                dhNotification.setMessage("Project Manager " + username +
+                        " requested external search for project '" +
+                        project.getName() + "'." +
+                        (justification != null ? " Reason: " + justification : ""));
+                dhNotification.setProjectId(project.getId());
+                dhNotification.setProjectName(project.getName());
+                dhNotification.setCreatedAt(LocalDateTime.now());
+                dhNotification.setIsRead(false);
+                notificationRepository.save(dhNotification);
+
+                if (userRoleService.isUserDepartmentHead(username)) {
+                    Notification personalNotification = new Notification();
+                    personalNotification.setUsername(username);
+                    personalNotification.setTitle("External Search Request");
+                    personalNotification.setMessage("You requested external search for project '" +
+                            project.getName() + "'.");
+                    personalNotification.setProjectId(project.getId());
+                    personalNotification.setProjectName(project.getName());
+                    personalNotification.setCreatedAt(LocalDateTime.now());
+                    personalNotification.setIsRead(false);
+                    notificationRepository.save(personalNotification);
+                }
+            } else {
+                // Create notification for each Department Head
+                for (String dhUsername : departmentHeadUsernames) {
+                    Notification dhNotification = new Notification();
+                    dhNotification.setUsername(dhUsername);
+                    dhNotification.setTitle("External Search Request");
+                    dhNotification.setMessage("Project Manager " + username +
+                            " requested external search for project '" +
+                            project.getName() + "'." +
+                            (justification != null ? " Reason: " + justification : ""));
+                    dhNotification.setProjectId(project.getId());
+                    dhNotification.setProjectName(project.getName());
+                    dhNotification.setCreatedAt(LocalDateTime.now());
+                    dhNotification.setIsRead(false);
+                    notificationRepository.save(dhNotification);
+                }
+            }
+
             redirectAttributes.addFlashAttribute("successMessage",
-                    "✅ External search request submitted successfully! " +
+                    " External search request submitted successfully! " +
                             "Awaiting Department Head approval.");
 
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("errorMessage",
-                    "❌ Failed to request external search: " + e.getMessage());
+                    "Failed to request external search: " + e.getMessage());
         }
+
 
         return "redirect:/ui/projects/" + id;
     }

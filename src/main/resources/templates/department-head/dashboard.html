@@ -134,6 +134,16 @@
                 <span class="ms-2 badge bg-info">Department Head</span>
             </div>
 
+            <!-- NOTIFICATION BELL -->
+            <a th:href="@{/ui/department-head/notifications}"
+               class="btn btn-outline-light btn-sm me-2 position-relative">
+                <i class="fas fa-bell"></i>
+                <span th:if="${dhNotificationCount > 0}"
+                      class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                    <span th:text="${dhNotificationCount}">0</span>
+                </span>
+            </a>
+
 
             <button type="button" class="btn btn-outline-light btn-sm logout-btn" data-bs-toggle="modal" data-bs-target="#logoutModal">
                 <i class="fas fa-sign-out-alt me-1"></i>Logout
@@ -310,6 +320,7 @@
                     </a>
                 </div>
             </div>
+
 
             <!-- Recent Decisions -->
             <div class="card shadow-sm mb-4">
