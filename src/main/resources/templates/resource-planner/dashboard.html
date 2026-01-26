@@ -534,6 +534,7 @@
                         <th>Matching Employees</th>
                         <th>Progress</th>
                         <th>Skills Needed</th>
+                        <th>External Search Approved</th>
                         <th>Actions</th>
                     </tr>
                     </thead>
@@ -564,6 +565,20 @@
                             <span th:if="${project.skillRequirements == null or project.skillRequirements.isEmpty()}"
                                   style="color: #94a3b8; font-style: italic;">Any skills</span>
                         </td>
+
+                        <td>
+                            <!-- External Search Approved Status -->
+                            <span th:if="${project.externalSearchNeeded == null}">
+                            <span class="availability-badge unavailable">N/A</span>
+                        </span>
+                            <span th:if="${project.externalSearchNeeded == true}">
+                            <span class="availability-badge available">YES</span>
+                        </span>
+                            <span th:if="${project.externalSearchNeeded == false}">
+                            <span class="availability-badge unavailable">NO</span>
+                        </span>
+                        </td>
+
                         <td>
                             <a th:href="@{'/ui/resource-planner/project/' + ${project.id}}"
                                class="btn btn-primary">
