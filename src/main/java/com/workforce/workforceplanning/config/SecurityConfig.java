@@ -22,20 +22,31 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                // Disable CSRF for debugging (re-enable later)
+                .csrf(csrf -> csrf.disable())
+
+                // Configure authorization ONCE
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/login", "/register", "/css/**", "/js/**", "/images/**", "/error").permitAll()
+                        // Public endpoints
+                        .requestMatchers("/", "/login", "/register", "/css/**", "/js/**",
+                                "/images/**", "/error", "/api/debug/**").permitAll()
+
+                        // Role-based access
                         .requestMatchers("/ui/project-manager/**").hasRole("PROJECT_MANAGER")
                         .requestMatchers("/ui/department-head/**").hasRole("DEPARTMENT_HEAD")
-                        .requestMatchers("/ui/department-head/**").hasAuthority("DEPARTMENT_HEAD")
                         .requestMatchers("/ui/resource-planner/**").hasRole("RESOURCE_PLANNER")
                         .requestMatchers("/ui/employee/**").hasRole("EMPLOYEE")
                         .requestMatchers("/ui/employees/**").hasAnyRole("DEPARTMENT_HEAD", "RESOURCE_PLANNER")
 
-                        // ✅ ADD THIS - Allow API endpoints
-                        .requestMatchers("/projects/**", "/employees/**", "/assignments/**", "/applications/**").permitAll()
+                        // API endpoints - allow authenticated access
+                        .requestMatchers("/projects/**", "/employees/**", "/assignments/**",
+                                "/applications/**", "/notifications/**").authenticated()
 
+                        // Everything else needs authentication
                         .anyRequest().authenticated()
                 )
+
+                // Configure form login
                 .formLogin(form -> form
                         .loginPage("/login")
                         .loginProcessingUrl("/perform-login")
@@ -43,14 +54,15 @@ public class SecurityConfig {
                         .failureUrl("/login?error=true")
                         .permitAll()
                 )
+
+                // Configure logout
                 .logout(logout -> logout
                         .logoutUrl("/logout")
                         .logoutSuccessUrl("/login?logout=true")
                         .permitAll()
                 )
-                .csrf(csrf -> csrf
-                        .ignoringRequestMatchers("/api/**", "/employees/**", "/projects/**", "/assignments/**")  // ✅ ADD THIS
-                )
+
+                // Set user details service
                 .userDetailsService(userDetailsService);
 
         return http.build();
@@ -60,24 +72,4 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
-
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(csrf -> csrf
-                        .ignoringRequestMatchers("/notifications/**")
-                )
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/notifications/**").authenticated()
-                        .anyRequest().authenticated()
-                )
-                .formLogin(form -> form
-                        .loginPage("/login")
-                        .permitAll()
-                )
-                .logout(logout -> logout.permitAll());
-
-        return http.build();
-    }
-
 }
