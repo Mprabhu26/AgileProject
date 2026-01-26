@@ -13,6 +13,7 @@ com\workforce\workforceplanning\ui\DashboardController.class
 com\workforce\workforceplanning\controller\EmployeeController.class
 com\workforce\workforceplanning\WorkforcePlanningApplication.class
 com\workforce\workforceplanning\delegate\RejectionNotificationDelegate.class
+com\workforce\workforceplanning\service\UserRoleService.class
 com\workforce\workforceplanning\workflow\ProjectApprovalDelegate.class
 com\workforce\workforceplanning\model\AssignmentStatus.class
 com\workforce\workforceplanning\dto\CreateProjectRequest.class
