@@ -1,102 +1,297 @@
+
 <!DOCTYPE html>
-<html>
+<html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <title>Login | Workforce Planning</title>
+    <title>Login - Workforce Planning</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #f5f5f5;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
+        * {
             margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        .login-box {
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-container {
             background: white;
             padding: 40px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            width: 350px;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            max-width: 420px;
+            width: 100%;
+            animation: slideIn 0.5s ease-out;
         }
-        h2 {
-            color: #333;
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .logo-section {
             text-align: center;
             margin-bottom: 30px;
         }
+
+        .logo {
+            font-size: 60px;
+            margin-bottom: 15px;
+        }
+
+        h1 {
+            color: #1f2937;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
         .form-group {
             margin-bottom: 20px;
         }
+
         label {
             display: block;
-            margin-bottom: 5px;
-            color: #555;
+            color: #374151;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
         }
-        input[type="text"],
-        input[type="password"] {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 16px;
+
+        .input-wrapper {
+            position: relative;
         }
-        button {
+
+        .input-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+            font-size: 18px;
+        }
+
+        input {
             width: 100%;
+            padding: 14px 14px 14px 45px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: all 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .error-message {
+            background: #fee2e2;
+            color: #991b1b;
             padding: 12px;
-            background: #007bff;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            border-left: 4px solid #ef4444;
+        }
+
+        .success-message {
+            background: #dcfce7;
+            color: #166534;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            border-left: 4px solid #10b981;
+        }
+
+        .btn-login {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: 8px;
             font-size: 16px;
+            font-weight: 600;
             cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
         }
-        button:hover {
-            background: #0056b3;
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
         }
-        .error {
-            color: #dc3545;
-            background: #f8d7da;
-            padding: 10px;
-            border-radius: 4px;
-            margin-bottom: 20px;
+
+        .btn-login:active {
+            transform: translateY(0);
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 30px 0;
+        }
+
+        .divider-line {
+            flex: 1;
+            height: 1px;
+            background: #e5e7eb;
+        }
+
+        .divider-text {
+            padding: 0 15px;
+            color: #9ca3af;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .register-section {
             text-align: center;
+            padding: 20px;
+            background: #f9fafb;
+            border-radius: 10px;
+            margin-top: 25px;
         }
-        .logout {
-            color: #28a745;
-            background: #d4edda;
-            padding: 10px;
-            border-radius: 4px;
-            margin-bottom: 20px;
+
+        .register-text {
+            color: #6b7280;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        .btn-register {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-register:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .back-link {
             text-align: center;
+            margin-top: 20px;
+        }
+
+        .back-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .back-link a:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
 <body>
-<div class="login-box">
-    <h2>Workforce Planning Login</h2>
-
-    <div th:if="${param.error}" class="error">
-        Invalid username or password
+<div class="login-container">
+    <!-- Logo Section -->
+    <div class="logo-section">
+        <div class="logo">🚀</div>
+        <h1>Welcome Back</h1>
+        <p class="subtitle">Sign in to access your workspace</p>
     </div>
 
-    <div th:if="${param.logout}" class="logout">
-        You have been logged out
+    <!-- Error Message -->
+    <div th:if="${param.error}" class="error-message">
+        <i class="fas fa-exclamation-circle"></i> Invalid username or password
     </div>
 
-    <form th:action="@{/login}" method="post">
+    <!-- Logout Success Message -->
+    <div th:if="${param.logout}" class="success-message">
+        <i class="fas fa-check-circle"></i> You have been logged out successfully
+    </div>
+
+    <!-- Login Form -->
+    <form th:action="@{/perform-login}" method="post">
         <div class="form-group">
-            <label>Username</label>
-            <input type="text" name="username" required>
+            <label for="username">Username</label>
+            <div class="input-wrapper">
+                <i class="fas fa-user input-icon"></i>
+                <input type="text"
+                       id="username"
+                       name="username"
+                       placeholder="Enter your username"
+                       required
+                       autofocus>
+            </div>
         </div>
+
         <div class="form-group">
-            <label>Password</label>
-            <input type="password" name="password" required>
+            <label for="password">Password</label>
+            <div class="input-wrapper">
+                <i class="fas fa-lock input-icon"></i>
+                <input type="password"
+                       id="password"
+                       name="password"
+                       placeholder="Enter your password"
+                       required>
+            </div>
         </div>
-        <button type="submit">Login</button>
+
+        <button type="submit" class="btn-login">
+            <i class="fas fa-sign-in-alt"></i> Sign In
+        </button>
     </form>
 
-    <div style="margin-top: 20px; text-align: center; color: #666;">
-        <small>Default: username = user, password = (check console)</small>
+    <!-- Divider -->
+    <div class="divider">
+        <div class="divider-line"></div>
+        <span class="divider-text">OR</span>
+        <div class="divider-line"></div>
+    </div>
+
+    <!-- Register Section -->
+    <div class="register-section">
+        <p class="register-text">Don't have an account?</p>
+        <a href="/register" class="btn-register">
+            <i class="fas fa-user-plus"></i> Create Employee Profile
+        </a>
+    </div>
+
+    <!-- Back to Home -->
+    <div class="back-link">
+        <a href="/">
+            <i class="fas fa-arrow-left"></i> Back to Home
+        </a>
     </div>
 </div>
 </body>

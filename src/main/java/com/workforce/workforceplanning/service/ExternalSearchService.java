@@ -1,14 +1,16 @@
 // FILE: ExternalSearchService.java (simplified version)
 package com.workforce.workforceplanning.service;
 
+import com.workforce.workforceplanning.model.Notification;
 import com.workforce.workforceplanning.model.Project;
+import com.workforce.workforceplanning.model.ProjectStatus;
 import com.workforce.workforceplanning.repository.ProjectRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.flowable.engine.RuntimeService;
-
+import com.workforce.workforceplanning.repository.NotificationRepository;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -20,14 +22,17 @@ public class ExternalSearchService {
     private final ProjectRepository projectRepository;
     private final RuntimeService runtimeService;
     private final NotificationService notificationService;
+    private final NotificationRepository notificationRepository;
+
 
     public ExternalSearchService(
             ProjectRepository projectRepository,
             RuntimeService runtimeService,
-            NotificationService notificationService) {
+            NotificationService notificationService, NotificationRepository notificationRepository) {
         this.projectRepository = projectRepository;
         this.runtimeService = runtimeService;
         this.notificationService = notificationService;
+        this.notificationRepository = notificationRepository;
     }
 
     /**
@@ -62,12 +67,13 @@ public class ExternalSearchService {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Project not found"));
 
+
         // Verify the PM is the creator
         if (!project.getCreatedBy().equals(pmUsername)) {
             throw new RuntimeException("Only the project creator can trigger external search");
         }
 
-        log.info("🚀 Project Manager {} triggering external search for project: {}",
+        log.info(" Project Manager {} triggering external search for project: {}",
                 pmUsername, project.getName());
 
         // Start workflow for external search approval
@@ -79,8 +85,7 @@ public class ExternalSearchService {
         variables.put("externalSearchType", "skill_gap");
         variables.put("requestTime", LocalDateTime.now());
 
-        // Add skill gaps information
-        // You can add skill gap analysis here or pass from controller
+
 
         String processInstanceId;
 
@@ -91,7 +96,7 @@ public class ExternalSearchService {
                     variables
             );
             processInstanceId = processInstance.getId();
-            log.info("✅ Flowable workflow started: {}", processInstanceId);
+            log.info(" Flowable workflow started: {}", processInstanceId);
         } catch (Exception e) {
             // Fallback if BPMN not configured
             log.warn("Flowable process not found, using simple workflow: {}", e.getMessage());
@@ -103,6 +108,8 @@ public class ExternalSearchService {
             log.info("📋 Manual external search task created for Department Head");
         }
 
+
+
         // Update project with workflow info
         project.setExternalSearchNeeded(true);
         project.setExternalSearchNotes("External search requested by " + pmUsername +
@@ -110,8 +117,8 @@ public class ExternalSearchService {
         project.setProcessInstanceId(processInstanceId);
         project.setWorkflowStatus("AWAITING_DEPARTMENT_HEAD_APPROVAL");
         project.setExternalSearchRequestedAt(LocalDateTime.now());
+        project.setStatus(ProjectStatus.STAFFING);
         projectRepository.save(project);
-
         return processInstanceId;
     }
     /**

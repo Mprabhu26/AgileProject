@@ -1,4 +1,4 @@
-// FILE: SkillGapAnalysisDelegate.java
+// FILE: SkillGapAnalysisDelegate.java - UPDATED VERSION
 package com.workforce.workforceplanning.workflow;
 
 import com.workforce.workforceplanning.model.Project;
@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
+import java.util.List;
 
 @Component
 public class SkillGapAnalysisDelegate implements JavaDelegate {
@@ -46,16 +47,41 @@ public class SkillGapAnalysisDelegate implements JavaDelegate {
 
             log.info("Project found: {} (ID: {})", project.getName(), project.getId());
 
-            // Use your existing SkillGapAnalysisService
-            Map<String, Integer> criticalGaps = skillGapAnalysisService.getCriticalGaps(project);
+            // Use the enhanced service to get detailed skill availability
+            Map<String, Map<String, Object>> skillAvailabilityDetails =
+                    skillGapAnalysisService.getSkillAvailabilityDetails(project);
 
+            // Get formatted display text
+            String formattedAvailability = skillGapAnalysisService.getSkillAvailabilityFormatted(project);
+
+            // Get list format for UI
+            List<Map<String, Object>> skillAvailabilityList =
+                    skillGapAnalysisService.getSkillAvailabilityList(project);
+
+            // Use existing method for critical gaps
+            Map<String, Integer> criticalGaps = skillGapAnalysisService.getCriticalGaps(project);
             boolean hasCriticalSkillGaps = !criticalGaps.isEmpty();
 
-            // Set workflow variables
+            // Set workflow variables with new detailed information
             execution.setVariable("hasCriticalSkillGaps", hasCriticalSkillGaps);
             execution.setVariable("criticalGaps", criticalGaps);
+            execution.setVariable("skillAvailabilityDetails", skillAvailabilityDetails);
+            execution.setVariable("skillAvailabilityFormatted", formattedAvailability);
+            execution.setVariable("skillAvailabilityList", skillAvailabilityList);
             execution.setVariable("skillCoveragePercentage",
                     skillGapAnalysisService.getSkillCoveragePercentage(project));
+
+            // Log the detailed availability
+            log.info("=== SKILL AVAILABILITY DETAILS ===");
+            for (Map.Entry<String, Map<String, Object>> entry : skillAvailabilityDetails.entrySet()) {
+                Map<String, Object> skillInfo = entry.getValue();
+                log.info("{}: Required: {} | Available: {} | Has Gap: {} | Gap: {}",
+                        skillInfo.get("skill"),
+                        skillInfo.get("required"),
+                        skillInfo.get("available"),
+                        skillInfo.get("hasGap"),
+                        skillInfo.get("gap"));
+            }
 
             if (hasCriticalSkillGaps) {
                 log.info("⚠️ Critical skill gaps detected for project: {}", project.getName());
@@ -72,7 +98,8 @@ public class SkillGapAnalysisDelegate implements JavaDelegate {
                         skillGapAnalysisService.getRecommendedActions(project));
             } else {
                 log.info("✅ No critical skill gaps detected for project: {}", project.getName());
-                log.info("Skill coverage: 100%");
+                log.info("Skill coverage: {}%",
+                        skillGapAnalysisService.getSkillCoveragePercentage(project));
             }
 
             log.info("✅ Skill gap analysis completed successfully");

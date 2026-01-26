@@ -6,6 +6,7 @@ import com.workforce.workforceplanning.model.*;
 import com.workforce.workforceplanning.repository.*;
 import com.workforce.workforceplanning.service.ExternalSearchService;
 import com.workforce.workforceplanning.service.SkillGapAnalysisService;
+import com.workforce.workforceplanning.service.UserRoleService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -17,6 +18,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import com.workforce.workforceplanning.repository.NotificationRepository;
 
 @Controller
 @RequestMapping("/ui/projects")
@@ -28,6 +31,9 @@ public class ProjectUiController {
     private final EmployeeRepository employeeRepository;
     private final ExternalSearchService externalSearchService;
     private final SkillGapAnalysisService skillGapAnalysisService;
+    private final NotificationRepository notificationRepository;
+    private final UserRoleService userRoleService;
+
 
     public ProjectUiController(
             ProjectRepository projectRepository,
@@ -35,13 +41,16 @@ public class ProjectUiController {
             ApplicationRepository applicationRepository,
             ExternalSearchService externalSearchService,
             SkillGapAnalysisService skillGapAnalysisService,
-            EmployeeRepository employeeRepository) {
+            EmployeeRepository employeeRepository,
+            NotificationRepository notificationRepository, UserRoleService userRoleService){
         this.projectRepository = projectRepository;
         this.assignmentRepository = assignmentRepository;
         this.applicationRepository = applicationRepository;
         this.employeeRepository = employeeRepository;
         this.externalSearchService = externalSearchService;
         this.skillGapAnalysisService = skillGapAnalysisService;
+        this.notificationRepository = notificationRepository;
+        this.userRoleService = userRoleService;
     }
 
     // ==================== PROJECT LIST ====================
@@ -54,84 +63,96 @@ public class ProjectUiController {
 
         // Calculate statistics
         long totalCount = projects.size();
-        long pendingCount = projects.stream().filter(p -> p.getStatus() == ProjectStatus.PENDING).count();
+        long approvalpendingCount = projects.stream().filter(p -> p.getStatus() == ProjectStatus.PENDING_APPROVAL).count();
+        long externalpendingcount =projects.stream().filter(p -> p.getStatus() == ProjectStatus.STAFFING).count();
+        long pendingCount=approvalpendingCount + externalpendingcount;
         long approvedCount = projects.stream().filter(p -> p.getStatus() == ProjectStatus.APPROVED).count();
         long publishedCount = projects.stream().filter(p -> Boolean.TRUE.equals(p.getPublished())).count();
+        long draftCount = projects.stream().filter(p -> p.getStatus() == ProjectStatus.DRAFT).count();
+        long rejectCount = projects.stream().filter(p -> p.getStatus() == ProjectStatus.REJECTED).count();
+        long staffingCount = projects.stream().filter(p -> p.getStatus() == ProjectStatus.STAFFING).count();
 
-        List<Map<String, Object>> projectStatuses = new ArrayList<>();
-        List<Map<String, Object>> notifications = new ArrayList<>();
-        int notificationCount = 0;
+        // KEEP EXISTING PROJECT-BASED NOTIFICATIONS
+        List<Map<String, Object>> projectNotifications = new ArrayList<>();
 
         for (Project project : projects) {
             // Notification 1: Resource Planner found skill gaps
-            if (Boolean.TRUE.equals(project.getExternalSearchNeeded())
-                    && "AWAITING_PM_DECISION".equals(project.getWorkflowStatus())
+            if ("AWAITING_PM_DECISION".equals(project.getWorkflowStatus())
                     && Boolean.FALSE.equals(project.getPmNotificationSeen())) {
 
 
                 Map<String, Object> notif = new HashMap<>();
-                notif.put("type", "rp_skill_gap_alert");
+                notif.put("id", "project-" + project.getId()); // Use string ID to differentiate
                 notif.put("projectId", project.getId());
                 notif.put("projectName", project.getName());
-                notif.put("message", "Resource Planner found skill gaps. External search needed.");
-                notif.put("createdAt", project.getExternalSearchRequestedAt());
-                notif.put("priority", "high");
-                notifications.add(notif);
-                notificationCount++;
-            }
 
-            // Notification 2: External search pending Department Head approval
-            if (Boolean.TRUE.equals(project.getExternalSearchNeeded()) &&
-                    "AWAITING_DEPARTMENT_HEAD_APPROVAL".equals(project.getWorkflowStatus())) {
+                // Determine message based on workflow status
+                String workflowStatus = project.getWorkflowStatus();
+                if ("AWAITING_PM_DECISION".equals(workflowStatus)) {
+                    notif.put("message", "Resource Planner found skill gaps. External search needed.");
+                    notif.put("priority", "high");
+                } else if ("AWAITING_DEPARTMENT_HEAD_APPROVAL".equals(workflowStatus)) {
+                    notif.put("message", "External search awaiting Department Head approval");
+                    notif.put("priority", "medium");
+                } else if ("EXTERNAL_SEARCH_APPROVED".equals(workflowStatus)) {
+                    notif.put("message", "External search approved! Resource Planner will search.");
+                    notif.put("priority", "low");
+                } else if ("EXTERNAL_SEARCH_REJECTED".equals(workflowStatus)) {
+                    notif.put("message", "External search rejected. Please review.");
+                    notif.put("priority", "high");
+                }
 
-                Map<String, Object> notif = new HashMap<>();
-                notif.put("type", "external_search_pending");
-                notif.put("projectId", project.getId());
-                notif.put("projectName", project.getName());
-                notif.put("message", "External search awaiting Department Head approval");
-                notif.put("createdAt", project.getExternalSearchRequestedAt());
-                notif.put("priority", "medium");
-                notifications.add(notif);
-                notificationCount++;
-            }
-            // Notification 3: External search approved
-            if ("EXTERNAL_SEARCH_APPROVED".equals(project.getWorkflowStatus())) {
-                Map<String, Object> notif = new HashMap<>();
-                notif.put("type", "external_search_approved");
-                notif.put("projectId", project.getId());
-                notif.put("projectName", project.getName());
-                notif.put("message", "External search approved! Resource Planner will search.");
-                notif.put("createdAt", LocalDateTime.now());
-                notif.put("priority", "low");
-                notifications.add(notif);
-                notificationCount++;
-            }
-
-            // Notification 4: External search rejected
-            if ("EXTERNAL_SEARCH_REJECTED".equals(project.getWorkflowStatus())) {
-                Map<String, Object> notif = new HashMap<>();
-                notif.put("type", "external_search_rejected");
-                notif.put("projectId", project.getId());
-                notif.put("projectName", project.getName());
-                notif.put("message", "External search rejected. Please review.");
-                notif.put("createdAt", LocalDateTime.now());
-                notif.put("priority", "high");
-                notifications.add(notif);
-                notificationCount++;
+                notif.put("isDbNotification", false);
+                notif.put("createdAt", project.getExternalSearchRequestedAt() != null
+                        ? project.getExternalSearchRequestedAt()
+                        : LocalDateTime.now());
+                notif.put("isRead", false);
+                projectNotifications.add(notif);
             }
         }
 
+        //DATABASE NOTIFICATIONS (FROM RESOURCE PLANNER)
+        List<Notification> dbNotifications = notificationRepository
+                .findByUsernameAndIsReadFalseOrderByCreatedAtDesc(username);
 
-            model.addAttribute("projects", projects);
+        // Combine both types of notifications
+        List<Map<String, Object>> allNotifications = new ArrayList<>();
+
+        // Add project notifications first
+        allNotifications.addAll(projectNotifications);
+
+        // Add database notifications
+        for (Notification notification : dbNotifications) {
+            Map<String, Object> notif = new HashMap<>();
+            notif.put("id", notification.getId());
+            notif.put("title", notification.getTitle() != null ? notification.getTitle() : "Notification");
+            notif.put("message", notification.getMessage());
+            notif.put("projectId", notification.getProjectId());
+            notif.put("projectName", notification.getProjectName());
+            notif.put("createdAt", notification.getCreatedAt());
+            notif.put("isRead", notification.getIsRead());
+            notif.put("isDbNotification", true); // Mark as DB notification
+            allNotifications.add(notif);
+        }
+
+        model.addAttribute("projects", projects);
         model.addAttribute("totalCount", totalCount);
         model.addAttribute("pendingCount", pendingCount);
+        model.addAttribute("draftCount", draftCount);
+        model.addAttribute("rejectCount", rejectCount);
+        model.addAttribute("staffingCount", staffingCount);
         model.addAttribute("approvedCount", approvedCount);
         model.addAttribute("publishedCount", publishedCount);
-        model.addAttribute("notifications", notifications);
-        model.addAttribute("notifications", notifications);
-        model.addAttribute("notificationCount", notifications.size());
+        model.addAttribute("notifications", allNotifications); // Combined list
+        model.addAttribute("notificationCount", allNotifications.size()); // Total count
 
-        return "projects/list";
+        // Get pending applications count
+        List<Application> pendingApplications = applicationRepository.findAll().stream()
+                .filter(app -> app.getStatus() == ApplicationStatus.PENDING)
+                .toList();
+        model.addAttribute("pendingApplicationsCount", pendingApplications.size());
+
+        return "projects/dashboard";
     }
 
     // ==================== CREATE PROJECT ====================
@@ -147,10 +168,9 @@ public class ProjectUiController {
     public String createProject(
             @ModelAttribute CreateProjectForm form,
             Principal principal,
-            Model model) {
+            RedirectAttributes redirectAttributes) { // ✅ ADDED RedirectAttributes
         try {
             String username = principal != null ? principal.getName() : "Guest";
-            model.addAttribute("username", username);
 
             Project project = new Project();
             project.setName(form.getName());
@@ -160,7 +180,7 @@ public class ProjectUiController {
             project.setBudget(form.getBudget());
             project.setTotalEmployeesRequired(form.getTotalEmployeesRequired());
             project.setCreatedBy(username);
-            project.setStatus(ProjectStatus.PENDING);
+            project.setStatus(ProjectStatus.DRAFT);
 
             // Initialize skill requirements list
             project.setSkillRequirements(new ArrayList<>());
@@ -185,62 +205,72 @@ public class ProjectUiController {
             }
 
             projectRepository.save(project);
-            return "redirect:/ui/projects";
+
+            // ✅ ADD SUCCESS MESSAGE
+            redirectAttributes.addFlashAttribute("successMessage",
+                    "Project '" + project.getName() + "' created successfully!");
+
+            // ✅ REDIRECT TO DASHBOARD INSTEAD OF LIST
+            return "redirect:/ui/projects/dashboard";
+
         } catch (Exception e) {
-            model.addAttribute("error", "Error creating project: " + e.getMessage());
-            model.addAttribute("projectForm", form);
-            if (principal != null) {
-                model.addAttribute("username", principal.getName());
-            }
-            return "projects/create";
+            // ✅ ADD ERROR MESSAGE
+            redirectAttributes.addFlashAttribute("errorMessage",
+                    "Error creating project: " + e.getMessage());
+            return "redirect:/ui/projects/create";
         }
     }
 
     // ==================== VIEW PROJECT DETAILS ====================
     @GetMapping("/{id}")
-    public String viewProject(@PathVariable Long id, Model model, Principal principal) {
+    public String viewProject(@PathVariable("id") Long id, Model model, Principal principal) {
         String username = principal != null ? principal.getName() : "Guest";
 
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Project not found"));
 
-        // Check if user owns the project
-        if (!project.getCreatedBy().equals(username)) {
+        markAllProjectNotificationsAsRead(id, username);
+
+        // Check if the project is published or if the user is authorized to view the project
+        boolean isPublished = Boolean.TRUE.equals(project.getPublished());
+        boolean isOwner = project.getCreatedBy().equals(username);  // Owner of the project (PM)
+        boolean isDepartmentHead = "DepartmentHead".equals(username);  // Example check for Department Head (adjust as per your logic)
+
+        // Only show project details if it's published or if the user is the owner
+        if (!isPublished && !isOwner) {
             return "redirect:/ui/projects?error=Unauthorized+to+view+this+project";
         }
 
 
-        // Get related data
+        // Get related data like assignments, applications, pending applications count, etc.
         List<Assignment> assignments = assignmentRepository.findAll().stream()
                 .filter(a -> a.getProject().getId().equals(id))
-                .toList();
+                .collect(Collectors.toList());
 
         List<Application> applications = applicationRepository.findAll().stream()
                 .filter(app -> app.getProject().getId().equals(id))
-                .toList();
+                .collect(Collectors.toList());
 
-        // Get available employees for suggestions
+        long pendingApplicationsCount = applicationRepository.countByStatusAndProject_CreatedBy(
+                ApplicationStatus.PENDING, username);
+        model.addAttribute("pendingApplicationsCount", pendingApplicationsCount);
+
+        // Get available employees for assignment
         List<Employee> availableEmployees = employeeRepository.findAll().stream()
-                .filter(Employee::isAvailableForProject)
-                .toList();
+                .filter(e -> Boolean.TRUE.equals(e.getAvailable()))
+                .collect(Collectors.toList());
 
-        // Check if Resource Planner has requested external search
-        boolean rpRequestedExternalSearch = Boolean.TRUE.equals(project.getExternalSearchNeeded()) &&
-                "AWAITING_PM_DECISION".equals(project.getWorkflowStatus());
+        // Logic for external search and skill gap analysis
+        boolean rpRequestedExternalSearch = "AWAITING_PM_DECISION".equals(project.getWorkflowStatus());
 
-        // Check current workflow status
         String workflowStatus = project.getWorkflowStatus();
-        boolean canTriggerExternalSearch = rpRequestedExternalSearch ||
-                ("AWAITING_PM_DECISION".equals(workflowStatus));
-
-        // Get external search notes from Resource Planner
+        boolean canTriggerExternalSearch = rpRequestedExternalSearch || "AWAITING_PM_DECISION".equals(workflowStatus);
         String externalSearchNotes = project.getExternalSearchNotes();
 
-        // ============ ADD SKILL GAP ANALYSIS ============
+        // Skill gap analysis
         Map<String, Integer> skillGaps = new HashMap<>();
         boolean hasSkillGaps = false;
 
-        // Analyze skill gaps between project requirements and assigned employees
         if (project.getSkillRequirements() != null && !project.getSkillRequirements().isEmpty()) {
             for (ProjectSkillRequirement requirement : project.getSkillRequirements()) {
                 String skill = requirement.getSkill();
@@ -269,25 +299,28 @@ public class ProjectUiController {
         model.addAttribute("canTriggerExternalSearch", canTriggerExternalSearch);
         model.addAttribute("assignedCount", assignments.size());
         model.addAttribute("requiredCount", project.getTotalEmployeesRequired());
-
-        // Add skill gap attributes
         model.addAttribute("hasSkillGaps", hasSkillGaps);
         model.addAttribute("skillGaps", skillGaps);
         model.addAttribute("externalSearchNotes", externalSearchNotes);
 
-        // ✅ Mark PM notification as seen
+        // Show or hide buttons based on project status
+        model.addAttribute("isPublished", isPublished);
+        model.addAttribute("isOwner", isOwner);
+        model.addAttribute("isDepartmentHead", isDepartmentHead);
+
+        // Mark PM notification as seen
         if (Boolean.FALSE.equals(project.getPmNotificationSeen())) {
             project.setPmNotificationSeen(true);
             projectRepository.save(project);
         }
 
-
         return "projects/view";
     }
 
+
     // ==================== EDIT PROJECT ====================
     @GetMapping("/{id}/edit")
-    public String showEditForm(@PathVariable Long id, Model model, Principal principal) {
+    public String showEditForm(@PathVariable("id") Long id, Model model, Principal principal) {
         String username = principal != null ? principal.getName() : "Guest";
 
         Project project = projectRepository.findById(id)
@@ -318,6 +351,7 @@ public class ProjectUiController {
         }
         form.setSkillRequirements(skillDtos);
 
+
         model.addAttribute("username", username);
         model.addAttribute("projectForm", form);
         model.addAttribute("projectId", id);
@@ -327,7 +361,7 @@ public class ProjectUiController {
 
     @PostMapping("/{id}/edit")
     public String updateProject(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @ModelAttribute CreateProjectForm form,
             Principal principal,
             Model model,
@@ -353,14 +387,11 @@ public class ProjectUiController {
             project.setTotalEmployeesRequired(form.getTotalEmployeesRequired());
 
             // Clear and update skill requirements
-            // 1. Detach all skills from project first
             project.getSkillRequirements().forEach(skill -> skill.setProject(null));
             project.getSkillRequirements().clear();
+            projectRepository.saveAndFlush(project);
 
-            // 2. Save to database (this should delete the old skills)
-            projectRepository.saveAndFlush(project);  // Use saveAndFlush to force immediate save
-
-            // 3. Now add new skills
+            // Add new skills
             if (form.getSkillRequirements() != null) {
                 for (SkillRequirementDto dto : form.getSkillRequirements()) {
                     if (dto != null && dto.getSkill() != null && !dto.getSkill().trim().isEmpty()) {
@@ -378,12 +409,12 @@ public class ProjectUiController {
                     }
                 }
             }
-
+            project.setStatus(ProjectStatus.DRAFT);
             projectRepository.save(project);
 
             redirectAttributes.addFlashAttribute("successMessage",
                     "Project '" + project.getName() + "' updated successfully!");
-            return "redirect:/ui/projects";
+            return "redirect:/ui/projects/dashboard"; // REDIRECT TO DASHBOARD
 
         } catch (Exception e) {
             model.addAttribute("error", "Error updating project: " + e.getMessage());
@@ -397,7 +428,7 @@ public class ProjectUiController {
     // ==================== DELETE PROJECT ====================
     @PostMapping("/{id}/delete")
     public String deleteProject(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             Principal principal,
             RedirectAttributes redirectAttributes) {
 
@@ -410,15 +441,17 @@ public class ProjectUiController {
         if (!project.getCreatedBy().equals(username)) {
             redirectAttributes.addFlashAttribute("errorMessage",
                     "Unauthorized to delete this project");
-            return "redirect:/ui/projects";
+            return "redirect:/ui/projects/dashboard"; // REDIRECT TO DASHBOARD
         }
 
         // Check if project can be deleted
         if (project.getStatus() == ProjectStatus.IN_PROGRESS ||
-                project.getStatus() == ProjectStatus.COMPLETED) {
+                project.getStatus() == ProjectStatus.COMPLETED
+                ||
+                project.getStatus() == ProjectStatus.APPROVED) {
             redirectAttributes.addFlashAttribute("errorMessage",
                     "Cannot delete project that is " + project.getStatus());
-            return "redirect:/ui/projects";
+            return "redirect:/ui/projects/dashboard"; // REDIRECT TO DASHBOARD
         }
 
         // Check if there are assignments
@@ -427,22 +460,182 @@ public class ProjectUiController {
                 .count();
 
         if (assignmentCount > 0) {
-            redirectAttributes.addFlashAttribute("errorMessage",
+            redirectAttributes.addFlashAttribute("successMessage",
                     "Cannot delete project with existing assignments");
-            return "redirect:/ui/projects";
+            return "redirect:/ui/projects/dashboard"; // REDIRECT TO DASHBOARD
         }
 
         projectRepository.delete(project);
 
         redirectAttributes.addFlashAttribute("successMessage",
                 "Project '" + project.getName() + "' deleted successfully!");
-        return "redirect:/ui/projects";
+        return "redirect:/ui/projects/dashboard"; // REDIRECT TO DASHBOARD
+    }
+
+    // ==================== PUBLISH PROJECT ====================
+    @PostMapping("/{id}/publish")
+    public String publishProject(
+            @PathVariable("id") Long id,
+            Principal principal,
+            RedirectAttributes redirectAttributes) {
+
+        String username = principal != null ? principal.getName() : "Guest";
+
+        try {
+            Project project = projectRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+
+            // Check ownership
+            if (!project.getCreatedBy().equals(username)) {
+                redirectAttributes.addFlashAttribute("errorMessage",
+                        "Unauthorized to publish this project");
+                return "redirect:/ui/projects/" + id;
+            }
+
+            // ✅ FIX: Publish but keep PENDING for Department Head approval
+            project.setPublished(true);
+            project.setPublishedAt(LocalDateTime.now());
+            project.setVisibleToAll(false);  // ✅ Not visible until approved
+            project.setStatus(ProjectStatus.PENDING);  // ✅ PENDING, not APPROVED
+            project.setWorkflowStatus("AWAITING_DEPARTMENT_HEAD_APPROVAL");  // ✅ Set workflow
+
+            projectRepository.save(project);
+
+            redirectAttributes.addFlashAttribute("successMessage",
+                    "Project '" + project.getName() + "' published successfully! " +
+                            "Awaiting Department Head approval.");
+
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage",
+                    "Failed to publish project: " + e.getMessage());
+        }
+
+        return "redirect:/ui/projects/dashboard";
+    }
+
+    // ==================== UNPUBLISH PROJECT ====================
+
+    @PostMapping("/{id}/unpublish")
+    public String unpublishProject(
+            @PathVariable("id") Long id,
+            Principal principal,
+            RedirectAttributes redirectAttributes) {
+
+        String username = principal != null ? principal.getName() : "Guest";
+
+        try {
+            Project project = projectRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+
+            // Check ownership
+            if (!project.getCreatedBy().equals(username)) {
+                redirectAttributes.addFlashAttribute("errorMessage",
+                        "Unauthorized to unpublish this project");
+                return "redirect:/ui/projects/" + id;
+            }
+
+            // Check if there are pending applications
+            long applicationCount = applicationRepository.findAll().stream()
+                    .filter(app -> app.getProject().getId().equals(id))
+                    .filter(app -> app.getStatus() == ApplicationStatus.PENDING)
+                    .count();
+
+            if (applicationCount > 0) {
+                redirectAttributes.addFlashAttribute("errorMessage",
+                        "⚠️ Cannot unpublish project with pending applications. " +
+                                "Please review all applications first.");
+                return "redirect:/ui/projects/" + id;
+            }
+
+            // ✅ FIX: Properly reset workflow status so it's removed from Department Head view
+            project.setPublished(false);  // Unpublish it
+            project.setPublishedAt(LocalDateTime.now());
+            project.setVisibleToAll(false);  // Don't show it to employees
+            project.setStatus(ProjectStatus.DRAFT);  // Mark as DRAFT
+
+            // ✅ IMPORTANT: Set workflow status to something that WON'T appear in Department Head dashboard
+            project.setWorkflowStatus("DRAFT");  // Changed from "PROJECT_CANCELLED" to "DRAFT"
+
+            // ✅ Clear any approval-related fields
+            project.setApprovedAt(null);
+            project.setApprovedBy(null);
+            project.setApprovalComments(null);
+
+            projectRepository.save(project);
+
+            redirectAttributes.addFlashAttribute("successMessage",
+                    "✅ Project '" + project.getName() + "' unpublished successfully! " +
+                            "No longer visible to employees or Department Head.");
+
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage",
+                    "❌ Failed to unpublish project: " + e.getMessage());
+        }
+
+        return "redirect:/ui/projects/dashboard";
+    }
+
+
+    // ==================== CANCEL PROJECT ====================
+    @PostMapping("/{id}/cancel")
+    public String cancelProject(
+            @PathVariable("id") Long id,
+            Principal principal,
+            RedirectAttributes redirectAttributes) {
+
+        String username = principal != null ? principal.getName() : "Guest";
+
+        try {
+            Project project = projectRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+
+            // Check ownership
+            if (!project.getCreatedBy().equals(username)) {
+                redirectAttributes.addFlashAttribute("errorMessage",
+                        "Unauthorized to cancel this project");
+                return "redirect:/ui/projects/dashboard";
+            }
+
+            // Check if project can be cancelled
+            if (project.getStatus() == ProjectStatus.COMPLETED) {
+                redirectAttributes.addFlashAttribute("errorMessage",
+                        "Cannot cancel a completed project");
+                return "redirect:/ui/projects/" + id;
+            }
+
+            // Cancel the project
+            project.setStatus(ProjectStatus.CANCELLED);
+            project.setPublished(false);
+            project.setVisibleToAll(false);
+            projectRepository.save(project);
+
+            // Free all assigned employees
+            List<Assignment> assignments = assignmentRepository.findAll().stream()
+                    .filter(a -> a.getProject().getId().equals(id))
+                    .toList();
+
+            for (Assignment assignment : assignments) {
+                Employee employee = assignment.getEmployee();
+                employee.setAvailable(true);
+                employeeRepository.save(employee);
+            }
+
+            redirectAttributes.addFlashAttribute("successMessage",
+                    "✅ Project '" + project.getName() + "' cancelled successfully! " +
+                            "All employees freed.");
+
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage",
+                    "❌ Failed to cancel project: " + e.getMessage());
+        }
+
+        return "redirect:/ui/projects/dashboard";
     }
 
     // ==================== PROJECT APPLICATIONS ====================
     @GetMapping("/{id}/applications")
     public String viewApplications(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             Model model,
             Principal principal) {
 
@@ -470,7 +663,7 @@ public class ProjectUiController {
 
     @PostMapping("/applications/{applicationId}/approve")
     public String approveApplication(
-            @PathVariable Long applicationId,
+            @PathVariable("applicationId") Long applicationId,
             RedirectAttributes redirectAttributes) {
 
         Application application = applicationRepository.findById(applicationId)
@@ -480,14 +673,30 @@ public class ProjectUiController {
         application.setReviewedAt(LocalDateTime.now());
         applicationRepository.save(application);
 
+        // ✅ CREATE ASSIGNMENT (END-TO-END FLOW)
+        Assignment assignment = new Assignment();
+        assignment.setProject(application.getProject());
+        assignment.setEmployee(application.getEmployee());
+        assignment.setStatus(AssignmentStatus.ASSIGNED);
+        assignmentRepository.save(assignment);
+
+        // ✅ Mark employee unavailable
+        Employee employee = application.getEmployee();
+        employee.setAvailable(false);
+        employeeRepository.save(employee);
+
         redirectAttributes.addFlashAttribute("successMessage",
-                "Application approved for employee: " + application.getEmployee().getName());
-        return "redirect:/ui/projects/" + application.getProject().getId() + "/applications";
+                "Application approved and employee assigned: " +
+                        employee.getName());
+
+        return "redirect:/ui/projects/" +
+                application.getProject().getId() + "/applications";
     }
+
 
     @PostMapping("/applications/{applicationId}/reject")
     public String rejectApplication(
-            @PathVariable Long applicationId,
+            @PathVariable("applicationId") Long applicationId,
             RedirectAttributes redirectAttributes) {
 
         Application application = applicationRepository.findById(applicationId)
@@ -505,7 +714,7 @@ public class ProjectUiController {
     // ==================== PROJECT ASSIGNMENTS ====================
     @GetMapping("/{id}/assignments")
     public String viewAssignments(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             Model model,
             Principal principal) {
 
@@ -524,10 +733,10 @@ public class ProjectUiController {
                 .filter(a -> a.getProject().getId().equals(id))
                 .toList();
 
-        // Get available employees for new assignments
+        // Get all available employees
         List<Employee> availableEmployees = employeeRepository.findAll().stream()
-                .filter(Employee::isAvailableForProject)
-                .toList();
+                .filter(e -> Boolean.TRUE.equals(e.getAvailable()))
+                .collect(Collectors.toList());
 
         model.addAttribute("username", username);
         model.addAttribute("project", project);
@@ -539,7 +748,7 @@ public class ProjectUiController {
 
     @PostMapping("/{id}/assignments/create")
     public String createAssignment(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @RequestParam Long employeeId,
             RedirectAttributes redirectAttributes) {
 
@@ -578,7 +787,7 @@ public class ProjectUiController {
 
     @PostMapping("/assignments/{assignmentId}/remove")
     public String removeAssignment(
-            @PathVariable Long assignmentId,
+            @PathVariable("assignmentId") Long assignmentId,
             RedirectAttributes redirectAttributes) {
 
         Assignment assignment = assignmentRepository.findById(assignmentId)
@@ -594,15 +803,19 @@ public class ProjectUiController {
         employee.setAvailable(true);
         employeeRepository.save(employee);
 
-        redirectAttributes.addFlashAttribute("successMessage",
-                employee.getName() + " removed from project");
+        redirectAttributes.addFlashAttribute(
+                "successMessage",
+                employee.getName() + " removed from project"
+        );
+
         return "redirect:/ui/projects/" + projectId + "/assignments";
     }
+
 
     // ==================== TRIGGER EXTERNAL SEARCH ====================
     @PostMapping("/{id}/external-search")
     public String triggerExternalSearch(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             RedirectAttributes redirectAttributes) {
 
         Project project = projectRepository.findById(id)
@@ -610,46 +823,60 @@ public class ProjectUiController {
 
         // Mark that external search is needed
         project.setExternalSearchNeeded(true);
+        //project.setStatus(ProjectStatus.STAFFING);
         projectRepository.save(project);
 
-        // TODO: In real implementation, integrate with external APIs
-
         redirectAttributes.addFlashAttribute("successMessage",
-                "External search triggered for project: " + project.getName() +
-                        ". The recruitment team has been notified.");
+                "Request for external search of candidate sent to department head " + project.getName() +
+                        ". Waiting for approval");
         return "redirect:/ui/projects/" + id;
     }
 
-    // Add this method to ProjectUiController.java
     @PostMapping("/{id}/request-external-search")
     public String requestExternalSearch(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @RequestParam(required = false) String justification,
             Principal principal,
             RedirectAttributes redirectAttributes) {
 
         String username = principal != null ? principal.getName() : "Guest";
 
+
         try {
-            // Pass the justification to the service
+            Project project = projectRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+
             String processInstanceId = externalSearchService.triggerExternalSearch(id, username, justification);
 
+            Notification dhNotification = new Notification();
+            dhNotification.setUsername("head");  // Your single DH username
+            dhNotification.setTitle("External Search Request");
+            dhNotification.setMessage("Project Manager " + username +
+                    " requested external search for project '" +
+                    project.getName() + "'" +
+                    (justification != null ? ". Reason: " + justification : ""));
+            dhNotification.setProjectId(project.getId());
+            dhNotification.setProjectName(project.getName());
+            dhNotification.setCreatedAt(LocalDateTime.now());
+            dhNotification.setIsRead(false);
+            notificationRepository.save(dhNotification);
+
             redirectAttributes.addFlashAttribute("successMessage",
-                    "✅ External search request submitted successfully! " +
+                    " External search request submitted successfully! " +
                             "Awaiting Department Head approval.");
 
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("errorMessage",
-                    "❌ Failed to request external search: " + e.getMessage());
+                    "Failed to request external search: " + e.getMessage());
         }
+
 
         return "redirect:/ui/projects/" + id;
     }
 
-    // Add this method to view external search status
     @GetMapping("/{id}/external-search-status")
     public String viewExternalSearchStatus(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             Model model,
             Principal principal) {
 
@@ -678,20 +905,40 @@ public class ProjectUiController {
         // Calculate statistics
         long totalProjects = myProjects.size();
         long pendingProjects = myProjects.stream()
-                .filter(p -> p.getStatus() == ProjectStatus.PENDING)
+                .filter(p ->
+                        p.getStatus() == ProjectStatus.PENDING &&
+                                Boolean.TRUE.equals(p.getPublished())
+                )
                 .count();
         long activeProjects = myProjects.stream()
                 .filter(p -> p.getStatus() == ProjectStatus.IN_PROGRESS)
                 .count();
-        long publishedProjects = myProjects.stream()
-                .filter(p -> Boolean.TRUE.equals(p.getPublished()))
-                .count();
 
-        // Get pending applications count
-        long pendingApplications = applicationRepository.findAll().stream()
-                .filter(app -> app.getStatus() == ApplicationStatus.PENDING)
-                .filter(app -> app.getProject().getCreatedBy().equals(username))
-                .count();
+        long totalCount = myProjects.size();
+        long pendingCount = myProjects.stream().filter(p -> p.getStatus() == ProjectStatus.PENDING_APPROVAL).count();
+        long approvedCount = myProjects.stream().filter(p -> p.getStatus() == ProjectStatus.APPROVED).count();
+        long publishedCount = myProjects.stream().filter(p -> Boolean.TRUE.equals(p.getPublished())).count();
+        long draftCount = myProjects.stream().filter(p -> p.getStatus() == ProjectStatus.DRAFT).count();
+        long rejectCount = myProjects.stream().filter(p -> p.getStatus() == ProjectStatus.REJECTED).count();
+        long staffingCount = myProjects.stream().filter(p -> p.getStatus() == ProjectStatus.STAFFING).count();
+
+        // Get published projects for department head
+        List<Project> publishedProjects = projectRepository.findAll().stream()
+                .filter(p -> Boolean.TRUE.equals(p.getPublished()))  // Only include published projects
+                .filter(p -> p.getStatus() == ProjectStatus.PENDING)
+                .filter(p -> "AWAITING_DEPARTMENT_HEAD_APPROVAL".equals(p.getWorkflowStatus()))
+                .collect(Collectors.toList());
+
+
+        long pendingApplicationsCount =
+                applicationRepository.countByStatusAndProject_CreatedBy(
+                        ApplicationStatus.PENDING,
+                        username
+                );
+
+        model.addAttribute("pendingApplicationsCount", pendingApplicationsCount);
+
+
 
         // Recent projects (last 5)
         List<Project> recentProjects = myProjects.stream()
@@ -699,15 +946,82 @@ public class ProjectUiController {
                 .limit(5)
                 .toList();
 
+        // Get notifications for the dashboard
+        List<Notification> unreadNotifications  = notificationRepository
+                .findByUsernameAndIsReadFalseOrderByCreatedAtDesc(username);
+        long notificationCount = unreadNotifications.size();
+
+        // Get notifications for this PM
+        List<Notification> pmNotifications = notificationRepository
+                .findByUsernameOrderByCreatedAtDesc(username);
+
+        // Convert to map for template
+        List<Map<String, Object>> notificationList = new ArrayList<>();
+        for (Notification notification : pmNotifications) {
+            Map<String, Object> notif = new HashMap<>();
+            notif.put("id", notification.getId());
+            notif.put("title", notification.getTitle() != null ? notification.getTitle() : "Notification");
+            notif.put("message", notification.getMessage());
+            notif.put("projectId", notification.getProjectId());
+            notif.put("projectName", notification.getProjectName());
+            notif.put("createdAt", notification.getCreatedAt());
+            notif.put("isRead", notification.getIsRead());
+            notificationList.add(notif);
+        }
+
         model.addAttribute("username", username);
         model.addAttribute("totalProjects", totalProjects);
         model.addAttribute("pendingProjects", pendingProjects);
         model.addAttribute("activeProjects", activeProjects);
         model.addAttribute("publishedProjects", publishedProjects);
-        model.addAttribute("pendingApplications", pendingApplications);
+        model.addAttribute("pendingApplicationsCount", pendingApplicationsCount);
         model.addAttribute("recentProjects", recentProjects);
         model.addAttribute("projects", myProjects);
 
-        return "project-manager/dashboard";
+
+        model.addAttribute("totalCount", totalCount);
+        model.addAttribute("pendingCount", pendingCount);
+        model.addAttribute("draftCount", draftCount);
+        model.addAttribute("rejectCount", rejectCount);
+        model.addAttribute("staffingCount", staffingCount);
+        model.addAttribute("approvedCount", approvedCount);
+        model.addAttribute("publishedCount", publishedCount);
+
+
+        // Add notification attributes (ADD THESE LINES)
+        model.addAttribute("notifications", notificationList);
+        model.addAttribute("notificationCount", notificationCount);
+        model.addAttribute("pmNotifications", pmNotifications);
+        model.addAttribute("unreadNotifications", unreadNotifications);
+        model.addAttribute("notificationCount", unreadNotifications.size());
+
+        return "projects/dashboard";
+    }
+
+    // Helper method to mark all project-related notifications as read
+    private void markAllProjectNotificationsAsRead(Long projectId, String username) {
+        try {
+            // Mark project-specific notification flag
+            Project project = projectRepository.findById(projectId).orElse(null);
+            if (project != null && Boolean.FALSE.equals(project.getPmNotificationSeen())) {
+                project.setPmNotificationSeen(true);
+                projectRepository.save(project);
+            }
+
+            // Mark all database notifications for this project and user as read
+            List<Notification> unreadNotifications = notificationRepository
+                    .findByUsernameAndIsReadFalseOrderByCreatedAtDesc(username);
+
+            for (Notification notification : unreadNotifications) {
+                if (projectId.equals(notification.getProjectId())) {
+                    notification.setIsRead(true);
+                }
+            }
+            notificationRepository.saveAll(unreadNotifications);
+
+        } catch (Exception e) {
+            // Log error but don't break the flow
+            System.err.println("Error marking notifications as read: " + e.getMessage());
+        }
     }
 }

@@ -63,10 +63,9 @@
                 Resource Planner searches for employees with matching skills and proposes them for assignment.
             </documentation>
         </userTask>
-        <!-- ✅ FIXED: Now flows to CREATE assignments FIRST -->
         <sequenceFlow id="flow5" sourceRef="resourcePlannerTask" targetRef="assignmentTask" />
 
-        <!-- 6. ✅ CORRECTED: Create Assignments BEFORE asking employee to confirm -->
+        <!-- 6. Create Assignments BEFORE asking employee to confirm -->
         <serviceTask id="assignmentTask"
                      name="Create Employee Assignments"
                      flowable:delegateExpression="${assignmentDelegate}" >
@@ -78,7 +77,6 @@
         <sequenceFlow id="flow6" sourceRef="assignmentTask" targetRef="notificationTask" />
 
         <!-- 7. Send Notifications to Employees -->
-        <!-- ✅ CORRECT -->
         <serviceTask id="notificationTask"
                      name="Send Assignment Notifications"
                      flowable:delegateExpression="${notificationDelegate}" >
@@ -88,7 +86,7 @@
         </serviceTask>
         <sequenceFlow id="flow7" sourceRef="notificationTask" targetRef="employeeConfirmationTask" />
 
-        <!-- 8. ✅ EMPLOYEE CONFIRMATION (Now assignments exist to confirm!) -->
+        <!-- 8. EMPLOYEE CONFIRMATION (Now assignments exist to confirm!) -->
         <userTask id="employeeConfirmationTask"
                   name="Confirm Assignment"
                   flowable:candidateGroups="Employee">
@@ -122,7 +120,7 @@
         </sequenceFlow>
 
         <!-- 10. Complete Project Setup -->
-        <!-- ✅ CORRECT -->
+
         <serviceTask id="projectCompletionTask"
                      name="Complete Project Setup"
                      flowable:delegateExpression="${projectCompletionDelegate}" >

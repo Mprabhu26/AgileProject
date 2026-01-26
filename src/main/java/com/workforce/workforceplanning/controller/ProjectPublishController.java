@@ -39,7 +39,7 @@ public class ProjectPublishController {
     // ========================
     @PostMapping("/{id}/publish")
     public String publishProject(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             RedirectAttributes redirectAttributes) {
 
         return projectRepository.findById(id)
@@ -52,8 +52,10 @@ public class ProjectPublishController {
 
                     // 2. Move project into STAFFING phase
                     if (project.getStatus() == ProjectStatus.PENDING
-                            || project.getStatus() == ProjectStatus.APPROVED) {
-                        project.setStatus(ProjectStatus.STAFFING);
+                            || project.getStatus() == ProjectStatus.APPROVED
+                            || project.getStatus() == ProjectStatus.REJECTED
+                            || project.getStatus() == ProjectStatus.DRAFT) {
+                        project.setStatus(ProjectStatus.PENDING_APPROVAL);
                     }
 
                     // 3. Workflow is about to start → mark as RUNNING
@@ -141,7 +143,7 @@ public class ProjectPublishController {
     // ========================
     @PostMapping("/{id}/unpublish")
     public String unpublishProject(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             RedirectAttributes redirectAttributes) {
 
         return projectRepository.findById(id)
@@ -151,19 +153,23 @@ public class ProjectPublishController {
 
                     // 1. Roll back business status - FIXED: Go to PENDING, not APPROVED
                     if (project.getStatus() == ProjectStatus.STAFFING) {
-                        project.setStatus(ProjectStatus.PENDING); // CHANGED FROM APPROVED
+                        project.setStatus(ProjectStatus.DRAFT); // CHANGED FROM APPROVED
                     } else if (project.getStatus() == ProjectStatus.IN_PROGRESS) {
-                        project.setStatus(ProjectStatus.PENDING);
+                        project.setStatus(ProjectStatus.DRAFT);
                     }else if (project.getStatus() == ProjectStatus.APPROVED) {
-                        project.setStatus(ProjectStatus.PENDING);
+                        project.setStatus(ProjectStatus.DRAFT);
+                    }else if (project.getStatus() == ProjectStatus.PENDING_APPROVAL) {
+                        project.setStatus(ProjectStatus.DRAFT);
                     }
+
 
                     // 2. Unpublish flags
                     project.setPublished(false);
                     project.setVisibleToAll(false);
-
+                    project.setPublishedAt(LocalDateTime.now());
+                    project.setStatus(ProjectStatus.DRAFT);
                     // 3. Workflow is being cancelled
-                    project.setWorkflowStatus("CANCELLED");
+                    project.setWorkflowStatus("DRAFT");
 
                     // 4. Persist state
                     projectRepository.save(project);
@@ -189,7 +195,8 @@ public class ProjectPublishController {
     private void handleWorkflowOnUnpublish(String processInstanceId, Project project) {
         try {
             System.out.println("🛑 Sending unpublish message to workflow for project: " + project.getName());
-
+            project.setWorkflowStatus("DRAFT");
+            projectRepository.save(project);
             var processInstance = runtimeService.createProcessInstanceQuery()
                     .processInstanceId(processInstanceId)
                     .singleResult();

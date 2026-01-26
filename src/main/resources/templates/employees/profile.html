@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile - Workforce Planning</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .navbar-custom {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+            border-radius: 15px;
+            padding: 15px 25px;
+            margin-bottom: 30px;
+        }
+        .profile-card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            margin-bottom: 30px;
+        }
+        .profile-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        .profile-avatar {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            color: white;
+            margin-right: 30px;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .profile-info h2 {
+            margin-bottom: 5px;
+            color: #333;
+        }
+        .profile-info .text-muted {
+            font-size: 0.9rem;
+        }
+        .info-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .info-item i {
+            width: 30px;
+            color: #667eea;
+        }
+        .skill-badge {
+            display: inline-block;
+            padding: 8px 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 20px;
+            margin: 5px;
+            font-size: 0.9rem;
+        }
+        .section-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+        .status-badge {
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-approved { background: #d4edda; color: #155724; }
+        .status-rejected { background: #f8d7da; color: #721c24; }
+        .table-custom {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .btn-custom {
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .btn-primary-custom {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+        }
+        .btn-primary-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .alert-custom {
+            border-radius: 10px;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+<!-- Navigation Bar -->
+<div class="main-container">
+    <nav class="navbar-custom">
+        <div class="d-flex justify-content-between align-items-center w-100">
+            <div>
+                <h5 class="mb-0">
+                    <i class="fas fa-user-circle"></i> My Profile
+                    <span class="badge bg-info ms-2" th:text="${user.username}"></span>
+                </h5>
+            </div>
+            <div>
+                <a href="/ui/employee/projects" class="btn btn-outline-primary btn-sm me-2">
+                    <i class="fas fa-briefcase"></i> Projects
+                </a>
+                <a href="/ui/employee/applications" class="btn btn-outline-primary btn-sm me-2">
+                    <i class="fas fa-file-alt"></i> My Applications
+                </a>
+                <a href="/" class="btn btn-outline-secondary btn-sm me-2">
+                    <i class="fas fa-home"></i> Logout
+                </a>
+
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    <div th:if="${success}" class="alert alert-success alert-custom alert-dismissible fade show" role="alert">
+        <i class="fas fa-check-circle me-2"></i>
+        <span th:text="${success}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <div th:if="${error}" class="alert alert-danger alert-custom alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-circle me-2"></i>
+        <span th:text="${error}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+
+    <!-- Profile Information -->
+    <div class="profile-card">
+        <div class="profile-header">
+            <div class="profile-avatar">
+                <i class="fas fa-user"></i>
+            </div>
+            <div class="profile-info">
+                <h2 th:text="${employee != null ? employee.name : 'No Name'}">Employee Name</h2>
+                <p class="text-muted mb-2">
+                    <i class="fas fa-id-badge me-2"></i>
+                    Role: <strong>Employee</strong>
+                </p>
+                <p class="text-muted mb-0" th:if="${employee != null && employee.department != null}">
+                    <i class="fas fa-building me-2"></i>
+                    Department: <strong th:text="${employee.department}"></strong>
+                </p>
+            </div>
+        </div>
+
+        <div th:if="${employee != null}">
+            <!-- Contact Information -->
+            <div class="mb-4">
+                <h5 class="section-title"><i class="fas fa-address-card me-2"></i>Contact Information</h5>
+                <div class="info-item">
+                    <i class="fas fa-envelope"></i>
+                    <span th:text="${employee.email}">email@example.com</span>
+                </div>
+
+                <div class="info-item">
+                    <i class="fas fa-toggle-on"></i>
+                    <span>Availability:
+                            <span th:if="${employee.available}" class="badge bg-success">Available</span>
+                            <span th:unless="${employee.available}" class="badge bg-warning">Assigned</span>
+                        </span>
+                </div>
+            </div>
+
+            <!-- Skills -->
+            <div class="mb-4">
+                <h5 class="section-title"><i class="fas fa-code me-2"></i>Skills</h5>
+                <div th:if="${employee.skills != null && !employee.skills.isEmpty()}">
+                        <span th:each="skill : ${employee.skills}"
+                              th:text="${skill}"
+                              class="skill-badge"></span>
+                </div>
+                <div th:unless="${employee.skills != null && !employee.skills.isEmpty()}">
+                    <p class="text-muted">No skills listed yet. Update your profile to add skills.</p>
+                </div>
+            </div>
+
+            <!-- Edit Profile Button -->
+            <button type="button" class="btn btn-primary-custom" data-bs-toggle="modal" data-bs-target="#editProfileModal">
+                <i class="fas fa-edit me-2"></i>Edit Profile
+            </button>
+        </div>
+
+        <div th:unless="${employee != null}" class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            No employee record found. Please contact the administrator.
+        </div>
+    </div>
+
+    <!-- Applications History -->
+    <div class="profile-card" th:if="${applications != null && !applications.isEmpty()}">
+        <h5 class="section-title"><i class="fas fa-file-alt me-2"></i>Application History</h5>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                <tr>
+                    <th>Project</th>
+                    <th>Applied Date</th>
+                    <th>Status</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="app : ${applications}">
+                    <td>
+                        <strong th:text="${app.project.name}">Project Name</strong>
+                        <br>
+                        <small class="text-muted" th:text="${app.project.description}">Description</small>
+                    </td>
+                    <td th:text="${#temporals.format(app.appliedAt, 'MMM dd, yyyy HH:mm')}">Jan 01, 2026</td>
+                    <td>
+                                <span th:class="${'status-badge status-' + #strings.toLowerCase(app.status)}"
+                                      th:text="${app.status}">PENDING</span>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Current Assignments -->
+    <div class="profile-card" th:if="${assignments != null && !assignments.isEmpty()}">
+        <h5 class="section-title"><i class="fas fa-tasks me-2"></i>Current Assignments</h5>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                <tr>
+                    <th>Project</th>
+                    <th>Assigned Date</th>
+                    <th>Status</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="assignment : ${assignments}">
+                    <td>
+                        <strong th:text="${assignment.project.name}">Project Name</strong>
+                        <br>
+                        <small class="text-muted" th:text="${assignment.project.description}">Description</small>
+                    </td>
+                    <td th:text="${#temporals.format(assignment.assignedAt, 'MMM dd, yyyy')}">Jan 01, 2026</td>
+                    <td>
+                        <span class="badge bg-success">Active</span>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Profile Modal -->
+<div class="modal fade" id="editProfileModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Edit Profile</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form th:action="@{/ui/employee/profile/update}" method="post">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Name</label>
+                        <input type="text" class="form-control" name="name"
+                               th:value="${employee != null ? employee.name : ''}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email"
+                               th:value="${employee != null ? employee.email : ''}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Skills (comma-separated)</label>
+                        <input type="text" class="form-control" name="skills"
+                               th:value="${employee != null && employee.skills != null ? employee.skills : ''}"
+                               placeholder="e.g., Java, Python, React, AWS">
+                        <small class="text-muted">Enter skills separated by commas</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary-custom">
+                        <i class="fas fa-save me-2"></i>Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

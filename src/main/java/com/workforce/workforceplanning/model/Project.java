@@ -44,6 +44,7 @@ public class Project {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+
     // 🔗 Project → Skill Requirements
     @OneToMany(
             mappedBy = "project",
@@ -95,6 +96,14 @@ public class Project {
         this.pmNotificationSeen = pmNotificationSeen;
     }
 
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
+
+    @Column(name = "approved_by")
+    private String approvedBy;
+
+    @Column(name = "approval_comments", length = 1000)
+    private String approvalComments;
 
     // ===== Constructors =====
     public Project() {}
@@ -170,6 +179,15 @@ public class Project {
 
     public LocalDateTime getExternalSearchCompletedAt() { return externalSearchCompletedAt; }
     public void setExternalSearchCompletedAt(LocalDateTime externalSearchCompletedAt) { this.externalSearchCompletedAt = externalSearchCompletedAt; }
+
+    public LocalDateTime getApprovedAt() { return approvedAt; }
+    public void setApprovedAt(LocalDateTime approvedAt) { this.approvedAt = approvedAt; }
+
+    public String getApprovedBy() { return approvedBy; }
+    public void setApprovedBy(String approvedBy) { this.approvedBy = approvedBy; }
+
+    public String getApprovalComments() { return approvalComments; }
+    public void setApprovalComments(String approvalComments) { this.approvalComments = approvalComments; }
 
     // ===== Helper Methods =====
     public void addSkillRequirement(ProjectSkillRequirement requirement) {

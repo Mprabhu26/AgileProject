@@ -40,7 +40,7 @@ public class AssignmentValidationService {
         }
 
         // 2. Check if employee is available
-        if (!employee.isAvailableForProject()) {
+        if (!Boolean.TRUE.equals(employee.getAvailable())) {
             return ValidationResult.error("Employee is not available");
         }
 

@@ -60,14 +60,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3 mb-3">
-            <div class="card stat-card bg-success text-white">
-                <div class="card-body">
-                    <h6 class="card-subtitle mb-2">Approved</h6>
-                    <h2 class="card-title" th:text="${approvedExternalSearches}">0</h2>
-                </div>
-            </div>
-        </div>
+
     </div>
 
     <!-- Flash Messages -->
@@ -81,10 +74,11 @@
         <div class="card-header bg-white">
             <h5 class="card-title mb-0">
                 <i class="fas fa-list-ol me-2 text-primary"></i>Pending External Search Requests
-                <span class="badge bg-primary ms-2" th:text="${pendingExternalSearchCount}">0</span>
+                <span class="badge bg-primary ms-2" th:text="${externalsearchProjects}">0</span>
             </h5>
         </div>
         <div class="card-body">
+            <!-- In external-search-requests.html -->
             <div th:if="${externalSearchRequests != null and !externalSearchRequests.isEmpty()}">
                 <div th:each="request : ${externalSearchRequests}" class="card request-card">
                     <div class="card-body">
@@ -96,51 +90,69 @@
                                     <span class="badge bg-info ms-2">Skill Gap</span>
                                 </h5>
 
-                                <div th:if="${request.project != null}">
-                                    <h6 class="mb-1">
-                                        <i class="fas fa-project-diagram me-1"></i>
-                                        <span th:text="${request.project.name}">Project Name</span>
-                                    </h6>
+                                <h6 class="mb-1">
+                                    <i class="fas fa-project-diagram me-1"></i>
+                                    <span th:text="${request.projectName}">Project Name</span>
+                                </h6>
 
-                                    <!-- Justification -->
-                                    <div th:if="${request.variables.justification != null}" class="mb-3">
-                                        <p class="mb-1"><strong>Justification:</strong></p>
-                                        <p class="text-muted" th:text="${request.variables.justification}">
-                                            Skills not available internally...
+                                <!-- Justification -->
+                                <div class="mb-3">
+                                    <p class="mb-1"><strong>Justification:</strong></p>
+                                    <p class="text-muted" th:text="${request.justification}">
+                                        Skills not available internally...
+                                    </p>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p class="small mb-1">
+                                            <i class="fas fa-user me-1"></i>
+                                            <strong>Requested by:</strong>
+                                            <span th:text="${request.requestedBy}">Project Manager</span>
                                         </p>
                                     </div>
-
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <p class="small mb-1">
-                                                <i class="fas fa-user me-1"></i>
-                                                <strong>Requested by:</strong>
-                                                <span th:text="${request.variables.requestedBy}">Project Manager</span>
-                                            </p>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <p class="small mb-1">
-                                                <i class="fas fa-calendar me-1"></i>
-                                                <strong>Requested on:</strong>
-                                                <span th:text="${#dates.format(request.task.createTime, 'MMM dd, yyyy HH:mm')}">
-                                                    Jan 01, 2024 10:00
-                                                </span>
-                                            </p>
-                                        </div>
+                                    <div class="col-md-6">
+                                        <p class="small mb-1">
+                                            <i class="fas fa-calendar me-1"></i>
+                                            <strong>Requested on:</strong>
+                                            <span th:if="${request.requestedAt != null}"
+                                                  th:text="${#temporals.format(request.requestedAt, 'MMM dd, yyyy HH:mm')}">
+                                    Jan 01, 2024 10:00
+                                </span>
+                                            <span th:if="${request.requestedAt == null}">N/A</span>
+                                        </p>
                                     </div>
                                 </div>
                             </div>
 
                             <div class="col-md-4">
                                 <div class="d-grid gap-2">
-                                    <form th:action="@{'/ui/department-head/external-search/tasks/' + ${request.task.id} + '/approve'}"
+                                    <!-- Approve button -->
+                                    <form th:action="@{'/ui/department-head/projects/' + ${request.projectId} + '/approve-external-search'}"
                                           method="post" class="d-inline">
+                                        <input type="hidden" th:if="${_csrf != null}"
+                                               th:name="${_csrf.parameterName}"
+                                               th:value="${_csrf.token}"/>
                                         <button type="submit" class="btn btn-success w-100 mb-1">
                                             <i class="fas fa-check me-1"></i>Approve Search
                                         </button>
                                     </form>
-                                    <form th:action="@{'/ui/department-head/external-search/tasks/' + ${request.task.id} + '/reject'}"
+
+                                    <form th:action="@{'/ui/department-head/projects/' + ${request.projectId}}"
+                                          method="get" class="d-inline">
+
+                                        <button type="submit" class="btn btn-success w-100 mb-1">
+                                            <i class="fas fa-check me-1"></i>Review
+                                        </button>
+                                    </form>
+
+
+                                    <!-- Reject button -->
+                                    <form th:action="@{'/ui/department-head/projects/' + ${request.projectId} + '/reject-external-search'}"
                                           method="post" class="d-inline">
+                                        <input type="hidden" th:if="${_csrf != null}"
+                                               th:name="${_csrf.parameterName}"
+                                               th:value="${_csrf.token}"/>
                                         <button type="submit" class="btn btn-danger w-100"
                                                 onclick="return confirm('Reject this external search request?')">
                                             <i class="fas fa-times me-1"></i>Reject Request
@@ -150,6 +162,8 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
                 </div>
             </div>
             <div th:if="${externalSearchRequests == null or externalSearchRequests.isEmpty()}" class="text-center py-5">
