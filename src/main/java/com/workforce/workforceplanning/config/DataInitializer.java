@@ -37,6 +37,28 @@ public class DataInitializer implements CommandLineRunner {
         } else {
             System.out.println("⏭️ Database already has data, skipping initialization");
         }
+
+        userRepository.deleteAll();
+        employeeRepository.deleteAll();
+        projectRepository.deleteAll();
+
+        System.out.println("✅ Cleared all existing data");
+
+        // Load fresh data with BCrypt passwords
+        loadSampleData();
+
+        System.out.println("🔍 VERIFYING PASSWORD ENCODING:");
+        userRepository.findAll().forEach(user -> {
+            String pass = user.getPassword();
+            boolean isBCrypt = pass != null &&
+                    (pass.startsWith("$2a$") ||
+                            pass.startsWith("$2b$") ||
+                            pass.startsWith("$2y$"));
+
+            System.out.println("User: " + user.getUsername() +
+                    " | Password: " + pass.substring(0, Math.min(20, pass.length())) + "..." +
+                    " | Is BCrypt: " + (isBCrypt ? "✅" : "❌"));
+        });
     }
 
     private void loadSampleData() {
