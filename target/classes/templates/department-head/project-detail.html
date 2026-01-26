@@ -123,19 +123,14 @@
             </div>
 
             <!-- Required Skills -->
-            <div class="card info-card mb-3"
-                 th:if="${project.skillRequirements  != null and !project.skillRequirements .isEmpty()}">
-                <div class="card-header bg-white">
-                    <h5 class="mb-0"><i class="fas fa-tools me-2"></i>Required Skills</h5>
-                </div>
-                <div class="card-body">
-                    <div class="d-flex flex-wrap gap-2">
-                        <span th:each="skill : ${project.skillRequirements }"
-                              class="badge bg-primary"
-                              th:text="${skill}">
-                            Skill
-                        </span>
-                    </div>
+            <div th:if="${project.skillRequirements != null and project.skillRequirements.size() > 0}" class="mt-4">
+                <h6><i class="fas fa-tools me-2 text-warning"></i>Required Skills</h6>
+                <div class="d-flex flex-wrap gap-2">
+                                    <span th:each="skill : ${project.skillRequirements}"
+                                          class="badge bg-info">
+                                        <span th:text="${skill.skill}">Java</span>
+                                        <span class="ms-1">(x<span th:text="${skill.requiredCount}">1</span>)</span>
+                                    </span>
                 </div>
             </div>
 
@@ -146,6 +141,7 @@
 
             <!-- Approval Actions -->
             <div class="card shadow-sm mb-3">
+                <div th:unless="${project != null and project.status.name() == 'STAFFING'}">
                 <div class="card-header bg-white">
                     <h5 class="mb-0"><i class="fas fa-clipboard-check me-2"></i>Actions</h5>
                 </div>
@@ -196,9 +192,15 @@
                     <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Quick Stats</h5>
                 </div>
                 <div class="card-body">
-                    <div class="d-flex justify-content-between mb-2">
-                        <span>Required Skills:</span>
-                        <strong th:text="${project.skillRequirements  != null ? project.skillRequirements .size() : 0}">0</strong>
+                    <div th:if="${project.skillRequirements != null and project.skillRequirements.size() > 0}" class="mt-4">
+                        <h6><i class="fas fa-tools me-2 text-warning"></i>Required Skills</h6>
+                        <div class="d-flex flex-wrap gap-2">
+                                    <span th:each="skill : ${project.skillRequirements}"
+                                          class="badge bg-info">
+                                        <span th:text="${skill.skill}">Java</span>
+                                        <span class="ms-1">(x<span th:text="${skill.requiredCount}">1</span>)</span>
+                                    </span>
+                        </div>
                     </div>
                     <div class="d-flex justify-content-between mb-2">
                         <span>Status:</span>
@@ -210,7 +212,7 @@
                     </div>
                 </div>
             </div>
-
+            </div>
         </div>
     </div>
 

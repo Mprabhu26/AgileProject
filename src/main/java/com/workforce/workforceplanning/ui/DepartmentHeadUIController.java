@@ -53,39 +53,6 @@ public class DepartmentHeadUIController {
         model.addAttribute("username", username);
         boolean isDepartmentHead = userRoleService.isUserDepartmentHead(username);
 
-        if (isDepartmentHead) {
-            // Get notifications for THIS specific Department Head user
-            long dhNotificationCount = notificationRepository.countByUsernameAndIsReadFalse(username);
-            model.addAttribute("dhNotificationCount", dhNotificationCount);
-
-            // Also check for "ALL_DEPARTMENT_HEADS" notifications
-            long allDhNotificationCount = notificationRepository.countByUsernameAndIsReadFalse("ALL_DEPARTMENT_HEADS");
-            long totalNotificationCount = dhNotificationCount + allDhNotificationCount;
-            model.addAttribute("dhNotificationCount", totalNotificationCount);
-
-            // Get DH notifications for display (personal + shared)
-            List<Notification> personalNotifications = notificationRepository
-                    .findByUsernameAndIsReadFalseOrderByCreatedAtDesc(username);
-
-            List<Notification> sharedNotifications = notificationRepository
-                    .findByUsernameAndIsReadFalseOrderByCreatedAtDesc("ALL_DEPARTMENT_HEADS");
-
-            // Combine notifications
-            List<Notification> allNotifications = new ArrayList<>();
-            allNotifications.addAll(personalNotifications);
-            allNotifications.addAll(sharedNotifications);
-
-            // Sort by creation time
-            allNotifications.sort((n1, n2) -> n2.getCreatedAt().compareTo(n1.getCreatedAt()));
-
-            model.addAttribute("dhNotifications", allNotifications);
-        } else {
-            // User is not a Department Head
-            model.addAttribute("dhNotificationCount", 0);
-            model.addAttribute("dhNotifications", Collections.emptyList());
-        }
-
-
         // ==================== WORKFLOW TASKS ====================
 
         // Get all pending approval tasks for Department Head
@@ -139,8 +106,8 @@ public class DepartmentHeadUIController {
                 .filter(p -> "RUNNING".equals(p.getWorkflowStatus())) // Awaiting approval
                 .collect(Collectors.toList());
 
-        List<Project> externalsearchProjects = projectRepository.findAll().stream()
-                .filter(p -> Boolean.TRUE.equals(p.getPublished()))  // Only include published projects
+        List<Project> externalSearchProjects  = projectRepository.findAll().stream()
+                .filter(p -> Boolean.TRUE.equals(p.getExternalSearchNeeded()))  // Only include published projects
                 .filter(p -> p.getStatus() == ProjectStatus.STAFFING)  // Only projects that are pending approval
                 .filter(p -> "AWAITING_DEPARTMENT_HEAD_APPROVAL".equals(p.getWorkflowStatus())) // Awaiting approval
                 .collect(Collectors.toList());
@@ -176,30 +143,21 @@ public class DepartmentHeadUIController {
             approvalRate = (approvedCount * 100.0) / totalApprovals;
         }
 
-//        // Count DH notifications
-//        long dhNotificationCount = notificationRepository.countByUsernameAndIsReadFalse("DepartmentHead");
-//        model.addAttribute("dhNotificationCount", dhNotificationCount);
-//
-//        // Store notifications for display
-//        List<Notification> dhNotifications = notificationRepository
-//                .findByUsernameAndIsReadFalseOrderByCreatedAtDesc("DepartmentHead");
-//        model.addAttribute("dhNotifications", dhNotifications);
-
         // ==================== ADD TO MODEL ====================
 
         model.addAttribute("pendingTasks", pendingTasks);
         model.addAttribute("recentTasks", recentTasks);
         model.addAttribute("taskProjectNames", taskProjectNames);
-        model.addAttribute("externalsearchProjects", externalsearchProjects);
+        model.addAttribute("externalsearchProjects", externalSearchProjects );
 
 
         // Counts
-        int totalPendingCount = pendingTasks.size() + publishedProjects.size();
+        int totalPendingCount = externalSearchProjects .size() + publishedProjects.size();
         int totalProject =  publishedProjects.size();
         model.addAttribute("pendingCount", totalPendingCount);
         model.addAttribute("pendingExternalSearchCount", pendingExternalSearchTasks.size());
         model.addAttribute("publishedProjectsCount", publishedProjects.size());
-
+        model.addAttribute("externalSearchCount", externalSearchProjects.size());
         // Projects
         model.addAttribute("publishedProjects", publishedProjects);
         model.addAttribute("pendingExternalSearchTasks", pendingExternalSearchTasks);
@@ -601,7 +559,7 @@ public class DepartmentHeadUIController {
 
         model.addAttribute("externalSearchRequests", externalSearchRequests);
         model.addAttribute("pendingExternalSearchCount", externalSearchProjects.size());
-
+        model.addAttribute("externalSearchProjects", externalSearchProjects);
         return "department-head/external-search-requests";
     }
 

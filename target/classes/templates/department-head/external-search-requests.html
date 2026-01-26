@@ -60,14 +60,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3 mb-3">
-            <div class="card stat-card bg-success text-white">
-                <div class="card-body">
-                    <h6 class="card-subtitle mb-2">Approved</h6>
-                    <h2 class="card-title" th:text="${approvedExternalSearches}">0</h2>
-                </div>
-            </div>
-        </div>
+
     </div>
 
     <!-- Flash Messages -->
@@ -144,6 +137,15 @@
                                             <i class="fas fa-check me-1"></i>Approve Search
                                         </button>
                                     </form>
+
+                                    <form th:action="@{'/ui/department-head/projects/' + ${request.projectId}}"
+                                          method="get" class="d-inline">
+
+                                        <button type="submit" class="btn btn-success w-100 mb-1">
+                                            <i class="fas fa-check me-1"></i>Review
+                                        </button>
+                                    </form>
+
 
                                     <!-- Reject button -->
                                     <form th:action="@{'/ui/department-head/projects/' + ${request.projectId} + '/reject-external-search'}"

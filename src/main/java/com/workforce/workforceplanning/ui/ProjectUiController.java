@@ -848,52 +848,18 @@ public class ProjectUiController {
 
             String processInstanceId = externalSearchService.triggerExternalSearch(id, username, justification);
 
-            List<String> departmentHeadUsernames = userRoleService.getDepartmentHeadUsernames();
-
-            // Create notification for each Department Head
-            if (departmentHeadUsernames.isEmpty()) {
-                Notification dhNotification = new Notification();
-                dhNotification.setUsername("ALL_DEPARTMENT_HEADS"); // Actual DH username
-                dhNotification.setTitle("External Search Request");
-                dhNotification.setMessage("Project Manager " + username +
-                        " requested external search for project '" +
-                        project.getName() + "'." +
-                        (justification != null ? " Reason: " + justification : ""));
-                dhNotification.setProjectId(project.getId());
-                dhNotification.setProjectName(project.getName());
-                dhNotification.setCreatedAt(LocalDateTime.now());
-                dhNotification.setIsRead(false);
-                notificationRepository.save(dhNotification);
-
-                if (userRoleService.isUserDepartmentHead(username)) {
-                    Notification personalNotification = new Notification();
-                    personalNotification.setUsername(username);
-                    personalNotification.setTitle("External Search Request");
-                    personalNotification.setMessage("You requested external search for project '" +
-                            project.getName() + "'.");
-                    personalNotification.setProjectId(project.getId());
-                    personalNotification.setProjectName(project.getName());
-                    personalNotification.setCreatedAt(LocalDateTime.now());
-                    personalNotification.setIsRead(false);
-                    notificationRepository.save(personalNotification);
-                }
-            } else {
-                // Create notification for each Department Head
-                for (String dhUsername : departmentHeadUsernames) {
-                    Notification dhNotification = new Notification();
-                    dhNotification.setUsername(dhUsername);
-                    dhNotification.setTitle("External Search Request");
-                    dhNotification.setMessage("Project Manager " + username +
-                            " requested external search for project '" +
-                            project.getName() + "'." +
-                            (justification != null ? " Reason: " + justification : ""));
-                    dhNotification.setProjectId(project.getId());
-                    dhNotification.setProjectName(project.getName());
-                    dhNotification.setCreatedAt(LocalDateTime.now());
-                    dhNotification.setIsRead(false);
-                    notificationRepository.save(dhNotification);
-                }
-            }
+            Notification dhNotification = new Notification();
+            dhNotification.setUsername("head");  // Your single DH username
+            dhNotification.setTitle("External Search Request");
+            dhNotification.setMessage("Project Manager " + username +
+                    " requested external search for project '" +
+                    project.getName() + "'" +
+                    (justification != null ? ". Reason: " + justification : ""));
+            dhNotification.setProjectId(project.getId());
+            dhNotification.setProjectName(project.getName());
+            dhNotification.setCreatedAt(LocalDateTime.now());
+            dhNotification.setIsRead(false);
+            notificationRepository.save(dhNotification);
 
             redirectAttributes.addFlashAttribute("successMessage",
                     " External search request submitted successfully! " +
