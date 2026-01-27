@@ -673,6 +673,10 @@ public class ProjectUiController {
         application.setReviewedAt(LocalDateTime.now());
         applicationRepository.save(application);
 
+        Long projectID= application.getId();
+        Project project = projectRepository.findById(projectID)
+                .orElseThrow(() -> new RuntimeException("Project not found"));
+
         // ✅ CREATE ASSIGNMENT (END-TO-END FLOW)
         Assignment assignment = new Assignment();
         assignment.setProject(application.getProject());
@@ -684,6 +688,8 @@ public class ProjectUiController {
         Employee employee = application.getEmployee();
         employee.setAvailable(false);
         employeeRepository.save(employee);
+
+
 
         redirectAttributes.addFlashAttribute("successMessage",
                 "Application approved and employee assigned: " +
@@ -705,6 +711,10 @@ public class ProjectUiController {
         application.setStatus(ApplicationStatus.REJECTED);
         application.setReviewedAt(LocalDateTime.now());
         applicationRepository.save(application);
+        Employee employee = application.getEmployee();
+
+
+
 
         redirectAttributes.addFlashAttribute("successMessage",
                 "Application rejected for employee: " + application.getEmployee().getName());
@@ -773,7 +783,7 @@ public class ProjectUiController {
         Assignment assignment = new Assignment();
         assignment.setProject(project);
         assignment.setEmployee(employee);
-        assignment.setStatus(AssignmentStatus.ASSIGNED);
+        assignment.setStatus(AssignmentStatus.PENDING);
         assignmentRepository.save(assignment);
 
         // Mark employee as unavailable
@@ -792,6 +802,16 @@ public class ProjectUiController {
         rpNotification.setProjectName(project.getName());
 
         notificationRepository.save(rpNotification);
+
+        Notification notification = new Notification(
+                employee.getId(),  // This is correct for employee notifications
+                "New Assignment Proposed",
+                "You have been proposed for project: " + project.getName() +
+                        ". Please review and confirm your assignment in the Assignments section.",
+                NotificationType.ASSIGNMENT_PROPOSED
+        );
+        notification.setRelatedAssignmentId(assignment.getId());
+        notificationRepository.save(notification);
 
         redirectAttributes.addFlashAttribute("successMessage",
                 employee.getName() + " assigned to project successfully!");
@@ -836,6 +856,16 @@ public class ProjectUiController {
         rpNotification.setProjectName(project.getName());
 
         notificationRepository.save(rpNotification);
+
+        Notification notification = new Notification(
+                employee.getId(),  // This is correct for employee notifications
+                "Assignment Cancelled",
+                "You have been removed from project: " + project.getName() +
+                        ". Please apply for suitable projects",
+                NotificationType.ASSIGNMENT_PROPOSED
+        );
+        notification.setRelatedAssignmentId(assignment.getId());
+        notificationRepository.save(notification);
 
         return "redirect:/ui/projects/" + projectId + "/assignments";
     }
