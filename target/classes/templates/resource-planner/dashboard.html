@@ -577,7 +577,7 @@
                                             th:text="${notification['title']} ?: 'Notification'"></strong>
                                     <p class="notification-message"
                                        th:text="${notification['message']}"></p>
-                                    
+
                                 </div>
                             </div>
                             <div th:if="${notifications == null or #lists.isEmpty(notifications) or notificationCount == 0}"

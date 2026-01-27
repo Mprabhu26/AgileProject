@@ -780,6 +780,19 @@ public class ProjectUiController {
         employee.setAvailable(false);
         employeeRepository.save(employee);
 
+        String messagerp = "Check the status";
+        Notification rpNotification = new Notification(
+                "planner",  // planner username (String)
+                "Candidate Added for- " + project.getName(),
+                "Project Manger has added-" +employee.getName() +
+                        (messagerp != null ? ". Employee ID is  " + employee.getId(): ""),
+                NotificationType.ASSIGNMENT_PROPOSED
+        );
+        rpNotification.setProjectId(project.getId());
+        rpNotification.setProjectName(project.getName());
+
+        notificationRepository.save(rpNotification);
+
         redirectAttributes.addFlashAttribute("successMessage",
                 employee.getName() + " assigned to project successfully!");
         return "redirect:/ui/projects/" + id + "/assignments";
@@ -796,6 +809,9 @@ public class ProjectUiController {
         Long projectId = assignment.getProject().getId();
         Employee employee = assignment.getEmployee();
 
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new RuntimeException("Project not found"));
+
         // Remove assignment
         assignmentRepository.delete(assignment);
 
@@ -807,6 +823,19 @@ public class ProjectUiController {
                 "successMessage",
                 employee.getName() + " removed from project"
         );
+
+        String messagerp = "Check the status";
+        Notification rpNotification = new Notification(
+                "planner",  // planner username (String)
+                "Candidate Removed from- " + project.getName(),
+                "Project Manger has removed-" +employee.getName() +
+                        (messagerp != null ? ". Employee ID is  " + employee.getId(): ""),
+                NotificationType.ASSIGNMENT_PROPOSED
+        );
+        rpNotification.setProjectId(projectId);
+        rpNotification.setProjectName(project.getName());
+
+        notificationRepository.save(rpNotification);
 
         return "redirect:/ui/projects/" + projectId + "/assignments";
     }
