@@ -988,7 +988,7 @@ public class ProjectUiController {
         model.addAttribute("publishedCount", publishedCount);
 
 
-        // Add notification attributes (ADD THESE LINES)
+        // Add notification attributes
         model.addAttribute("notifications", notificationList);
         model.addAttribute("notificationCount", notificationCount);
         model.addAttribute("pmNotifications", pmNotifications);

@@ -235,7 +235,7 @@ public class DepartmentHeadUIController {
             Notification pmNotification = new Notification(
                     pmUsername,  // PM's username (String)
                     "Decision for " + project.getName(),
-                    "Department head has approved the Published" +"Project"  +
+                    "Department head has approved the Published Project-" +project.getName() +
                             (message != null ? ". Good to start the staffing of project" + message : ""),
                     NotificationType.ASSIGNMENT_PROPOSED
             );
@@ -249,10 +249,10 @@ public class DepartmentHeadUIController {
             // Create notification for Resource Planner using username constructor
             String messagerp = "Check the status";
             Notification rpNotification = new Notification(
-                    "head",  // PM's username (String)
+                    "planner",  // planner username (String)
                     "Decision for " + project.getName(),
-                    "Department head has approved the Published " +"Project"  +
-                            (messagerp != null ? ". Good to proceed with external search. " + messagerp : ""),
+                    "Department head has approved the Published Project-" +project.getName() +
+                            (messagerp != null ? ". Good to proceed with staffing of project. " + messagerp : ""),
                     NotificationType.ASSIGNMENT_PROPOSED
             );
             rpNotification.setProjectId(projectId);
@@ -303,7 +303,22 @@ public class DepartmentHeadUIController {
             }
 
             projectRepository.save(project);
+            String pmUsername = project.getCreatedBy();
 
+            // Create notification for PM using username constructor
+            String message = "Check the status";
+            Notification pmNotification = new Notification(
+                    pmUsername,  // PM's username (String)
+                    "Decision for " + project.getName(),
+                    "Department head has rejected the Published Project-" +project.getName() +
+                            (message != null ? ". Please check with hiring team" + message : ""),
+                    NotificationType.ASSIGNMENT_PROPOSED
+            );
+
+            pmNotification.setProjectId(projectId);
+            pmNotification.setProjectName(project.getName());
+
+            notificationRepository.save(pmNotification);
 
 
             redirectAttributes.addFlashAttribute("successMessage",
