@@ -1,6 +1,7 @@
 package com.workforce.workforceplanning.ui;
 
 import com.workforce.workforceplanning.model.Notification;
+import com.workforce.workforceplanning.model.NotificationType;
 import com.workforce.workforceplanning.model.Project;
 import com.workforce.workforceplanning.model.ProjectStatus;
 import com.workforce.workforceplanning.repository.NotificationRepository;
@@ -227,6 +228,38 @@ public class DepartmentHeadUIController {
 
             projectRepository.save(project);
 
+            String pmUsername = project.getCreatedBy();
+
+            // Create notification for PM using username constructor
+            String message = "Check the status";
+            Notification pmNotification = new Notification(
+                    pmUsername,  // PM's username (String)
+                    "Decision for " + project.getName(),
+                    "Department head has approved the Published" +"Project"  +
+                            (message != null ? ". Good to start the staffing of project" + message : ""),
+                    NotificationType.ASSIGNMENT_PROPOSED
+            );
+
+            pmNotification.setProjectId(projectId);
+            pmNotification.setProjectName(project.getName());
+
+            notificationRepository.save(pmNotification);
+
+
+            // Create notification for Resource Planner using username constructor
+            String messagerp = "Check the status";
+            Notification rpNotification = new Notification(
+                    "head",  // PM's username (String)
+                    "Decision for " + project.getName(),
+                    "Department head has approved the Published " +"Project"  +
+                            (messagerp != null ? ". Good to proceed with external search. " + messagerp : ""),
+                    NotificationType.ASSIGNMENT_PROPOSED
+            );
+            rpNotification.setProjectId(projectId);
+            rpNotification.setProjectName(project.getName());
+
+            notificationRepository.save(rpNotification);
+
             redirectAttributes.addFlashAttribute("successMessage",
                     " Project '" + project.getName() + "' approved successfully! Now available for staffing.");
 
@@ -270,6 +303,8 @@ public class DepartmentHeadUIController {
             }
 
             projectRepository.save(project);
+
+
 
             redirectAttributes.addFlashAttribute("successMessage",
                     " Project '" + project.getName() + "' rejected and unpublished.");
@@ -599,6 +634,26 @@ public class DepartmentHeadUIController {
 
             projectRepository.save(project);
 
+            String pmUsername = project.getCreatedBy();
+
+            // Create notification for PM using username constructor
+            String message = "Check the status";
+            Notification pmNotification = new Notification(
+                    pmUsername,  // PM's username (String)
+                    "Decision for " + project.getName(),
+                    "Department head has approved the external search request" +"Project"  +
+                            (message != null ? ". Good to proceed with external search " + message : ""),
+                    NotificationType.ASSIGNMENT_PROPOSED
+            );
+            pmNotification.setProjectId(projectId);
+            pmNotification.setProjectName(project.getName());
+
+            notificationRepository.save(pmNotification);
+
+
+            // Save project changes
+            projectRepository.save(project);
+
             redirectAttributes.addFlashAttribute("successMessage",
                     "External search approved for project '" + project.getName() + "'");
 
@@ -643,6 +698,22 @@ public class DepartmentHeadUIController {
             }
 
             projectRepository.save(project);
+
+            String pmUsername = project.getCreatedBy();
+
+            // Create notification for PM using username constructor
+            String message = "Check the status";
+            Notification pmNotification = new Notification(
+                    pmUsername,  // PM's username (String)
+                    "Decision for " + project.getName(),
+                    "Department head has Reject the external search request" +"Project"  +
+                            (message != null ? ". Please get in contact with the hiring team" + message : ""),
+                    NotificationType.ASSIGNMENT_PROPOSED
+            );
+            pmNotification.setProjectId(projectId);
+            pmNotification.setProjectName(project.getName());
+
+            notificationRepository.save(pmNotification);
 
             redirectAttributes.addFlashAttribute("successMessage",
                     "External search rejected for project '" + project.getName() + "'");

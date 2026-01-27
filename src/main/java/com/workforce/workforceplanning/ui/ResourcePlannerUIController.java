@@ -590,57 +590,6 @@ public class ResourcePlannerUIController {
         return "redirect:/ui/resource-planner/project/" + projectId;
     }
 
-    @GetMapping("/search")
-    public String searchEmployees(
-            @RequestParam(value = "skills", required = false) String skills,
-            @RequestParam(value = "department", required = false) String department,
-            @RequestParam(value = "available", required = false) Boolean available,
-            Model model) {
-
-        List<Employee> employees = employeeRepository.findAll();
-
-        // Apply filters
-        if (skills != null && !skills.trim().isEmpty()) {
-            String[] skillArray = skills.toLowerCase().split(",");
-            employees = employees.stream()
-                    .filter(e -> e.getSkills().stream()
-                            .anyMatch(skill -> Arrays.stream(skillArray)
-                                    .anyMatch(searchSkill ->
-                                            skill.toLowerCase().contains(searchSkill.trim()))))
-                    .collect(Collectors.toList());
-        }
-
-        if (department != null && !department.trim().isEmpty()) {
-            employees = employees.stream()
-                    .filter(e -> e.getDepartment().toLowerCase().contains(department.toLowerCase().trim()))
-                    .collect(Collectors.toList());
-        }
-
-        if (available != null) {
-            employees = employees.stream()
-                    .filter(e -> available.equals(e.getAvailable()))
-                    .collect(Collectors.toList());
-        }
-
-        // Get all unique filters for dropdowns
-        Set<String> allSkills = employeeRepository.findAll().stream()
-                .flatMap(e -> e.getSkills().stream())
-                .collect(Collectors.toSet());
-
-        Set<String> allDepartments = employeeRepository.findAll().stream()
-                .map(Employee::getDepartment)
-                .collect(Collectors.toSet());
-
-        model.addAttribute("employees", employees);
-        model.addAttribute("allSkills", allSkills);
-        model.addAttribute("allDepartments", allDepartments);
-        model.addAttribute("searchSkills", skills);
-        model.addAttribute("searchDepartment", department);
-        model.addAttribute("searchAvailable", available);
-
-        return "resource-planner/employee-search";
-    }
-
     @PostMapping("/assignment/{assignmentId}/remove")
     public String removeAssignment(
             @PathVariable("assignmentId") Long assignmentId,
