@@ -56,10 +56,14 @@ public class ResourcePlannerUIController {
 
     @GetMapping("/dashboard")
     public String dashboard(Model model,
-                            @RequestParam(value = "view", required = false) String view) {
+                            @RequestParam(value = "view", required = false) String view,
+                            Principal principal) {
 
         // Default view
         String activeView = (view != null) ? view : "projects";
+
+        // Get username from principal
+        String username = principal != null ? principal.getName() : "planner";
 
         try {
             // Get published & approved projects
@@ -97,6 +101,28 @@ public class ResourcePlannerUIController {
                     .filter(app -> app.getStatus() == ApplicationStatus.PENDING)
                     .count();
 
+          // ==================== NOTIFICATIONS FOR RESOURCE PLANNER ====================
+            List<Notification> dbNotifications = notificationRepository
+                    .findByUsernameAndIsReadFalseOrderByCreatedAtDesc("planner");
+
+            // Convert notifications to map for template (ONLY DB NOTIFICATIONS)
+            List<Map<String, Object>> allNotifications = new ArrayList<>();
+
+            // Add ONLY database notifications (no project-based notifications)
+            for (Notification notification : dbNotifications) {
+                Map<String, Object> notif = new HashMap<>();
+                notif.put("id", notification.getId());
+                notif.put("title", notification.getTitle() != null ? notification.getTitle() : "Notification");
+                notif.put("message", notification.getMessage());
+                notif.put("projectId", notification.getProjectId());
+                notif.put("projectName", notification.getProjectName());
+                notif.put("createdAt", notification.getCreatedAt());
+                notif.put("isRead", notification.getIsRead());
+                notif.put("isDbNotification", true);
+                allNotifications.add(notif);
+            }
+
+
             // Calculate staffing progress for each project
             Map<Long, StaffingInfo> projectStaffingInfo = new HashMap<>();
             for (Project project : availableProjects) {
@@ -133,6 +159,10 @@ public class ResourcePlannerUIController {
             model.addAttribute("pendingApplicationsCount", pendingApplicationsCount);
             model.addAttribute("activeView", activeView);
 
+            // Add notification attributes
+            model.addAttribute("notifications", allNotifications);
+            model.addAttribute("notificationCount", allNotifications.size());
+
             // For employee search view
             if ("employees".equals(activeView)) {
                 Set<String> allSkills = employeeRepository.findAll().stream()
@@ -158,10 +188,70 @@ public class ResourcePlannerUIController {
         }
     }
 
+
+
+    // ==================== NOTIFICATION ENDPOINTS ====================
+
+    @PostMapping("/notifications/{id}/mark-read")
+    public String markNotificationAsRead(
+            @PathVariable("id") Long id,
+            @RequestParam(value = "projectId", required = false) Long projectId,
+            Principal principal,
+            RedirectAttributes redirectAttributes) {
+
+        try {
+            String username = "planner";
+
+            // Find and mark notification as read (only if username is "head")
+            Notification notification = notificationRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Notification not found"));
+
+            if ("planner".equals(notification.getUsername())) {
+                notification.setIsRead(true);
+                notificationRepository.save(notification);
+            }
+
+        } catch (Exception e) {
+            log.error("Error marking notification as read: {}", e.getMessage());
+        }
+
+        return "redirect:/ui/resource-planner/dashboard" +
+                (projectId != null ? "?view=projects" : "");
+    }
+
+    @PostMapping("/notifications/mark-all-read")
+    public String markAllNotificationsAsRead(
+            Principal principal,
+            RedirectAttributes redirectAttributes) {
+
+        try {
+            String username =  "planner";
+
+            // Mark all database notifications for username "head" as read
+            List<Notification> unreadNotifications = notificationRepository
+                    .findByUsernameAndIsReadFalseOrderByCreatedAtDesc("planner");
+
+            for (Notification notification : unreadNotifications) {
+                notification.setIsRead(true);
+            }
+            notificationRepository.saveAll(unreadNotifications);
+
+            redirectAttributes.addFlashAttribute("success",
+                    "All notifications marked as read");
+
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error",
+                    "Error marking notifications as read: " + e.getMessage());
+        }
+
+        return "redirect:/ui/resource-planner/dashboard";
+    }
+
     @GetMapping("/project/{projectId}")
     public String viewProjectStaffing(@PathVariable("projectId") Long projectId, Model model) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Project not found"));
+
 
         // Get current assignments for this project
         List<Assignment> currentAssignments = assignmentRepository.findAll().stream()
@@ -588,57 +678,6 @@ public class ResourcePlannerUIController {
                         ". Employee notified and awaiting confirmation.");
 
         return "redirect:/ui/resource-planner/project/" + projectId;
-    }
-
-    @GetMapping("/search")
-    public String searchEmployees(
-            @RequestParam(value = "skills", required = false) String skills,
-            @RequestParam(value = "department", required = false) String department,
-            @RequestParam(value = "available", required = false) Boolean available,
-            Model model) {
-
-        List<Employee> employees = employeeRepository.findAll();
-
-        // Apply filters
-        if (skills != null && !skills.trim().isEmpty()) {
-            String[] skillArray = skills.toLowerCase().split(",");
-            employees = employees.stream()
-                    .filter(e -> e.getSkills().stream()
-                            .anyMatch(skill -> Arrays.stream(skillArray)
-                                    .anyMatch(searchSkill ->
-                                            skill.toLowerCase().contains(searchSkill.trim()))))
-                    .collect(Collectors.toList());
-        }
-
-        if (department != null && !department.trim().isEmpty()) {
-            employees = employees.stream()
-                    .filter(e -> e.getDepartment().toLowerCase().contains(department.toLowerCase().trim()))
-                    .collect(Collectors.toList());
-        }
-
-        if (available != null) {
-            employees = employees.stream()
-                    .filter(e -> available.equals(e.getAvailable()))
-                    .collect(Collectors.toList());
-        }
-
-        // Get all unique filters for dropdowns
-        Set<String> allSkills = employeeRepository.findAll().stream()
-                .flatMap(e -> e.getSkills().stream())
-                .collect(Collectors.toSet());
-
-        Set<String> allDepartments = employeeRepository.findAll().stream()
-                .map(Employee::getDepartment)
-                .collect(Collectors.toSet());
-
-        model.addAttribute("employees", employees);
-        model.addAttribute("allSkills", allSkills);
-        model.addAttribute("allDepartments", allDepartments);
-        model.addAttribute("searchSkills", skills);
-        model.addAttribute("searchDepartment", department);
-        model.addAttribute("searchAvailable", available);
-
-        return "resource-planner/employee-search";
     }
 
     @PostMapping("/assignment/{assignmentId}/remove")

@@ -438,26 +438,7 @@
                         Find candidates from external job boards and platforms
                     </p>
                 </div>
-                <div style="display: flex; gap: 10px;">
-                    <form th:action="@{'/ui/resource-planner/project/' + ${project.id} + '/external-search'}"
-                          method="post" style="margin: 0;">
-                        <button type="submit" class="btn btn-external"
-                                th:disabled="${project.externalSearchNeeded}">
-                            <i class="fas fa-search"></i>
-                            <span th:if="${project.externalSearchNeeded}">
-                                <i class="fas fa-sync-alt fa-spin"></i> Search in Progress
-                            </span>
-                            <span th:if="${not project.externalSearchNeeded}">
-                                Start External Search
-                            </span>
-                        </button>
-                    </form>
 
-                    <a th:href="@{'/ui/resource-planner/project/' + ${project.id} + '/external-candidates'}"
-                       class="btn btn-primary" th:if="${project.externalSearchNeeded}">
-                        <i class="fas fa-user-tie"></i> View External Candidates
-                    </a>
-                </div>
             </div>
         </div>
     </div>
