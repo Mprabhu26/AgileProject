@@ -6,6 +6,8 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import java.time.LocalDateTime;
 import java.util.Set;
 import java.security.Principal;
 import java.util.List;
@@ -318,13 +320,14 @@ public class EmployeePortalController {
         Employee employee = getEmployeeByUsername(username);
 
         try {
+            // Get assignment
             Assignment assignment = assignmentRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Assignment not found"));
 
             // Verify ownership
             if (!assignment.getEmployee().getId().equals(employee.getId())) {
                 redirectAttributes.addFlashAttribute("error",
-                        "❌ This assignment does not belong to you");
+                        "❌ You can only reject your own assignments");
                 return "redirect:/ui/employee/assignments";
             }
 
@@ -335,16 +338,20 @@ public class EmployeePortalController {
                 return "redirect:/ui/employee/assignments";
             }
 
-            // REJECT ASSIGNMENT
+            // REJECT ASSIGNMENT - Store full details
             assignment.setStatus(AssignmentStatus.REJECTED);
-            assignmentRepository.save(assignment);
-
-            // Employee STAYS available (not assigned)
-            // (No need to change availability)
+            assignment.setRejectedAt(LocalDateTime.now());
+            assignment.setRejectedBy(employee.getName());
 
             String rejectReason = reason != null && !reason.trim().isEmpty()
                     ? reason
                     : "No reason provided";
+
+            assignment.setRejectionReason(rejectReason);
+            assignmentRepository.save(assignment);
+
+            //  Notify Resource Planner
+            notifyResourcePlannerOfRejection(assignment, employee, rejectReason);
 
             redirectAttributes.addFlashAttribute("success",
                     "❌ Assignment rejected: " + rejectReason);
@@ -356,6 +363,8 @@ public class EmployeePortalController {
 
         return "redirect:/ui/employee/assignments";
     }
+
+
     // CORRECTED VERSION - Add these methods to EmployeePortalController.java
 
     @GetMapping("/profile")
@@ -514,5 +523,56 @@ public class EmployeePortalController {
                 .filter(e -> username.equals(e.getEmail().split("@")[0]))
                 .findFirst()
                 .orElse(null);
+    }
+
+    /**
+     * Notify Resource Planner when employee rejects assignment
+     */
+    private void notifyResourcePlannerOfRejection(Assignment assignment, Employee employee, String reason) {
+        try {
+            // Find Resource Planner user
+            User resourcePlanner = userRepository.findAll().stream()
+                    .filter(u -> u.getRole() != null &&
+                            (u.getRole().equals("RESOURCE_PLANNER") ||
+                                    u.getRole().equals("ROLE_RESOURCE_PLANNER")))
+                    .findFirst()
+                    .orElse(null);
+
+            if (resourcePlanner == null) {
+                System.out.println("⚠️ No Resource Planner found - notification not sent");
+                return;
+            }
+
+            // Get Resource Planner's employee record
+            Employee rpEmployee = resourcePlanner.getEmployee();
+            if (rpEmployee == null) {
+                System.out.println("⚠️ Resource Planner has no employee record - notification not sent");
+                return;
+            }
+
+            // Create notification
+            Notification notification = new Notification();
+            notification.setEmployeeId(rpEmployee.getId());
+            notification.setType(NotificationType.ASSIGNMENT_REJECTED);
+            notification.setIsRead(false);
+
+            // Notification message
+            String message = String.format(
+                    "🚫 %s rejected assignment to '%s'. Reason: %s",
+                    employee.getName(),
+                    assignment.getProject().getName(),
+                    reason
+            );
+            notification.setMessage(message);
+
+            // Save notification
+            notificationRepository.save(notification);
+
+            System.out.println("✅ Notification sent to Resource Planner: " + message);
+
+        } catch (Exception e) {
+            System.err.println("❌ Failed to notify Resource Planner: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 }

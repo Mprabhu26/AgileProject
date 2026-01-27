@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Notifications - Resource Planner</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f5f5f5; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: white; border-radius: 12px; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        h1 { color: #1e293b; margin-bottom: 10px; }
+        .notification-card { background: white; border: 2px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 15px; }
+        .notification-card.unread { border-left: 4px solid #3b82f6; background: #eff6ff; }
+        .btn { padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; display: inline-block; }
+        .btn:hover { background: #2563eb; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🔔 Notifications</h1>
+    <p th:if="${unreadCount > 0}"><strong th:text="${unreadCount}">0</strong> unread notifications</p>
+
+    <form th:if="${unreadCount > 0}" action="/ui/resource-planner/notifications/read-all" method="post" style="margin: 20px 0;">
+        <button type="submit" class="btn">Mark All as Read</button>
+    </form>
+
+    <h2>Unread</h2>
+    <div th:each="notification : ${unreadNotifications}" class="notification-card unread">
+        <p th:text="${notification.message}">Message</p>
+        <small th:text="${#temporals.format(notification.createdAt, 'MMM dd, yyyy HH:mm')}">Date</small>
+        <form th:action="@{/ui/resource-planner/notifications/{id}/read(id=${notification.id})}" method="post" style="margin-top: 10px;">
+            <button type="submit" class="btn">Mark as Read</button>
+        </form>
+    </div>
+
+    <h2 style="margin-top: 30px;">Read</h2>
+    <div th:each="notification : ${readNotifications}" class="notification-card">
+        <p th:text="${notification.message}">Message</p>
+        <small th:text="${#temporals.format(notification.createdAt, 'MMM dd, yyyy HH:mm')}">Date</small>
+    </div>
+
+    <a href="/ui/resource-planner/dashboard" class="btn" style="margin-top: 20px;">Back to Dashboard</a>
+</div>
+</body>
+</html>

@@ -271,7 +271,14 @@
                     </td>
                     <td th:text="${#temporals.format(assignment.assignedAt, 'MMM dd, yyyy')}">Jan 01, 2026</td>
                     <td>
-                        <span class="badge bg-success">Active</span>
+                        <span th:if="${assignment.status == T(com.workforce.workforceplanning.model.AssignmentStatus).PENDING}"
+                              class="badge badge-warning">Pending</span>
+                        <span th:if="${assignment.status == T(com.workforce.workforceplanning.model.AssignmentStatus).APPROVED}"
+                              class="badge badge-info">Approved</span>
+                        <span th:if="${assignment.status == T(com.workforce.workforceplanning.model.AssignmentStatus).CONFIRMED}"
+                              class="badge badge-success">Confirmed</span>
+                        <span th:if="${assignment.status == T(com.workforce.workforceplanning.model.AssignmentStatus).IN_PROGRESS}"
+                              class="badge badge-primary">In Progress</span>
                     </td>
                 </tr>
                 </tbody>

@@ -28,6 +28,7 @@ public class ResourcePlannerUIController {
     private final ExternalSearchService externalSearchService;
     private final NotificationService notificationService;
     private final NotificationRepository notificationRepository;
+    private final UserRepository userRepository;
 
     @Autowired
     private SkillGapAnalysisService skillGapAnalysisService;
@@ -43,7 +44,8 @@ public class ResourcePlannerUIController {
             ExternalSearchService externalSearchService,
             NotificationService notificationService,
             NotificationRepository notificationRepository,
-            SkillGapAnalysisService skillGapAnalysisService) {
+            SkillGapAnalysisService skillGapAnalysisService,
+            UserRepository userRepository) {
         this.projectRepository = projectRepository;
         this.employeeRepository = employeeRepository;
         this.assignmentRepository = assignmentRepository;
@@ -52,11 +54,12 @@ public class ResourcePlannerUIController {
         this.notificationService = notificationService;
         this.notificationRepository = notificationRepository;
         this.skillGapAnalysisService = skillGapAnalysisService;
+        this.userRepository = userRepository;
     }
 
     @GetMapping("/dashboard")
     public String dashboard(Model model,
-                            @RequestParam(value = "view", required = false) String view) {
+                            @RequestParam(value = "view", required = false) String view, Principal principal) {
 
         // Default view
         String activeView = (view != null) ? view : "projects";
@@ -100,16 +103,47 @@ public class ResourcePlannerUIController {
             // Calculate staffing progress for each project
             Map<Long, StaffingInfo> projectStaffingInfo = new HashMap<>();
             for (Project project : availableProjects) {
-                long assignedCount = allAssignments.stream()
+                // Count only CONFIRMED/IN_PROGRESS assignments
+                long confirmedCount = allAssignments.stream()
                         .filter(a -> a.getProject().getId().equals(project.getId()))
+                        .filter(a -> a.getStatus() == AssignmentStatus.CONFIRMED ||
+                                a.getStatus() == AssignmentStatus.IN_PROGRESS)
                         .count();
+
+                // Count PENDING assignments
+                long pendingCount = allAssignments.stream()
+                        .filter(a -> a.getProject().getId().equals(project.getId()))
+                        .filter(a -> a.getStatus() == AssignmentStatus.PENDING)
+                        .count();
+
+                int required = project.getTotalEmployeesRequired();
+
+                // Calculate progress percentage
+                double progress = 0.0;
+                if (required > 0) {
+                    // Base progress: 50% when project approved (ready to staff)
+                    progress = 50.0;
+
+                    // Add 30% for pending assignments (10% per pending, max 30%)
+                    if (pendingCount > 0) {
+                        progress += Math.min(30.0, (pendingCount * 10.0));
+                    }
+
+                    // Add remaining to 100% based on confirmed
+                    double confirmedProgress = ((double) confirmedCount / required) * 50.0;
+                    progress += confirmedProgress;
+
+                    // Cap at 100%
+                    progress = Math.min(100.0, progress);
+                }
+
 
                 // Find matching available employees
                 List<Employee> matchingEmployees = findMatchingEmployees(project);
 
 
                 projectStaffingInfo.put(project.getId(),
-                        new StaffingInfo((int) assignedCount, matchingEmployees.size()));
+                        new StaffingInfo((int) confirmedCount, matchingEmployees.size(), progress));
             }
 
             // Get skill distribution (for insights)
@@ -146,16 +180,35 @@ public class ResourcePlannerUIController {
                 model.addAttribute("allSkills", allSkills);
                 model.addAttribute("allDepartments", allDepartments);
             }
+            // ✅ ADD THIS NOTIFICATION CODE HERE (BEFORE THE RETURN!)
+            long unreadCount = 0;
+            try {
+                String username = principal != null ? principal.getName() : null;
+                if (username != null) {
+                    User user = userRepository.findByUsername(username).orElse(null);
+                    if (user != null && user.getEmployee() != null) {
+                        unreadCount = notificationRepository
+                                .countByEmployeeIdAndIsReadFalse(user.getEmployee().getId());
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to get notification count: " + e.getMessage());
+            }
+
+            model.addAttribute("unreadNotifications", unreadCount);
 
             return "resource-planner/dashboard";
+
 
         } catch (Exception e) {
             // If there's an error, return empty lists
             model.addAttribute("availableProjects", List.of());
             model.addAttribute("availableEmployees", List.of());
             model.addAttribute("activeView", activeView);
+            model.addAttribute("unreadNotifications", 0);
             return "resource-planner/dashboard";
         }
+
     }
 
     @GetMapping("/project/{projectId}")
@@ -163,13 +216,23 @@ public class ResourcePlannerUIController {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Project not found"));
 
-        // Get current assignments for this project
+        // Get current assignments for this project (exclude REJECTED)
         List<Assignment> currentAssignments = assignmentRepository.findAll().stream()
                 .filter(a -> a.getProject().getId().equals(projectId))
+                .filter(a -> a.getStatus() != AssignmentStatus.REJECTED)
                 .collect(Collectors.toList());
 
         // Find matching employees (available employees with matching skills)
         List<Employee> matchingEmployees = findMatchingEmployees(project);
+
+        // Get rejection history for this project
+        List<Assignment> rejectedAssignments = assignmentRepository.findAll().stream()
+                .filter(a -> a.getProject().getId().equals(projectId))
+                .filter(a -> a.getStatus() == AssignmentStatus.REJECTED)
+                .collect(Collectors.toList());
+
+        model.addAttribute("rejectedAssignments", rejectedAssignments);
+        model.addAttribute("hasRejections", !rejectedAssignments.isEmpty());
 
         // Get pending applications for this project
         List<Application> pendingApplications = applicationRepository.findAll().stream()
@@ -535,6 +598,104 @@ public class ResourcePlannerUIController {
         return "resource-planner/matching-projects";
     }
 
+    @GetMapping("/staffing-tracker")
+    public String trackStaffing(Model model) {
+        // Get all confirmed/in-progress assignments
+        List<Assignment> activeAssignments = assignmentRepository.findAll().stream()
+                .filter(a -> a.getStatus() == AssignmentStatus.CONFIRMED ||
+                        a.getStatus() == AssignmentStatus.IN_PROGRESS)
+                .collect(Collectors.toList());
+
+        // Group by project
+        Map<Project, List<Employee>> projectStaffing = activeAssignments.stream()
+                .collect(Collectors.groupingBy(
+                        Assignment::getProject,
+                        Collectors.mapping(Assignment::getEmployee, Collectors.toList())
+                ));
+
+        model.addAttribute("projectStaffing", projectStaffing);
+        model.addAttribute("totalProjects", projectStaffing.size());
+        model.addAttribute("totalEmployees", activeAssignments.size());
+
+        return "resource-planner/staffing-tracker";
+    }
+
+    @GetMapping("/notifications")
+    public String viewNotifications(Model model, Principal principal) {
+        String username = principal.getName();
+
+        // Find Resource Planner's employee record
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Employee rpEmployee = user.getEmployee();
+
+        if (rpEmployee == null) {
+            model.addAttribute("error", "No employee record found");
+            model.addAttribute("notifications", List.of());
+            model.addAttribute("unreadCount", 0);
+            return "resource-planner/notifications";
+        }
+
+        // Get all notifications for Resource Planner
+        List<Notification> allNotifications = notificationRepository
+                .findByEmployeeIdOrderByCreatedAtDesc(rpEmployee.getId());
+
+        // Separate unread and read
+        List<Notification> unreadNotifications = allNotifications.stream()
+                .filter(n -> !n.getIsRead())
+                .collect(Collectors.toList());
+
+        List<Notification> readNotifications = allNotifications.stream()
+                .filter(Notification::getIsRead)
+                .collect(Collectors.toList());
+
+        model.addAttribute("username", username);
+        model.addAttribute("unreadNotifications", unreadNotifications);
+        model.addAttribute("readNotifications", readNotifications);
+        model.addAttribute("unreadCount", unreadNotifications.size());
+
+        return "resource-planner/notifications";
+    }
+
+    // Add mark as read endpoint
+    @PostMapping("/notifications/{id}/read")
+    public String markNotificationRead(
+            @PathVariable Long id,
+            Principal principal,
+            RedirectAttributes redirectAttributes) {
+
+        try {
+            Notification notification = notificationRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Notification not found"));
+
+            notification.setIsRead(true);
+            notificationRepository.save(notification);
+
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Failed to mark as read");
+        }
+
+        return "redirect:/ui/resource-planner/notifications";
+    }
+
+    // Add mark all as read
+    @PostMapping("/notifications/read-all")
+    public String markAllRead(Principal principal, RedirectAttributes redirectAttributes) {
+        String username = principal.getName();
+        User user = userRepository.findByUsername(username).orElse(null);
+
+        if (user != null && user.getEmployee() != null) {
+            List<Notification> unreadNotifications = notificationRepository
+                    .findByEmployeeIdAndIsReadFalseOrderByCreatedAtDesc(user.getEmployee().getId());
+
+            unreadNotifications.forEach(n -> n.setIsRead(true));
+            notificationRepository.saveAll(unreadNotifications);
+        }
+
+        return "redirect:/ui/resource-planner/notifications";
+    }
+
     @PostMapping("/project/{projectId}/propose")
     public String proposeEmployee(
             @PathVariable("projectId") Long projectId,
@@ -888,16 +1049,19 @@ public class ResourcePlannerUIController {
 
     // Helper class for staffing information
     private static class StaffingInfo {
-        int assignedCount;
+        int confirmedCount;
         int matchingEmployeesCount;
+        double progress;
 
-        StaffingInfo(int assignedCount, int matchingEmployeesCount) {
-            this.assignedCount = assignedCount;
+        StaffingInfo(int assignedCount, int matchingEmployeesCount, double progress) {
+            this.confirmedCount = assignedCount;
             this.matchingEmployeesCount = matchingEmployeesCount;
+            this.progress = progress;
         }
 
-        public int getAssignedCount() { return assignedCount; }
+        public int getAssignedCount() { return confirmedCount; }
         public int getMatchingEmployeesCount() { return matchingEmployeesCount; }
+        public double getProgress() { return progress; }
     }
 
     private boolean hasPendingAssignments(Long employeeId) {
