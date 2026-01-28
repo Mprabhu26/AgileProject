@@ -3,6 +3,8 @@ package com.workforce.workforceplanning.model;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "assignments")
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
@@ -29,6 +31,15 @@ public class Assignment {
 
     @Column(name = "assigned_at")
     private java.time.LocalDateTime assignedAt;
+
+    @Column(name = "rejected_at")
+    private LocalDateTime rejectedAt;
+
+    @Column(name = "rejected_by")
+    private String rejectedBy;
+
+    @Column(name = "rejection_reason", length = 500)
+    private String rejectionReason;
 
     // ===== Constructors =====
     public Assignment() {
@@ -81,6 +92,16 @@ public class Assignment {
     public void setAssignedAt(java.time.LocalDateTime assignedAt) {
         this.assignedAt = assignedAt;
     }
+
+    // Getters and setters
+    public LocalDateTime getRejectedAt() { return rejectedAt; }
+    public void setRejectedAt(LocalDateTime rejectedAt) { this.rejectedAt = rejectedAt; }
+
+    public String getRejectedBy() { return rejectedBy; }
+    public void setRejectedBy(String rejectedBy) { this.rejectedBy = rejectedBy; }
+
+    public String getRejectionReason() { return rejectionReason; }
+    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
 
     @PrePersist
     protected void onCreate() {
