@@ -496,6 +496,100 @@
             font-size: 13px;
             color: #64748b;
         }
+        .notification-container {
+            position: relative;
+        }
+
+        .notification-badge {
+            background: #ef4444;
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: absolute;
+            top: -5px;
+            right: -5px;
+        }
+
+        .notification-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            width: 320px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            border: 1px solid #e2e8f0;
+            z-index: 1000;
+            margin-top: 10px;
+        }
+
+        .notification-dropdown::before {
+            content: '';
+            position: absolute;
+            top: -8px;
+            right: 20px;
+            width: 16px;
+            height: 16px;
+            background: white;
+            transform: rotate(45deg);
+            border-left: 1px solid #e2e8f0;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .notification-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid #f1f5f9;
+            transition: background 0.2s;
+        }
+
+        .notification-item:hover {
+            background: #f8fafc;
+        }
+
+        .notification-item.unread {
+            background: #e0f2fe;
+        }
+
+        .notification-message {
+            font-size: 13px;
+            color: #1e293b;
+            margin-bottom: 5px;
+        }
+
+        .notification-time {
+            font-size: 11px;
+            color: #64748b;
+        }
+
+        .notification-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .btn-notification {
+            padding: 4px 10px;
+            font-size: 11px;
+            border-radius: 4px;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-notification-view {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-notification-view:hover {
+            background: #2563eb;
+        }
         .availability-badge {
             padding: 4px 10px;
             border-radius: 12px;
@@ -539,6 +633,48 @@
                             📊 Track Staffing
                         </a>
                     </a>
+                </div>
+
+                <!-- Notification Button -->
+                <div class="notification-container">
+                    <button onclick="toggleNotifications()" class="btn"
+                            style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 10px 15px; border-radius: 8px; display: flex; align-items: center; gap: 8px; position: relative;">
+                        <i class="fas fa-bell"></i>
+                        <span th:if="${notificationCount != null and notificationCount > 0}"
+                              class="notification-badge">
+                            <span th:text="${notificationCount}">0</span>
+                        </span>
+                    </button>
+
+                    <!-- Notification Dropdown -->
+                    <div id="notificationDropdown" class="notification-dropdown">
+                        <div style="padding: 15px; border-bottom: 1px solid #f1f5f9; font-weight: 600; display: flex; justify-content: space-between; align-items: center;">
+                            <span>Notifications</span>
+                            <form th:action="@{/ui/resource-planner/notifications/mark-all-read}" method="post" style="margin: 0;">
+                                <button type="submit" style="background: none; border: none; color: #4f46e5; font-size: 12px; cursor: pointer; text-decoration: underline;">
+                                    Mark all as read
+                                </button>
+                            </form>
+                        </div>
+                        <div style="max-height: 300px; overflow-y: auto;">
+                            <div th:if="${notifications != null and not #lists.isEmpty(notifications)}">
+                                <div th:each="notification : ${notifications}"
+                                     th:unless="${notification.isRead}"
+                                     class="notification-item unread">
+                                    <strong style="display: block; font-size: 13px;"
+                                            th:text="${notification['title']} ?: 'Notification'"></strong>
+                                    <p class="notification-message"
+                                       th:text="${notification['message']}"></p>
+
+                                </div>
+                            </div>
+                            <div th:if="${notifications == null or #lists.isEmpty(notifications) or notificationCount == 0}"
+                                 style="text-align: center; padding: 30px; color: #94a3b8;">
+                                <i class="fas fa-bell-slash" style="font-size: 24px; margin-bottom: 10px;"></i>
+                                <p style="font-size: 13px;">No new notifications</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Logout Button -->
@@ -622,6 +758,7 @@
                         <th>Matching Employees</th>
                         <th>Progress</th>
                         <th>Skills Needed</th>
+                        <th>External Search Approved</th>
                         <th>Actions</th>
                     </tr>
                     </thead>
@@ -652,6 +789,20 @@
                             <span th:if="${project.skillRequirements == null or project.skillRequirements.isEmpty()}"
                                   style="color: #94a3b8; font-style: italic;">Any skills</span>
                         </td>
+
+                        <td>
+                            <!-- External Search Approved Status -->
+                            <span th:if="${project.externalSearchNeeded == null}">
+                            <span class="availability-badge unavailable">N/A</span>
+                        </span>
+                            <span th:if="${project.externalSearchNeeded == true}">
+                            <span class="availability-badge available">YES</span>
+                        </span>
+                            <span th:if="${project.externalSearchNeeded == false}">
+                            <span class="availability-badge unavailable">NO</span>
+                        </span>
+                        </td>
+
                         <td>
                             <a th:href="@{'/ui/resource-planner/project/' + ${project.id}}"
                                class="btn btn-primary">
@@ -887,6 +1038,69 @@
     if (searchInput) {
         searchInput.addEventListener('input', filterEmployees);
     }
+
+    function toggleNotifications() {
+        const dropdown = document.getElementById('notificationDropdown');
+        const isVisible = dropdown.style.display === 'block';
+
+        // Close all other dropdowns
+        document.querySelectorAll('.notification-dropdown').forEach(d => {
+            d.style.display = 'none';
+        });
+
+        // Toggle current dropdown
+        dropdown.style.display = isVisible ? 'none' : 'block';
+
+        // Prevent click from bubbling up
+        if (event) {
+            event.stopPropagation();
+        }
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(event) {
+        const dropdown = document.getElementById('notificationDropdown');
+        const bellBtn = event.target.closest('.notification-container button');
+
+        if (!bellBtn && dropdown && dropdown.style.display === 'block') {
+            dropdown.style.display = 'none';
+        }
+    });
+
+    function updateNotificationCount() {
+        const badge = document.querySelector('.notification-badge');
+        if (badge) {
+            const currentCount = parseInt(badge.textContent);
+            if (currentCount > 0) {
+                badge.textContent = currentCount - 1;
+                if (currentCount - 1 === 0) {
+                    badge.style.display = 'none';
+                }
+            }
+        }
+    }
+
+    function markNotificationAsRead(notificationId) {
+        // If it's a DB notification (numeric ID), mark it as read via AJAX
+        if (!isNaN(notificationId)) {
+            fetch('/ui/resource-planner/notifications/' + notificationId + '/mark-read', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            }).then(response => {
+                if (response.ok) {
+                    updateNotificationCount();
+                    // Hide the notification item
+                    const notificationItem = document.querySelector(`[data-notification-id="${notificationId}"]`);
+                    if (notificationItem) {
+                        notificationItem.style.display = 'none';
+                    }
+                }
+            });
+        } else {
+            updateNotificationCount();
+        }}
 </script>
 </body>
 </html>

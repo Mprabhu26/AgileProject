@@ -60,9 +60,14 @@ public class ResourcePlannerUIController {
     @GetMapping("/dashboard")
     public String dashboard(Model model,
                             @RequestParam(value = "view", required = false) String view, Principal principal) {
+                            @RequestParam(value = "view", required = false) String view,
+                            Principal principal) {
 
         // Default view
         String activeView = (view != null) ? view : "projects";
+
+        // Get username from principal
+        String username = principal != null ? principal.getName() : "planner";
 
         try {
             // ==================== FIX 1: FILTER PROJECTS NEEDING STAFF ====================
@@ -127,6 +132,27 @@ public class ResourcePlannerUIController {
                     .count();
 
             // ==================== FIX 2: CORRECT PROGRESS CALCULATION ====================
+          // ==================== NOTIFICATIONS FOR RESOURCE PLANNER ====================
+            List<Notification> dbNotifications = notificationRepository
+                    .findByUsernameAndIsReadFalseOrderByCreatedAtDesc("planner");
+
+            // Convert notifications to map for template (ONLY DB NOTIFICATIONS)
+            List<Map<String, Object>> allNotifications = new ArrayList<>();
+
+            // Add ONLY database notifications (no project-based notifications)
+            for (Notification notification : dbNotifications) {
+                Map<String, Object> notif = new HashMap<>();
+                notif.put("id", notification.getId());
+                notif.put("title", notification.getTitle() != null ? notification.getTitle() : "Notification");
+                notif.put("message", notification.getMessage());
+                notif.put("projectId", notification.getProjectId());
+                notif.put("projectName", notification.getProjectName());
+                notif.put("createdAt", notification.getCreatedAt());
+                notif.put("isRead", notification.getIsRead());
+                notif.put("isDbNotification", true);
+                allNotifications.add(notif);
+            }
+
 
             // Calculate staffing progress for each project
             Map<Long, StaffingInfo> projectStaffingInfo = new HashMap<>();
@@ -207,6 +233,10 @@ public class ResourcePlannerUIController {
             model.addAttribute("pendingApplicationsCount", pendingApplicationsCount);
             model.addAttribute("activeView", activeView);
 
+            // Add notification attributes
+            model.addAttribute("notifications", allNotifications);
+            model.addAttribute("notificationCount", allNotifications.size());
+
             // For employee search view
             if ("employees".equals(activeView)) {
                 Set<String> allSkills = employeeRepository.findAll().stream()
@@ -249,6 +279,65 @@ public class ResourcePlannerUIController {
             return "resource-planner/dashboard";
         }
 
+    }
+
+
+
+    // ==================== NOTIFICATION ENDPOINTS ====================
+
+    @PostMapping("/notifications/{id}/mark-read")
+    public String markNotificationAsRead(
+            @PathVariable("id") Long id,
+            @RequestParam(value = "projectId", required = false) Long projectId,
+            Principal principal,
+            RedirectAttributes redirectAttributes) {
+
+        try {
+            String username = "planner";
+
+            // Find and mark notification as read (only if username is "head")
+            Notification notification = notificationRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Notification not found"));
+
+            if ("planner".equals(notification.getUsername())) {
+                notification.setIsRead(true);
+                notificationRepository.save(notification);
+            }
+
+        } catch (Exception e) {
+            log.error("Error marking notification as read: {}", e.getMessage());
+        }
+
+        return "redirect:/ui/resource-planner/dashboard" +
+                (projectId != null ? "?view=projects" : "");
+    }
+
+    @PostMapping("/notifications/mark-all-read")
+    public String markAllNotificationsAsRead(
+            Principal principal,
+            RedirectAttributes redirectAttributes) {
+
+        try {
+            String username =  "planner";
+
+            // Mark all database notifications for username "head" as read
+            List<Notification> unreadNotifications = notificationRepository
+                    .findByUsernameAndIsReadFalseOrderByCreatedAtDesc("planner");
+
+            for (Notification notification : unreadNotifications) {
+                notification.setIsRead(true);
+            }
+            notificationRepository.saveAll(unreadNotifications);
+
+            redirectAttributes.addFlashAttribute("success",
+                    "All notifications marked as read");
+
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error",
+                    "Error marking notifications as read: " + e.getMessage());
+        }
+
+        return "redirect:/ui/resource-planner/dashboard";
     }
 
     @GetMapping("/project/{projectId}")
@@ -778,7 +867,7 @@ public class ResourcePlannerUIController {
                 employee.getId(),  // This is correct for employee notifications
                 "New Assignment Proposed",
                 "You have been proposed for project: " + project.getName() +
-                        ". Please totalCount and confirm your assignment in the Assignments section.",
+                        ". Please review and confirm your assignment in the Assignments section.",
                 NotificationType.ASSIGNMENT_PROPOSED
         );
         notification.setRelatedAssignmentId(pendingAssignment.getId());
