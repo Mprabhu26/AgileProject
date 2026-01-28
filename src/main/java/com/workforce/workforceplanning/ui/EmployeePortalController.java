@@ -15,8 +15,6 @@ import java.util.stream.Collectors;
 import java.util.Arrays;
 import java.util.Collections;
 
-
-
 @Controller
 @RequestMapping("/ui/employee")
 public class EmployeePortalController {
@@ -56,27 +54,40 @@ public class EmployeePortalController {
         // Get employee
         Employee employee = getEmployeeByUsername(username);
 
-        // Get published projects
-        List<Project> publishedProjects = projectRepository.findAll().stream()
+        // Get published & approved projects
+        List<Project> allPublishedProjects = projectRepository.findAll().stream()
                 .filter(p -> Boolean.TRUE.equals(p.getPublished()))
-                .filter(p -> p.getStatus() == ProjectStatus.APPROVED ||
-                        p.getStatus() == ProjectStatus.STAFFING)
+                .filter(p -> p.getStatus() == ProjectStatus.APPROVED || p.getStatus() == ProjectStatus.STAFFING)
                 .collect(Collectors.toList());
 
-        // ✅ FILTER OUT FULLY STAFFED PROJECTS
-        List<Project> availableProjects = publishedProjects.stream()
+        // ✅ Get all assignments for filtering
+        List<Assignment> allAssignmentsForCount = assignmentRepository.findAll();
+
+        // ✅ Filter to show ONLY projects that need more staff
+        List<Project> availableProjects = allPublishedProjects.stream()
                 .filter(project -> {
                     // Count confirmed assignments for this project
-                    long confirmedCount = assignmentRepository.findAll().stream()
+                    long confirmedCount = allAssignmentsForCount.stream()
                             .filter(a -> a.getProject().getId().equals(project.getId()))
                             .filter(a -> a.getStatus() == AssignmentStatus.CONFIRMED ||
                                     a.getStatus() == AssignmentStatus.IN_PROGRESS)
                             .count();
 
-                    // Show project only if it needs more people
-                    return confirmedCount < project.getTotalEmployeesRequired();
+                    // Only include if project still needs employees
+                    int required = project.getTotalEmployeesRequired();
+                    boolean needsStaff = confirmedCount < required;
+
+                    System.out.println("Project: " + project.getName() +
+                            " | Required: " + required +
+                            " | Confirmed: " + confirmedCount +
+                            " | Needs Staff: " + needsStaff);
+
+                    return needsStaff;
                 })
                 .collect(Collectors.toList());
+
+        System.out.println("\n=== DEBUG: Employee Portal - Available Projects ===");
+        System.out.println("Total projects needing staff: " + availableProjects.size());
 
         // Apply skill filter if provided
         if (skill != null && !skill.trim().isEmpty()) {
@@ -118,7 +129,7 @@ public class EmployeePortalController {
         return "projects-browse";
     }
 
-    // ==================== 🔔 NOTIFICATIONS (PRIORITY #1) ====================
+    // ==================== 🔔 NOTIFICATIONS ====================
     @GetMapping("/notifications")
     public String showNotifications(Model model, Principal principal) {
         String username = principal.getName();
@@ -152,7 +163,6 @@ public class EmployeePortalController {
         return "employee/notifications";
     }
 
-    // Mark notification as read
     @PostMapping("/notifications/{id}/read")
     public String markNotificationRead(
             @PathVariable Long id,
@@ -182,7 +192,6 @@ public class EmployeePortalController {
         return "redirect:/ui/employee/notifications";
     }
 
-    // Mark all as read
     @PostMapping("/notifications/read-all")
     public String markAllRead(Principal principal, RedirectAttributes redirectAttributes) {
         String username = principal.getName();
@@ -208,7 +217,7 @@ public class EmployeePortalController {
         return "redirect:/ui/employee/notifications";
     }
 
-    // ==================== 📋 MY ASSIGNMENTS (PRIORITY #2) ====================
+    // ==================== 📋 MY ASSIGNMENTS ====================
     @GetMapping("/assignments")
     public String showAssignments(Model model, Principal principal) {
         String username = principal.getName();
@@ -259,7 +268,7 @@ public class EmployeePortalController {
         return "employee/assignments";
     }
 
-    // ==================== ✅ CONFIRM ASSIGNMENT (PRIORITY #3) ====================
+    // ==================== ✅ CONFIRM ASSIGNMENT ====================
     @PostMapping("/assignments/{id}/confirm")
     public String confirmAssignment(
             @PathVariable Long id,
@@ -292,9 +301,12 @@ public class EmployeePortalController {
             assignment.setStatus(AssignmentStatus.CONFIRMED);
             assignmentRepository.save(assignment);
 
-            // SET EMPLOYEE AS UNAVAILABLE (PRIORITY #6)
+            // SET EMPLOYEE AS UNAVAILABLE
             employee.setAvailable(false);
             employeeRepository.save(employee);
+
+            // ✅ Notify Resource Planner about confirmation
+            notifyResourcePlannerOfConfirmation(assignment, employee);
 
             redirectAttributes.addFlashAttribute("success",
                     "✅ Assignment confirmed! You are now assigned to: " +
@@ -308,7 +320,7 @@ public class EmployeePortalController {
         return "redirect:/ui/employee/assignments";
     }
 
-    // ==================== ❌ REJECT ASSIGNMENT (PRIORITY #5) ====================
+    // ==================== ❌ REJECT ASSIGNMENT ====================
     @PostMapping("/assignments/{id}/reject")
     public String rejectAssignment(
             @PathVariable Long id,
@@ -350,7 +362,7 @@ public class EmployeePortalController {
             assignment.setRejectionReason(rejectReason);
             assignmentRepository.save(assignment);
 
-            //  Notify Resource Planner
+            // ✅ Notify Resource Planner
             notifyResourcePlannerOfRejection(assignment, employee, rejectReason);
 
             redirectAttributes.addFlashAttribute("success",
@@ -364,9 +376,7 @@ public class EmployeePortalController {
         return "redirect:/ui/employee/assignments";
     }
 
-
-    // CORRECTED VERSION - Add these methods to EmployeePortalController.java
-
+    // ==================== 👤 PROFILE ====================
     @GetMapping("/profile")
     public String showProfile(Model model, Principal principal) {
         String username = principal.getName();
@@ -376,7 +386,7 @@ public class EmployeePortalController {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         // Get employee details if linked
-        Employee employee = user.getEmployee();  // ✅ FIXED
+        Employee employee = user.getEmployee();
 
         // Get employee's applications
         List<Application> applications = Collections.emptyList();
@@ -438,7 +448,7 @@ public class EmployeePortalController {
         return "redirect:/ui/employee/profile";
     }
 
-    // ==================== 📝 APPLY FOR PROJECT (PRIORITY #4) ====================
+    // ==================== 📝 APPLY FOR PROJECT ====================
     @PostMapping("/projects/{projectId}/apply")
     public String applyForProject(
             @PathVariable Long projectId,
@@ -525,8 +535,61 @@ public class EmployeePortalController {
                 .orElse(null);
     }
 
+    // ==================== 🔔 NOTIFICATION METHODS ====================
+
     /**
-     * Notify Resource Planner when employee rejects assignment
+     * ✅ Notify Resource Planner when employee confirms assignment
+     */
+    private void notifyResourcePlannerOfConfirmation(Assignment assignment, Employee employee) {
+        try {
+            // Find Resource Planner user
+            User resourcePlanner = userRepository.findAll().stream()
+                    .filter(u -> u.getRole() != null &&
+                            (u.getRole().equals("RESOURCE_PLANNER") ||
+                                    u.getRole().equals("ROLE_RESOURCE_PLANNER")))
+                    .findFirst()
+                    .orElse(null);
+
+            if (resourcePlanner == null) {
+                System.out.println("⚠️ No Resource Planner found - notification not sent");
+                return;
+            }
+
+            // Get Resource Planner's employee record
+            Employee rpEmployee = resourcePlanner.getEmployee();
+            if (rpEmployee == null) {
+                System.out.println("⚠️ Resource Planner has no employee record - notification not sent");
+                return;
+            }
+
+            // Create notification
+            Notification notification = new Notification();
+            notification.setEmployeeId(rpEmployee.getId());
+            notification.setType(NotificationType.ASSIGNMENT_APPROVED);
+            notification.setIsRead(false);
+            notification.setTitle("Assignment Confirmed");
+
+            // Notification message
+            String message = String.format(
+                    "✅ %s confirmed assignment to '%s'. Project staffing updated.",
+                    employee.getName(),
+                    assignment.getProject().getName()
+            );
+            notification.setMessage(message);
+
+            // Save notification
+            notificationRepository.save(notification);
+
+            System.out.println("✅ Confirmation notification sent to Resource Planner: " + message);
+
+        } catch (Exception e) {
+            System.err.println("❌ Failed to notify Resource Planner of confirmation: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * ❌ Notify Resource Planner when employee rejects assignment
      */
     private void notifyResourcePlannerOfRejection(Assignment assignment, Employee employee, String reason) {
         try {
@@ -555,6 +618,7 @@ public class EmployeePortalController {
             notification.setEmployeeId(rpEmployee.getId());
             notification.setType(NotificationType.ASSIGNMENT_REJECTED);
             notification.setIsRead(false);
+            notification.setTitle("Assignment Rejected");
 
             // Notification message
             String message = String.format(
@@ -568,10 +632,10 @@ public class EmployeePortalController {
             // Save notification
             notificationRepository.save(notification);
 
-            System.out.println("✅ Notification sent to Resource Planner: " + message);
+            System.out.println("✅ Rejection notification sent to Resource Planner: " + message);
 
         } catch (Exception e) {
-            System.err.println("❌ Failed to notify Resource Planner: " + e.getMessage());
+            System.err.println("❌ Failed to notify Resource Planner of rejection: " + e.getMessage());
             e.printStackTrace();
         }
     }

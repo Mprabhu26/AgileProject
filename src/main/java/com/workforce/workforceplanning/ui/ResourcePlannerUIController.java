@@ -65,18 +65,41 @@ public class ResourcePlannerUIController {
         String activeView = (view != null) ? view : "projects";
 
         try {
-            // Get published & approved projects
-            List<Project> availableProjects = projectRepository.findAll().stream()
+            // ==================== FIX 1: FILTER PROJECTS NEEDING STAFF ====================
+
+            // Get all published & approved projects first
+            List<Project> allPublishedProjects = projectRepository.findAll().stream()
                     .filter(p -> Boolean.TRUE.equals(p.getPublished()))
                     .filter(p -> p.getStatus() == ProjectStatus.APPROVED || p.getStatus() == ProjectStatus.STAFFING)
                     .collect(Collectors.toList());
-            System.out.println("\n=== DEBUG: Dashboard - Available Projects ===");
-            System.out.println("Total available projects: " + availableProjects.size());
 
-            // Get available employees
-//            List<Employee> availableEmployees = employeeRepository.findAll().stream()
-//                    .filter(e -> Boolean.TRUE.equals(e.getAvailable()))
-//                    .collect(Collectors.toList());
+            // Get all assignments for filtering
+            List<Assignment> allAssignmentsForFilter = assignmentRepository.findAll();
+
+            // ✅ NEW: Filter to show ONLY projects that actually need more staff
+            List<Project> availableProjects = allPublishedProjects.stream()
+                    .filter(project -> {
+                        long confirmedCount = allAssignmentsForFilter.stream()
+                                .filter(a -> a.getProject().getId().equals(project.getId()))
+                                .filter(a -> a.getStatus() == AssignmentStatus.CONFIRMED ||
+                                        a.getStatus() == AssignmentStatus.IN_PROGRESS)
+                                .count();
+
+                        int required = project.getTotalEmployeesRequired();
+                        boolean needsStaff = confirmedCount < required;
+
+                        // Debug output
+                        System.out.println("Project: " + project.getName() +
+                                " | Required: " + required +
+                                " | Confirmed: " + confirmedCount +
+                                " | Needs Staff: " + needsStaff);
+
+                        return needsStaff;  // Only include if needs more employees
+                    })
+                    .collect(Collectors.toList());
+
+            System.out.println("\n=== DEBUG: Dashboard - Projects Needing Staff ===");
+            System.out.println("Total projects needing staff: " + availableProjects.size());
 
             // Get available employees WITHOUT pending assignments
             List<Assignment> pendingAssignments = assignmentRepository.findAll().stream()
@@ -90,6 +113,9 @@ public class ResourcePlannerUIController {
             List<Employee> availableEmployees = employeeRepository.findAll().stream()
                     .filter(e -> Boolean.TRUE.equals(e.getAvailable()))
                     .filter(e -> !employeesWithPending.contains(e.getId()))
+                    .filter(e -> !e.getEmail().endsWith("pm@company.com"))
+                    .filter(e -> !e.getEmail().endsWith("head@company.com"))
+                    .filter(e -> !e.getEmail().endsWith("planner@company.com"))
                     .collect(Collectors.toList());
 
             // Get all assignments
@@ -99,6 +125,8 @@ public class ResourcePlannerUIController {
             long pendingApplicationsCount = applicationRepository.findAll().stream()
                     .filter(app -> app.getStatus() == ApplicationStatus.PENDING)
                     .count();
+
+            // ==================== FIX 2: CORRECT PROGRESS CALCULATION ====================
 
             // Calculate staffing progress for each project
             Map<Long, StaffingInfo> projectStaffingInfo = new HashMap<>();
@@ -118,29 +146,41 @@ public class ResourcePlannerUIController {
 
                 int required = project.getTotalEmployeesRequired();
 
-                // Calculate progress percentage
+                // ✅ NEW: Correct progress calculation
                 double progress = 0.0;
                 if (required > 0) {
-                    // Base progress: 50% when project approved (ready to staff)
-                    progress = 50.0;
+                    if (confirmedCount >= required) {
+                        // ✅ Fully staffed - 100% ONLY when all positions confirmed
+                        progress = 100.0;
+                    } else if (confirmedCount == 0 && pendingCount == 0) {
+                        // No assignments yet - just approved
+                        progress = 25.0;
+                    } else {
+                        // Partial staffing
+                        // Base: 25% (approved)
+                        // Confirmed contributes: 70% towards completion
+                        // Pending contributes: 5% (shows activity)
 
-                    // Add 30% for pending assignments (10% per pending, max 30%)
-                    if (pendingCount > 0) {
-                        progress += Math.min(30.0, (pendingCount * 10.0));
+                        progress = 25.0;  // Base for approved project
+
+                        // Main progress from confirmed employees
+                        double confirmedProgress = (confirmedCount / (double) required) * 70.0;
+                        progress += confirmedProgress;
+
+                        // Small boost for pending (shows work in progress)
+                        if (pendingCount > 0 && confirmedCount < required) {
+                            progress += 5.0;
+                        }
                     }
-
-                    // Add remaining to 100% based on confirmed
-                    double confirmedProgress = ((double) confirmedCount / required) * 50.0;
-                    progress += confirmedProgress;
-
-                    // Cap at 100%
-                    progress = Math.min(100.0, progress);
                 }
 
+                // Debug output
+                System.out.println("Progress for " + project.getName() + ": " +
+                        progress + "% (Confirmed: " + confirmedCount +
+                        "/" + required + ", Pending: " + pendingCount + ")");
 
                 // Find matching available employees
                 List<Employee> matchingEmployees = findMatchingEmployees(project);
-
 
                 projectStaffingInfo.put(project.getId(),
                         new StaffingInfo((int) confirmedCount, matchingEmployees.size(), progress));
@@ -180,7 +220,8 @@ public class ResourcePlannerUIController {
                 model.addAttribute("allSkills", allSkills);
                 model.addAttribute("allDepartments", allDepartments);
             }
-            // ✅ ADD THIS NOTIFICATION CODE HERE (BEFORE THE RETURN!)
+
+            // Get unread notifications count
             long unreadCount = 0;
             try {
                 String username = principal != null ? principal.getName() : null;
@@ -198,7 +239,6 @@ public class ResourcePlannerUIController {
             model.addAttribute("unreadNotifications", unreadCount);
 
             return "resource-planner/dashboard";
-
 
         } catch (Exception e) {
             // If there's an error, return empty lists
@@ -256,6 +296,9 @@ public class ResourcePlannerUIController {
             // Get all available employees
             List<Employee> allAvailableEmployees = employeeRepository.findAll().stream()
                     .filter(e -> Boolean.TRUE.equals(e.getAvailable()))
+                    .filter(e -> !e.getEmail().endsWith("pm@company.com"))      // ✅ Exclude PM
+                    .filter(e -> !e.getEmail().endsWith("head@company.com"))    // ✅ Exclude DH
+                    .filter(e -> !e.getEmail().endsWith("planner@company.com")) // ✅ Exclude RP
                     .collect(Collectors.toList());
 
             for (ProjectSkillRequirement req : project.getSkillRequirements()) {
@@ -418,6 +461,9 @@ public class ResourcePlannerUIController {
         // Get available employees (for display in gap analysis)
         List<Employee> availableEmployeesForGap = employeeRepository.findAll().stream()
                 .filter(e -> Boolean.TRUE.equals(e.getAvailable()))
+                .filter(e -> !e.getEmail().endsWith("pm@company.com"))      // ✅ Exclude PM
+                .filter(e -> !e.getEmail().endsWith("head@company.com"))    // ✅ Exclude DH
+                .filter(e -> !e.getEmail().endsWith("planner@company.com")) // ✅ Exclude RP
                 .collect(Collectors.toList());
 
         // ----- SKILL REQUIREMENT COUNTS -----
@@ -760,6 +806,13 @@ public class ResourcePlannerUIController {
 
         List<Employee> employees = employeeRepository.findAll();
 
+        // ✅ Filter out admin employees
+        employees = employees.stream()
+                .filter(e -> !e.getEmail().endsWith("pm@company.com"))
+                .filter(e -> !e.getEmail().endsWith("head@company.com"))
+                .filter(e -> !e.getEmail().endsWith("planner@company.com"))
+                .collect(Collectors.toList());
+
         // Apply filters
         if (skills != null && !skills.trim().isEmpty()) {
             String[] skillArray = skills.toLowerCase().split(",");
@@ -832,6 +885,9 @@ public class ResourcePlannerUIController {
         // Get all available employees
         List<Employee> allAvailable = employeeRepository.findAll().stream()
                 .filter(e -> Boolean.TRUE.equals(e.getAvailable()))
+                .filter(e -> !e.getEmail().endsWith("pm@company.com"))      // ✅ Exclude PM
+                .filter(e -> !e.getEmail().endsWith("head@company.com"))    // ✅ Exclude DH
+                .filter(e -> !e.getEmail().endsWith("planner@company.com")) // ✅ Exclude RP
                 .collect(Collectors.toList());
 
         // Filter out employees with pending assignments
