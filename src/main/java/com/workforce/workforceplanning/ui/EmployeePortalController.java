@@ -312,13 +312,34 @@ public class EmployeePortalController {
             // ✅ Notify Resource Planner about confirmation
             notifyResourcePlannerOfConfirmation(assignment, employee);
 
+            String messageRp = "Employee Decision for '" + assignment.getProject().getName() ;
+            Notification rpNotification = new Notification(
+                    "planner",  // planner username
+                    "Employee has confirmed Proposal for " + assignment.getProject().getName(),
+                    messageRp,
+                    NotificationType.ASSIGNMENT_PROPOSED
+            );
+            rpNotification.setProjectId(assignment.getProject().getId());
+            rpNotification.setProjectName(assignment.getProject().getName());
+            notificationRepository.save(rpNotification);
+
+            String messagep = "Employee Decision for '" + assignment.getProject().getName() ;
+            Notification pmNotification = new Notification(
+                    "pm",  // planner username
+                    "Employee has confirmed Proposal for " + assignment.getProject().getName(),
+                    messageRp,
+                    NotificationType.ASSIGNMENT_PROPOSED
+            );
+            pmNotification.setProjectId(assignment.getProject().getId());
+            pmNotification.setProjectName(assignment.getProject().getName());
+            notificationRepository.save(pmNotification);
+
             redirectAttributes.addFlashAttribute("success",
                     "✅ Assignment confirmed! You are now assigned to: " +
                             assignment.getProject().getName());
 
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("error",
-                    "❌ Failed to confirm assignment: " + e.getMessage());
+
         }
 
         return "redirect:/ui/employee/assignments";
@@ -368,13 +389,33 @@ public class EmployeePortalController {
 
             // ✅ Notify Resource Planner
             notifyResourcePlannerOfRejection(assignment, employee, rejectReason);
+            String messageRp = "Employee Decision for '" + assignment.getProject().getName() ;
+            Notification rpNotification = new Notification(
+                    "planner",  // planner username
+                    "Employee has Rejected Proposal for " + assignment.getProject().getName(),
+                    messageRp,
+                    NotificationType.ASSIGNMENT_PROPOSED
+            );
+            rpNotification.setProjectId(assignment.getProject().getId());
+            rpNotification.setProjectName(assignment.getProject().getName());
+            notificationRepository.save(rpNotification);
+
+            String messagep = "Employee Decision for '" + assignment.getProject().getName() ;
+            Notification pmNotification = new Notification(
+                    "pm",  // planner username
+                    "Employee has Rejected Proposal for " + assignment.getProject().getName(),
+                    messageRp,
+                    NotificationType.ASSIGNMENT_PROPOSED
+            );
+            pmNotification.setProjectId(assignment.getProject().getId());
+            pmNotification.setProjectName(assignment.getProject().getName());
+            notificationRepository.save(pmNotification);
 
             redirectAttributes.addFlashAttribute("success",
                     "❌ Assignment rejected: " + rejectReason);
 
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("error",
-                    "❌ Failed to reject assignment: " + e.getMessage());
+
         }
 
         return "redirect:/ui/employee/assignments";

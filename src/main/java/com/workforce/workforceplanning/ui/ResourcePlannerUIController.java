@@ -59,31 +59,41 @@ public class ResourcePlannerUIController {
 
     @GetMapping("/dashboard")
     public String dashboard(Model model,
-                            @RequestParam(value = "view", required = false) String view, Principal principal) {
-
+                            @RequestParam(value = "view", required = false) String view,
+                            Principal principal) {
 
         // Default view
         String activeView = (view != null) ? view : "projects";
 
-        // Get username from principal
-        //String username = principal != null ? principal.getName() : "planner";
-
         try {
-            // ==================== FIX 1: FILTER PROJECTS NEEDING STAFF ====================
-
-            // Get all published & approved projects first
+            // ==================== GET ALL PUBLISHED PROJECTS ====================
             List<Project> allPublishedProjects = projectRepository.findAll().stream()
                     .filter(p -> Boolean.TRUE.equals(p.getPublished()))
-                    .filter(p -> p.getStatus() == ProjectStatus.APPROVED || p.getStatus() == ProjectStatus.STAFFING)
+                    .filter(p -> p.getStatus() == ProjectStatus.APPROVED ||
+                            p.getStatus() == ProjectStatus.STAFFING ||
+                            p.getStatus() == ProjectStatus.IN_PROGRESS)
                     .collect(Collectors.toList());
 
-            // Get all assignments for filtering
-            List<Assignment> allAssignmentsForFilter = assignmentRepository.findAll();
+            System.out.println("\n=== DEBUG: Dashboard Loading ===");
+            System.out.println("Total published projects: " + allPublishedProjects.size());
 
-            // ✅ NEW: Filter to show ONLY projects that actually need more staff
-            List<Project> availableProjects = allPublishedProjects.stream()
+            // ==================== SEPARATE PROJECTS ====================
+            // Get all assignments for calculations
+            List<Assignment> allAssignments = assignmentRepository.findAll();
+
+            // 1. IN_PROGRESS projects (show all regardless of staffing)
+            List<Project> inProgressProjects = allPublishedProjects.stream()
+                    .filter(p -> p.getStatus() == ProjectStatus.IN_PROGRESS)
+                    .collect(Collectors.toList());
+
+            System.out.println("IN_PROGRESS projects: " + inProgressProjects.size());
+            inProgressProjects.forEach(p -> System.out.println("  - " + p.getName() + " (Status: " + p.getStatus() + ")"));
+
+            // 2. Projects needing staff (APPROVED/STAFFING that are understaffed)
+            List<Project> projectsNeedingStaff = allPublishedProjects.stream()
+                    .filter(p -> p.getStatus() != ProjectStatus.IN_PROGRESS) // Exclude IN_PROGRESS
                     .filter(project -> {
-                        long confirmedCount = allAssignmentsForFilter.stream()
+                        long confirmedCount = allAssignments.stream()
                                 .filter(a -> a.getProject().getId().equals(project.getId()))
                                 .filter(a -> a.getStatus() == AssignmentStatus.CONFIRMED ||
                                         a.getStatus() == AssignmentStatus.IN_PROGRESS)
@@ -92,21 +102,62 @@ public class ResourcePlannerUIController {
                         int required = project.getTotalEmployeesRequired();
                         boolean needsStaff = confirmedCount < required;
 
-                        // Debug output
-                        System.out.println("Project: " + project.getName() +
-                                " | Required: " + required +
-                                " | Confirmed: " + confirmedCount +
-                                " | Needs Staff: " + needsStaff);
+                        System.out.println("Checking staffing for " + project.getName() +
+                                ": " + confirmedCount + "/" + required +
+                                " (Needs staff: " + needsStaff + ")");
 
-                        return needsStaff;  // Only include if needs more employees
+                        return needsStaff;
                     })
                     .collect(Collectors.toList());
 
-            System.out.println("\n=== DEBUG: Dashboard - Projects Needing Staff ===");
-            System.out.println("Total projects needing staff: " + availableProjects.size());
+            System.out.println("Projects needing staff: " + projectsNeedingStaff.size());
 
-            // Get available employees WITHOUT pending assignments
-            List<Assignment> pendingAssignments = assignmentRepository.findAll().stream()
+            // ==================== CALCULATE STAFFING INFO FOR ALL PROJECTS ====================
+            Map<Long, StaffingInfo> projectStaffingInfo = new HashMap<>();
+
+            // Combine both lists to calculate staffing info
+            List<Project> allProjectsToCalculate = new ArrayList<>();
+            allProjectsToCalculate.addAll(inProgressProjects);
+            allProjectsToCalculate.addAll(projectsNeedingStaff);
+
+            for (Project project : allProjectsToCalculate) {
+                long confirmedCount = allAssignments.stream()
+                        .filter(a -> a.getProject().getId().equals(project.getId()))
+                        .filter(a -> a.getStatus() == AssignmentStatus.CONFIRMED ||
+                                a.getStatus() == AssignmentStatus.IN_PROGRESS)
+                        .count();
+
+                long pendingCount = allAssignments.stream()
+                        .filter(a -> a.getProject().getId().equals(project.getId()))
+                        .filter(a -> a.getStatus() == AssignmentStatus.PENDING)
+                        .count();
+
+                int required = project.getTotalEmployeesRequired();
+
+                // Progress calculation (0-100%)
+                double progress = 0.0;
+                if (required > 0) {
+                    progress = Math.min(100.0, Math.max(0.0,
+                            (confirmedCount / (double) required) * 100.0));
+                }
+
+                // Find matching available employees for this project
+                List<Employee> matchingEmployees = findMatchingEmployees(project);
+
+                projectStaffingInfo.put(project.getId(),
+                        new StaffingInfo((int) confirmedCount, (int) pendingCount,
+                                matchingEmployees.size(), progress));
+
+                System.out.println("Staffing info for " + project.getName() +
+                        ": Confirmed=" + confirmedCount +
+                        ", Pending=" + pendingCount +
+                        ", Matching=" + matchingEmployees.size() +
+                        ", Progress=" + progress + "%");
+            }
+
+            // ==================== GET AVAILABLE EMPLOYEES ====================
+            // Filter out employees with pending assignments
+            List<Assignment> pendingAssignments = allAssignments.stream()
                     .filter(a -> a.getStatus() == AssignmentStatus.PENDING)
                     .collect(Collectors.toList());
 
@@ -122,23 +173,20 @@ public class ResourcePlannerUIController {
                     .filter(e -> !e.getEmail().endsWith("planner@company.com"))
                     .collect(Collectors.toList());
 
-            // Get all assignments
-            List<Assignment> allAssignments = assignmentRepository.findAll();
+            System.out.println("Available employees: " + availableEmployees.size());
 
-            // Get pending applications count
+            // ==================== GET PENDING APPLICATIONS ====================
             long pendingApplicationsCount = applicationRepository.findAll().stream()
                     .filter(app -> app.getStatus() == ApplicationStatus.PENDING)
                     .count();
 
-            // ==================== FIX 2: CORRECT PROGRESS CALCULATION ====================
-          // ==================== NOTIFICATIONS FOR RESOURCE PLANNER ====================
+            System.out.println("Pending applications: " + pendingApplicationsCount);
+
+            // ==================== NOTIFICATIONS ====================
             List<Notification> dbNotifications = notificationRepository
                     .findByUsernameAndIsReadFalseOrderByCreatedAtDesc("planner");
 
-            // Convert notifications to map for template (ONLY DB NOTIFICATIONS)
             List<Map<String, Object>> allNotifications = new ArrayList<>();
-
-            // Add ONLY database notifications (no project-based notifications)
             for (Notification notification : dbNotifications) {
                 Map<String, Object> notif = new HashMap<>();
                 notif.put("id", notification.getId());
@@ -152,66 +200,7 @@ public class ResourcePlannerUIController {
                 allNotifications.add(notif);
             }
 
-
-            // Calculate staffing progress for each project
-            Map<Long, StaffingInfo> projectStaffingInfo = new HashMap<>();
-            for (Project project : availableProjects) {
-                // Count only CONFIRMED/IN_PROGRESS assignments
-                long confirmedCount = allAssignments.stream()
-                        .filter(a -> a.getProject().getId().equals(project.getId()))
-                        .filter(a -> a.getStatus() == AssignmentStatus.CONFIRMED ||
-                                a.getStatus() == AssignmentStatus.IN_PROGRESS)
-                        .count();
-
-                // Count PENDING assignments
-                long pendingCount = allAssignments.stream()
-                        .filter(a -> a.getProject().getId().equals(project.getId()))
-                        .filter(a -> a.getStatus() == AssignmentStatus.PENDING)
-                        .count();
-
-                int required = project.getTotalEmployeesRequired();
-
-                // ✅ NEW: Correct progress calculation
-                double progress = 0.0;
-                if (required > 0) {
-                    if (confirmedCount >= required) {
-                        // ✅ Fully staffed - 100% ONLY when all positions confirmed
-                        progress = 100.0;
-                    } else if (confirmedCount == 0 && pendingCount == 0) {
-                        // No assignments yet - just approved
-                        progress = 25.0;
-                    } else {
-                        // Partial staffing
-                        // Base: 25% (approved)
-                        // Confirmed contributes: 70% towards completion
-                        // Pending contributes: 5% (shows activity)
-
-                        progress = 25.0;  // Base for approved project
-
-                        // Main progress from confirmed employees
-                        double confirmedProgress = (confirmedCount / (double) required) * 70.0;
-                        progress += confirmedProgress;
-
-                        // Small boost for pending (shows work in progress)
-                        if (pendingCount > 0 && confirmedCount < required) {
-                            progress += 5.0;
-                        }
-                    }
-                }
-
-                // Debug output
-                System.out.println("Progress for " + project.getName() + ": " +
-                        progress + "% (Confirmed: " + confirmedCount +
-                        "/" + required + ", Pending: " + pendingCount + ")");
-
-                // Find matching available employees
-                List<Employee> matchingEmployees = findMatchingEmployees(project);
-
-                projectStaffingInfo.put(project.getId(),
-                        new StaffingInfo((int) confirmedCount, matchingEmployees.size(), progress));
-            }
-
-            // Get skill distribution (for insights)
+            // ==================== INSIGHTS DATA ====================
             if ("insights".equals(activeView)) {
                 Map<String, Long> skillDistribution = employeeRepository.findAll().stream()
                         .flatMap(e -> e.getSkills().stream())
@@ -224,19 +213,7 @@ public class ResourcePlannerUIController {
                 model.addAttribute("departmentDistribution", departmentDistribution);
             }
 
-            // Add to model
-            model.addAttribute("availableProjects", availableProjects);
-            model.addAttribute("availableEmployees", availableEmployees);
-            model.addAttribute("assignments", allAssignments);
-            model.addAttribute("projectStaffingInfo", projectStaffingInfo);
-            model.addAttribute("pendingApplicationsCount", pendingApplicationsCount);
-            model.addAttribute("activeView", activeView);
-
-            // Add notification attributes
-            model.addAttribute("notifications", allNotifications);
-            model.addAttribute("notificationCount", allNotifications.size());
-
-            // For employee search view
+            // ==================== EMPLOYEE SEARCH DATA ====================
             if ("employees".equals(activeView)) {
                 Set<String> allSkills = employeeRepository.findAll().stream()
                         .flatMap(e -> e.getSkills().stream())
@@ -250,7 +227,7 @@ public class ResourcePlannerUIController {
                 model.addAttribute("allDepartments", allDepartments);
             }
 
-            // Get unread notifications count
+            // ==================== UNREAD NOTIFICATIONS COUNT ====================
             long unreadCount = 0;
             try {
                 String username = principal != null ? principal.getName() : null;
@@ -265,21 +242,47 @@ public class ResourcePlannerUIController {
                 System.err.println("Failed to get notification count: " + e.getMessage());
             }
 
+            // ==================== ADD ALL TO MODEL ====================
+            model.addAttribute("inProgressProjects", inProgressProjects);
+            model.addAttribute("availableProjects", projectsNeedingStaff);
+            model.addAttribute("availableEmployees", availableEmployees);
+            model.addAttribute("assignments", allAssignments);
+            model.addAttribute("projectStaffingInfo", projectStaffingInfo);
+            model.addAttribute("pendingApplicationsCount", pendingApplicationsCount);
+            model.addAttribute("activeView", activeView);
+            model.addAttribute("notifications", allNotifications);
+            model.addAttribute("notificationCount", allNotifications.size());
             model.addAttribute("unreadNotifications", unreadCount);
+
+            // Debug summary
+            System.out.println("\n=== Model Attributes Summary ===");
+            System.out.println("inProgressProjects: " + (inProgressProjects != null ? inProgressProjects.size() : 0));
+            System.out.println("availableProjects: " + (projectsNeedingStaff != null ? projectsNeedingStaff.size() : 0));
+            System.out.println("projectStaffingInfo size: " + projectStaffingInfo.size());
+            System.out.println("activeView: " + activeView);
+            System.out.println("================================\n");
 
             return "resource-planner/dashboard";
 
         } catch (Exception e) {
+            System.err.println("ERROR in dashboard: " + e.getMessage());
+            e.printStackTrace();
+
             // If there's an error, return empty lists
+            model.addAttribute("inProgressProjects", List.of());
             model.addAttribute("availableProjects", List.of());
             model.addAttribute("availableEmployees", List.of());
+            model.addAttribute("assignments", List.of());
+            model.addAttribute("projectStaffingInfo", Map.of());
+            model.addAttribute("pendingApplicationsCount", 0);
             model.addAttribute("activeView", activeView);
+            model.addAttribute("notifications", List.of());
+            model.addAttribute("notificationCount", 0);
             model.addAttribute("unreadNotifications", 0);
+
             return "resource-planner/dashboard";
         }
-
     }
-
 
 
     // ==================== NOTIFICATION ENDPOINTS ====================
@@ -665,6 +668,88 @@ public class ResourcePlannerUIController {
         return "resource-planner/project-staffing";
     }
 
+    @GetMapping("/project/{projectId}/request-approval")
+    public String requestProjectApproval(
+            @PathVariable("projectId") Long projectId,
+            RedirectAttributes redirectAttributes,
+            Principal principal) {
+
+        try {
+            Project project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+
+            // Check if project is IN_PROGRESS
+            if (project.getStatus() != ProjectStatus.IN_PROGRESS) {
+                redirectAttributes.addFlashAttribute("error",
+                        "Only IN_PROGRESS projects can be submitted for final approval.");
+                return "redirect:/ui/resource-planner/dashboard?view=inProgress";
+            }
+
+            // Check if project is already submitted for approval
+            if ("AWAITING_FINAL_APPROVAL".equals(project.getWorkflowStatus())) {
+                redirectAttributes.addFlashAttribute("warning",
+                        "Project is already awaiting final approval from Department Head.");
+                return "redirect:/ui/resource-planner/dashboard?view=inProgress";
+            }
+
+            // Check if project is fully staffed
+            List<Assignment> assignments = assignmentRepository.findAll().stream()
+                    .filter(a -> a.getProject().getId().equals(projectId))
+                    .filter(a -> a.getStatus() == AssignmentStatus.IN_PROGRESS ||
+                            a.getStatus() == AssignmentStatus.CONFIRMED)
+                    .collect(Collectors.toList());
+
+            int assignedCount = assignments.size();
+            int requiredCount = project.getTotalEmployeesRequired();
+
+            if (assignedCount < requiredCount) {
+                redirectAttributes.addFlashAttribute("error",
+                        "Project is not fully staffed (" + assignedCount + "/" +
+                                requiredCount + "). Cannot request final approval.");
+                return "redirect:/ui/resource-planner/dashboard?view=inProgress";
+            }
+
+
+            // ========== UPDATE PROJECT FOR APPROVAL ==========
+            project.setWorkflowStatus("AWAITING_FINAL_APPROVAL");
+            projectRepository.save(project);
+
+            // ========== NOTIFY DEPARTMENT HEAD ==========
+            String approvalMessage = "Project '" + project.getName() + "' is ready for final approval.\n" +
+                    "Staffing completed: " + assignedCount + "/" + requiredCount + " employees.\n" +
+                    "Project Manager: " + project.getCreatedBy() + "\n" +
+                    "Submitted by Resource Planner: " + principal.getName();
+
+
+
+            // ========== NOTIFY PROJECT MANAGER ==========
+            Notification pmNotification = new Notification(
+                    project.getCreatedBy(),  // PM's username
+                    "Project Submitted for Final Approval - " + project.getName(),
+                    "Your project '" + project.getName() + "' has been submitted for final approval " +
+                            "to the Department Head by Resource Planner " + principal.getName() + ".",
+                    NotificationType.ASSIGNMENT_PROPOSED
+            );
+            pmNotification.setProjectId(projectId);
+            pmNotification.setProjectName(project.getName());
+            notificationRepository.save(pmNotification);
+
+            System.out.println("✅ Project " + project.getName() +
+                    " submitted for final approval to Department Head");
+
+            redirectAttributes.addFlashAttribute("success",
+                    "✅ Project submitted for final approval! " +
+                            "Department Head and Project Manager have been notified.");
+
+        } catch (Exception e) {
+            System.err.println("❌ Error requesting project approval: " + e.getMessage());
+            e.printStackTrace();
+            redirectAttributes.addFlashAttribute("error",
+                    "Failed to submit for approval: " + e.getMessage());
+        }
+
+        return "redirect:/ui/resource-planner/dashboard?view=inProgress";
+    }
     private boolean areSkillsAvailableInternally(Project project) {
         if (project.getSkillRequirements() == null || project.getSkillRequirements().isEmpty()) {
             return true; // No skill requirements = skills are "available"
@@ -1377,18 +1462,21 @@ public class ResourcePlannerUIController {
     // Helper class for staffing information
     private static class StaffingInfo {
         int confirmedCount;
+        int pendingCount;
         int matchingEmployeesCount;
         double progress;
 
-        StaffingInfo(int assignedCount, int matchingEmployeesCount, double progress) {
+        StaffingInfo(int assignedCount, int pendingCount,int matchingEmployeesCount, double progress) {
             this.confirmedCount = assignedCount;
             this.matchingEmployeesCount = matchingEmployeesCount;
+            this.pendingCount=pendingCount;
             this.progress = progress;
         }
 
         public int getAssignedCount() { return confirmedCount; }
         public int getMatchingEmployeesCount() { return matchingEmployeesCount; }
         public double getProgress() { return progress; }
+        public int getPendingCount() { return pendingCount; }
     }
 
     private boolean hasPendingAssignments(Long employeeId) {

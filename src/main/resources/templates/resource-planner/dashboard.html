@@ -623,10 +623,7 @@
                         <div class="user-name" th:text="${#authentication?.name ?: 'Resource Planner'}">Resource Planner</div>
                         <div class="user-role">Resource Planner</div>
                     </div>
-                    <a href="/ui/resource-planner/notifications" class="header-btn btn-notification">
-                        🔔 Notifications
-                        <span th:if="${unreadNotifications > 0}" class="badge" th:text="${unreadNotifications}">0</span>
-                    </a>
+
                     <a href="/ui/employees" class="btn btn-view-employees">
                         <i class="fas fa-users"></i> View All Employees
                         <a href="/ui/resource-planner/staffing-tracker" class="header-btn btn-secondary">
@@ -705,6 +702,11 @@
             Projects Needing Staff
             <span class="tab-badge" th:text="${availableProjects != null ? availableProjects.size() : 0}">0</span>
         </button>
+        <button class="tab" onclick="showTab('inProgress')">
+            <i class="fas fa-play-circle"></i>
+             Projects in Queue(In Progress)
+            <span class="tab-badge" th:text="${inProgressProjects != null ? inProgressProjects.size() : 0}">0</span>
+        </button>
         <button class="tab" onclick="showTab('employees')">
             <i class="fas fa-users"></i>
             Employee Search
@@ -754,9 +756,9 @@
                     <tr>
                         <th>Project</th>
                         <th>Required Positions</th>
-                        <th>Current Staff</th>
+                        <th>Confirmed Staff</th>
+                        <th>Pending Confirmation Staff</th>
                         <th>Matching Employees</th>
-                        <th>Progress</th>
                         <th>Skills Needed</th>
                         <th>External Search Approved</th>
                         <th>Actions</th>
@@ -773,15 +775,12 @@
                             <span th:text="${projectStaffingInfo[project.id]?.assignedCount} ?: 0">0</span>
                         </td>
                         <td>
-                            <span th:text="${projectStaffingInfo[project.id]?.matchingEmployeesCount} ?: 0">0</span>
+                            <span th:text="${projectStaffingInfo[project.id]?.pendingCount} ?: 0">0</span>
                         </td>
                         <td>
-                            <div class="progress-bar">
-                                <div class="progress-fill"
-                                     th:style="'width: ' + ${projectStaffingInfo.get(project.id).progress} + '%'"></div>
-                            </div>
-                            <span th:text="${#numbers.formatDecimal(projectStaffingInfo.get(project.id).progress, 1, 1)} + '%'">0%</span>
+                            <span th:text="${projectStaffingInfo[project.id]?.matchingEmployeesCount} ?: 0">0</span>
                         </td>
+
                         <td>
                             <div th:each="skill : ${project.skillRequirements}" th:if="${skill != null}">
                                 <span class="skill-tag" th:text="${skill.skill}">Java</span>
@@ -821,6 +820,98 @@
         </div>
     </div>
 
+    <!-- IN_PROGRESS Projects Tab -->
+    <div id="inProgressTab" class="content-section">
+        <div class="card">
+            <div class="card-title">
+                <i class="fas fa-play-circle"></i>
+                Projects in Queue(In Progress)
+            </div>
+
+            <div th:if="${inProgressProjects != null and not inProgressProjects.isEmpty()}">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Project</th>
+                        <th>Status</th>
+                        <th>Required Positions</th>
+                        <th>Confirmed Staff</th>
+                        <th>Skill Coverage</th>
+                        <th>External Search Approved</th>
+                        <th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="project : ${inProgressProjects}">
+                        <td>
+                            <strong th:text="${project.name}"></strong><br>
+                            <small style="color: #64748b;" th:text="${project.description} ?: 'No description'"></small>
+                        </td>
+                        <td>
+                            <span class="status-badge bg-green">IN PROGRESS</span>
+                        </td>
+                        <td th:text="${project.totalEmployeesRequired}">5</td>
+                        <td>
+                            <!-- Get confirmed count for this project -->
+                            <span th:text="${projectStaffingInfo[project.id]?.assignedCount} ?: 0">0</span>
+                            /
+                            <span th:text="${project.totalEmployeesRequired}">5</span>
+                        </td>
+                        <td>
+                            <!-- Show skill coverage percentage -->
+                            <div style="display: flex; align-items: center;">
+                                <div class="progress-bar">
+                                    <!-- FIXED: Use proper Thymeleaf syntax with conditional -->
+                                    <div class="progress-fill"
+                                         th:style="${projectStaffingInfo != null and projectStaffingInfo[project.id] != null} ?
+                          'width: ' + ${projectStaffingInfo[project.id].progress} + '%;' :
+                          'width: 0%;'"></div>
+                                </div>
+                                <!-- FIXED: Use proper Thymeleaf syntax -->
+                                <span th:if="${projectStaffingInfo != null and projectStaffingInfo[project.id] != null}"
+                                      th:text="${#numbers.formatDecimal(projectStaffingInfo[project.id].progress, 0, 2)} + '%'">
+            75%
+        </span>
+                                <span th:unless="${projectStaffingInfo != null and projectStaffingInfo[project.id] != null}">
+            0%
+        </span>
+                            </div>
+                        </td>
+                        <td>
+                            <!-- External Search Approved Status -->
+                            <span th:if="${project.externalSearchNeeded == null}">
+                            <span class="availability-badge unavailable">N/A</span>
+                        </span>
+                            <span th:if="${project.externalSearchNeeded == true}">
+                            <span class="availability-badge available">YES</span>
+                        </span>
+                            <span th:if="${project.externalSearchNeeded == false}">
+                            <span class="availability-badge unavailable">NO</span>
+                        </span>
+                        </td>
+                        <td>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <a th:href="@{'/ui/resource-planner/project/' + ${project.id}}"
+                                   class="btn btn-primary" style="flex: 1; min-width: 120px;">
+                                    <i class="fas fa-eye"></i> View Project
+                                </a>
+                                <a th:href="@{'/ui/resource-planner/project/' + ${project.id} + '/request-approval'}"
+                                   class="btn btn-success" style="flex: 1; min-width: 140px;">
+                                    <i class="fas fa-check-circle"></i> Get Approval
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div th:if="${inProgressProjects == null or inProgressProjects.isEmpty()}" class="empty-state">
+                <i class="fas fa-hourglass-half"></i>
+                <h3>No Projects in Queue</h3>
+                <p>There are currently no projects in progress.</p>
+            </div>
+        </div>
+    </div>
     <!-- Employees Tab -->
     <div id="employeesTab" class="content-section">
         <div class="card">

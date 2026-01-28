@@ -6,5 +6,6 @@ import java.util.List;  // ← ADD THIS LINE!
 
 public interface AssignmentRepository extends JpaRepository<Assignment, Long> {
     List<Assignment> findByEmployeeId(Long employeeId);
+    List<Assignment> findByProjectId(Long projectId);
     boolean existsByProjectIdAndEmployeeId(Long projectId, Long employeeId);
 }

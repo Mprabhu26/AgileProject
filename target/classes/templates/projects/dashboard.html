@@ -128,6 +128,7 @@
             align-items: center;
             gap: 8px;
         }
+        .status-cancelled { background: #f3f4f6; color: #6b7280; }
 
         .stat-card .value {
             font-size: 28px;
@@ -485,16 +486,62 @@
                     </td>
                     <td>
                         <div class="actions">
-                            <form th:action="@{/projects/{id}/publish(id=${project.id})}" method="post" th:if="${not project.published}">
-                                <button type="submit" class="action-btn publish-btn"><i class="fas fa-globe"></i> Publish</button>
+                            <!-- Publish Button - Only show if not published AND not COMPLETED -->
+                            <form th:action="@{/projects/{id}/publish(id=${project.id})}"
+                                  method="post"
+                                  th:if="${not project.published and project.status.name() != 'COMPLETED' and project.status.name() != 'CANCELLED'}">
+                                <button type="submit" class="action-btn publish-btn">
+                                    <i class="fas fa-globe"></i> Publish
+                                </button>
                             </form>
-                            <form th:action="@{/projects/{id}/unpublish(id=${project.id})}" method="post" th:if="${project.published}">
-                                <button type="submit" class="action-btn unpublish-btn"><i class="fas fa-eye-slash"></i> Unpublish</button>
+
+                            <!-- Unpublish Button - Only show if published AND not COMPLETED -->
+                            <form th:action="@{/projects/{id}/unpublish(id=${project.id})}"
+                                  method="post"
+                                  th:if="${project.published}">
+                                <button type="submit" class="action-btn unpublish-btn">
+                                    <i class="fas fa-eye-slash"></i> Unpublish
+                                </button>
                             </form>
                             <a th:href="@{/ui/projects/{id}(id=${project.id})}" class="action-btn view-btn"><i class="fas fa-eye"></i> View</a>
-                            <a th:href="@{/ui/projects/{id}/edit(id=${project.id})}" class="action-btn edit-btn" th:if="${project.status.name() == 'REJECTED' or project.status.name() == 'DRAFT'}"><i class="fas fa-edit"></i> Edit</a>
-                            <form th:action="@{/ui/projects/{id}/delete(id=${project.id})}" method="post" th:if="${project.status.name() == 'REJECTED' or project.status.name() == 'DRAFT'}">
+                            <a th:href="@{/ui/projects/{id}/edit(id=${project.id})}"
+                               class="action-btn edit-btn"
+                               th:if="${project.status.name() == 'REJECTED' or project.status.name() == 'DRAFT'}">
+                                <i class="fas fa-edit"></i> Edit
+                            </a>
+                            <form th:action="@{/ui/projects/{id}/delete(id=${project.id})}" method="post" th:if="${project.status.name() == 'REJECTED' or project.status.name() == 'DRAFT' or project.status.name() == 'CANCELLED'}">
                                 <button type="submit" class="action-btn delete-btn" onclick="return confirm('Delete this project?')"><i class="fas fa-trash"></i></button>
+                            </form>
+                            <form th:action="@{'/ui/projects/' + ${project.id} + '/cancel'}"
+                                  method="post" th:if="${project.status.name() != 'CANCELLED' and project.status.name() != 'COMPLETED'}"
+                                  style="display: inline;">
+                                <button type="submit"
+                                        class="action-btn delete-btn"
+                                        onclick="return confirm('Are you sure you want to cancel this project? All assigned employees will be released.')">
+                                    <i class="fas fa-ban"></i> Cancel
+                                </button>
+                            </form>
+                            <!-- Start Project Button (for ACTIVE status) -->
+                            <form th:action="@{'/ui/projects/' + ${project.id} + '/start'}"
+                                  method="post"
+                                  style="display: inline;"
+                                  th:if="${project.status.name() == 'ACTIVE'}">
+                                <button type="submit" class="action-btn"
+                                        style="background: #10b981; color: white;">
+                                    <i class="fas fa-play"></i> Start
+                                </button>
+                            </form>
+
+                            <!-- End Project Button (for IN_PROGRESS status) -->
+                            <form th:action="@{'/ui/projects/' + ${project.id} + '/end'}"
+                                  method="post"
+                                  style="display: inline;"
+                                  th:if="${project.status.name() == 'STARTED'}">
+                                <button type="submit" class="action-btn"
+                                        style="background: #ef4444; color: white;"
+                                        onclick="return confirm('Are you sure you want to end this project? All assigned employees will be released.')">
+                                    <i class="fas fa-stop"></i> End
+                                </button>
                             </form>
                         </div>
                     </td>

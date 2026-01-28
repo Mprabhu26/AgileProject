@@ -122,6 +122,108 @@
                 </div>
             </div>
 
+            <!-- Assigned Employees Section (Show only for IN_PROGRESS projects) -->
+            <div th:if="${project.status.name() == 'IN_PROGRESS' and assignments != null}">
+
+                <!-- Staffing Progress -->
+                <div class="card info-card mb-4">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="fas fa-chart-line me-2 text-success"></i>Staffing Progress</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <strong>Required Positions:</strong>
+                                <h3 th:text="${requiredCount}">0</h3>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Assigned Employees:</strong>
+                                <h3 th:text="${assignedCount}">0</h3>
+                            </div>
+                        </div>
+
+                        <div class="progress mb-2 progress-bar-custom">
+                            <div class="progress-bar bg-success"
+                                 role="progressbar"
+                                 th:style="'width: ' + ${staffingPercentage} + '%;'"
+                                 th:attr="aria-valuenow=${staffingPercentage}"
+                                 aria-valuemin="0"
+                                 aria-valuemax="100">
+                                <span th:text="${#numbers.formatDecimal(staffingPercentage, 0, 0)} + '%'">
+                                    0%
+                                </span>
+                            </div>
+                        </div>
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Staffing completion:
+                            <span th:text="${assignedCount} + '/' + ${requiredCount} + ' positions filled'">
+                                0/0 positions filled
+                            </span>
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Assigned Employees List -->
+                <div class="card info-card mb-4">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-users me-2 text-success"></i>Assigned Employees</h5>
+                        <span class="badge bg-success" th:text="${assignedCount}">0</span>
+                    </div>
+                    <div class="card-body">
+                        <div th:if="${assignments != null and !assignments.isEmpty()}">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                    <tr>
+                                        <th>Employee</th>
+
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr th:each="assignment : ${assignments}"
+                                        class="employee-card">
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div class="avatar-placeholder me-2 bg-primary text-white rounded-circle d-flex align-items-center justify-content-center"
+                                                     style="width: 36px; height: 36px;">
+                                                    <i class="fas fa-user"></i>
+                                                </div>
+                                                <div>
+                                                    <strong th:text="${assignment.employee != null ?
+                                                                  assignment.employee.getName() :
+                                                                  'Unknown Employee'}">
+                                                        Employee Name
+                                                    </strong><br>
+                                                    <small class="text-muted"
+                                                           th:text="${assignment.employee != null ?
+                                                                       assignment.employee.getEmail() :
+                                                                       'N/A'}">
+                                                        email@example.com
+                                                    </small>
+                                                </div>
+                                            </div>
+                                        </td>
+
+
+
+
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div th:if="${assignments == null or assignments.isEmpty()}" class="text-center py-4">
+                            <i class="fas fa-users-slash fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">No employees have been assigned to this project yet.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+
             <!-- Required Skills -->
             <div th:if="${project.skillRequirements != null and project.skillRequirements.size() > 0}" class="mt-4">
                 <h6><i class="fas fa-tools me-2 text-warning"></i>Required Skills</h6>

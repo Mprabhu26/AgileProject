@@ -11,5 +11,7 @@ public enum ProjectStatus {
     ASSIGNED,           // Staff has been assigned
     IN_PROGRESS,        // Staff assigned and work started
     COMPLETED,          // Project finished
-    CANCELLED           // Project cancelled
+    CANCELLED,          // Project cancelled
+    ACTIVE,
+    STARTED
 }

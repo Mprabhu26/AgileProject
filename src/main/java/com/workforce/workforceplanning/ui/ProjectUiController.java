@@ -1,5 +1,5 @@
 package com.workforce.workforceplanning.ui;
-
+import org.springframework.transaction.annotation.Transactional;
 import com.workforce.workforceplanning.dto.CreateProjectForm;
 import com.workforce.workforceplanning.dto.SkillRequirementDto;
 import com.workforce.workforceplanning.model.*;
@@ -14,10 +14,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import com.workforce.workforceplanning.workflow.ExternalSearchApprovalDelegate;
 import java.security.Principal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 import com.workforce.workforceplanning.repository.NotificationRepository;
 
@@ -290,6 +287,36 @@ public class ProjectUiController {
             }
         }
 
+        // ==================== CHECK IF PROJECT CAN BE CONFIRMED ====================
+        boolean canConfirmProject = false;
+        if (assignments != null && !assignments.isEmpty()) {
+            canConfirmProject = canConfirmProject(project, assignments);
+        }
+
+// Calculate skill coverage percentage
+        int totalSkillsNeeded = project.getSkillRequirements() != null ?
+                project.getSkillRequirements().stream()
+                        .mapToInt(ProjectSkillRequirement::getRequiredCount)
+                        .sum() : 0;
+        int skillsCovered = 0;
+
+        if (assignments != null && !assignments.isEmpty()) {
+            for (Assignment assignment : assignments) {
+                if (assignment.getStatus() == AssignmentStatus.CONFIRMED &&
+                        assignment.getEmployee().getSkills() != null) {
+                    skillsCovered += assignment.getEmployee().getSkills().size();
+                }
+            }
+        }
+
+        double skillCoverage = 0.0;
+        if (totalSkillsNeeded > 0) {
+            skillCoverage = (skillsCovered * 100.0) / totalSkillsNeeded;
+        }
+
+        model.addAttribute("canConfirmProject", canConfirmProject);
+        model.addAttribute("skillCoverage", Math.min(skillCoverage, 100.0));
+
         model.addAttribute("username", username);
         model.addAttribute("project", project);
         model.addAttribute("assignments", assignments);
@@ -513,6 +540,433 @@ public class ProjectUiController {
         return "redirect:/ui/projects/dashboard";
     }
 
+    // ==================== CANCEL PROJECT ====================
+    @PostMapping("/{id}/cancel")
+    public String cancelProject(
+            @PathVariable("id") Long id,
+            Principal principal,
+            RedirectAttributes redirectAttributes) {
+
+        String username = principal != null ? principal.getName() : "Guest";
+
+        System.out.println("=== CANCEL PROJECT START ===");
+        System.out.println("Project ID: " + id);
+        System.out.println("Username: " + username);
+
+        try {
+            // Find the project WITH its skill requirements
+            System.out.println("Looking for project with ID: " + id);
+            Project project = projectRepository.findById(id)
+                    .orElseThrow(() -> {
+                        System.out.println("ERROR: Project not found with ID: " + id);
+                        return new RuntimeException("Project not found");
+                    });
+
+            System.out.println("Project found: " + project.getName());
+            System.out.println("Skill requirements count: " +
+                    (project.getSkillRequirements() != null ? project.getSkillRequirements().size() : 0));
+
+            // Check ownership
+            if (!project.getCreatedBy().equals(username)) {
+                System.out.println("ERROR: User " + username + " is not owner. Owner is: " + project.getCreatedBy());
+                redirectAttributes.addFlashAttribute("errorMessage",
+                        "Unauthorized to cancel this project");
+                return "redirect:/ui/projects/dashboard";
+            }
+
+            // Check if project is already cancelled
+            if (project.getStatus() == ProjectStatus.CANCELLED) {
+                System.out.println("WARNING: Project already cancelled");
+                redirectAttributes.addFlashAttribute("errorMessage",
+                        "Project is already cancelled");
+                return "redirect:/ui/projects/dashboard";
+            }
+
+            // Get all assignments for this project
+            System.out.println("Finding assignments for project...");
+            List<Assignment> assignments = assignmentRepository.findAll().stream()
+                    .filter(a -> a.getProject().getId().equals(id))
+                    .collect(Collectors.toList());
+            System.out.println("Found " + assignments.size() + " assignments");
+
+            // Release all assigned employees
+            for (Assignment assignment : assignments) {
+                Employee employee = assignment.getEmployee();
+                if (employee != null) {
+                    System.out.println("Releasing employee: " + employee.getName());
+                    employee.setAvailable(true);
+                    employeeRepository.save(employee);
+
+                    // Notify employee
+                    Notification notification = new Notification(
+                            employee.getId(),
+                            "Project Cancelled",
+                            "Project '" + project.getName() + "' has been cancelled.",
+                            NotificationType.ASSIGNMENT_PROPOSED
+                    );
+                    notification.setProjectId(project.getId());
+                    notification.setProjectName(project.getName());
+                    notificationRepository.save(notification);
+                }
+            }
+
+            // IMPORTANT: Clear skill requirements first (set to null)
+            System.out.println("Clearing skill requirements...");
+            if (project.getSkillRequirements() != null) {
+                // Clear the list and set project reference to null for each requirement
+                for (ProjectSkillRequirement requirement : new ArrayList<>(project.getSkillRequirements())) {
+                    requirement.setProject(null);
+                }
+                project.getSkillRequirements().clear();
+            }
+
+            // Save project to clear skill requirements
+            projectRepository.save(project);
+
+            // Now delete assignments
+            System.out.println("Deleting assignments...");
+            if (!assignments.isEmpty()) {
+                assignmentRepository.deleteAll(assignments);
+            }
+
+            // Get all applications for this project
+            System.out.println("Finding applications for project...");
+            List<Application> applications = applicationRepository.findAll().stream()
+                    .filter(app -> app.getProject().getId().equals(id))
+                    .collect(Collectors.toList());
+            System.out.println("Found " + applications.size() + " applications");
+
+            if (!applications.isEmpty()) {
+                applicationRepository.deleteAll(applications);
+            }
+
+            // Update project status
+            System.out.println("Updating project status to CANCELLED...");
+            project.setStatus(ProjectStatus.CANCELLED);
+            project.setWorkflowStatus("CANCELLED");
+            project.setPublished(false);
+            project.setVisibleToAll(false);
+            projectRepository.save(project);
+
+            // Notify Resource Planner
+            Notification rpNotification = new Notification(
+                    "planner",
+                    "Project Cancelled: " + project.getName(),
+                    "Project Manager " + username + " has cancelled project.",
+                    NotificationType.ASSIGNMENT_PROPOSED
+            );
+            rpNotification.setProjectId(project.getId());
+            rpNotification.setProjectName(project.getName());
+            notificationRepository.save(rpNotification);
+
+            redirectAttributes.addFlashAttribute("successMessage",
+                    "✅ Project '" + project.getName() + "' cancelled successfully!");
+
+            System.out.println("=== CANCEL PROJECT SUCCESS ===");
+
+        } catch (Exception e) {
+            System.out.println("=== CANCEL PROJECT ERROR ===");
+            System.out.println("Error type: " + e.getClass().getName());
+            System.out.println("Error message: " + e.getMessage());
+            e.printStackTrace();
+
+            redirectAttributes.addFlashAttribute("errorMessage",
+                    "❌ Failed to cancel project: " + e.getMessage());
+        }
+
+        return "redirect:/ui/projects/dashboard";
+    }
+    // ==================== CONFIRM PROJECT (START PROJECT) ====================
+    @PostMapping("/{id}/confirm")
+    public String confirmProject(
+            @PathVariable("id") Long id,
+            Principal principal,
+            RedirectAttributes redirectAttributes) {
+
+        String username = principal != null ? principal.getName() : "Guest";
+
+        try {
+            Project project = projectRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+
+            // Get all assignments for this project
+            List<Assignment> assignments = assignmentRepository.findAll().stream()
+                    .filter(a -> a.getProject().getId().equals(id))
+                    .collect(Collectors.toList());
+
+            // Verify project can be confirmed
+            if (!canConfirmProject(project, assignments)) {
+                redirectAttributes.addFlashAttribute("errorMessage",
+                        "Cannot confirm project. Ensure all required skills and employees are confirmed.");
+                return "redirect:/ui/projects/" + id;
+            }
+
+            // Update project status
+            project.setStatus(ProjectStatus.IN_PROGRESS);
+            project.setWorkflowStatus("PROJECT_CONFIRMED");
+            projectRepository.save(project);
+
+            // Update all confirmed assignments to IN_PROGRESS
+            for (Assignment assignment : assignments) {
+                if (assignment.getStatus() == AssignmentStatus.CONFIRMED) {
+                    assignment.setStatus(AssignmentStatus.IN_PROGRESS);
+                    assignmentRepository.save(assignment);
+                }
+            }
+
+            // Notify Resource Planner
+            String messagerp = "Project '" + project.getName() +
+                    "' has been confirmed and can now start. All staffing requirements are satisfied.";
+            Notification rpNotification = new Notification(
+                    "planner",  // planner username
+                    "Project Ready to Start: " + project.getName(),
+                    messagerp,
+                    NotificationType.PROJECT_STARTED
+            );
+            rpNotification.setProjectId(project.getId());
+            rpNotification.setProjectName(project.getName());
+            notificationRepository.save(rpNotification);
+
+            // Notify all assigned employees
+            for (Assignment assignment : assignments) {
+                if (assignment.getStatus() == AssignmentStatus.IN_PROGRESS) {
+                    Notification empNotification = new Notification(
+                            assignment.getEmployee().getId(),
+                            "Project Starting: " + project.getName(),
+                            "Project '" + project.getName() + "' is now starting. Please begin your assigned tasks.",
+                            NotificationType.PROJECT_STARTED
+                    );
+                    empNotification.setProjectId(project.getId());
+                    empNotification.setProjectName(project.getName());
+                    notificationRepository.save(empNotification);
+                }
+            }
+
+            redirectAttributes.addFlashAttribute("successMessage",
+                    "✅ Project '" + project.getName() + "' confirmed and started successfully! " +
+                            "Resource Planner has been notified.");
+
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage",
+                    "❌ Failed to confirm project: " + e.getMessage());
+        }
+
+        return "redirect:/ui/projects/" + id;
+    }
+
+    // ==================== START PROJECT ====================
+    @PostMapping("/{id}/start")
+    public String startProject(
+            @PathVariable("id") Long id,
+            Principal principal,
+            RedirectAttributes redirectAttributes) {
+
+        String username = principal != null ? principal.getName() : "Guest";
+
+        try {
+            Project project = projectRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+
+            // Check if project can be started
+            if (project.getStatus() != ProjectStatus.ACTIVE) {
+                redirectAttributes.addFlashAttribute("errorMessage",
+                        "Project must be in ACTIVE status to be started");
+                return "redirect:/ui/projects/" + id;
+            }
+
+            // Update project status
+            project.setStatus(ProjectStatus.STARTED);
+            project.setWorkflowStatus("PROJECT_STARTED");
+            projectRepository.save(project);
+
+            // Update all confirmed assignments to IN_PROGRESS
+            List<Assignment> assignments = assignmentRepository.findAll().stream()
+                    .filter(a -> a.getProject().getId().equals(id))
+                    .collect(Collectors.toList());
+
+            for (Assignment assignment : assignments) {
+                if (assignment.getStatus() == AssignmentStatus.CONFIRMED) {
+                    assignment.setStatus(AssignmentStatus.IN_PROGRESS);
+                    assignmentRepository.save(assignment);
+                }
+            }
+
+            // Notify Resource Planner
+            String messageRp = "Project '" + project.getName() + "' has been started by Project Manager.";
+            Notification rpNotification = new Notification(
+                    "planner",  // planner username
+                    "Project Started: " + project.getName(),
+                    messageRp,
+                    NotificationType.PROJECT_STARTED
+            );
+            rpNotification.setProjectId(project.getId());
+            rpNotification.setProjectName(project.getName());
+            notificationRepository.save(rpNotification);
+
+            // Notify all assigned employees
+            for (Assignment assignment : assignments) {
+                if (assignment.getStatus() == AssignmentStatus.IN_PROGRESS) {
+                    Notification empNotification = new Notification(
+                            assignment.getEmployee().getId(),
+                            "Project Started: " + project.getName(),
+                            "Project '" + project.getName() + "' has been started. Please begin your assigned tasks.",
+                            NotificationType.PROJECT_STARTED
+                    );
+                    empNotification.setProjectId(project.getId());
+                    empNotification.setProjectName(project.getName());
+                    notificationRepository.save(empNotification);
+                }
+            }
+
+            redirectAttributes.addFlashAttribute("successMessage",
+                    "✅ Project '" + project.getName() + "' started successfully! " +
+                            "All assigned employees have been notified.");
+
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage",
+                    "❌ Failed to start project: " + e.getMessage());
+        }
+
+        return "redirect:/ui/projects/" + id;
+    }
+
+    @PostMapping("/{id}/end")
+    public String endProject(
+            @PathVariable("id") Long id,
+            Principal principal,
+            RedirectAttributes redirectAttributes) {
+
+        String username = principal != null ? principal.getName() : "Guest";
+
+        System.out.println("=== End PROJECT  ===");
+        System.out.println("Project ID: " + id);
+        System.out.println("Username: " + username);
+
+        try {
+            // Find the project WITH its skill requirements
+            System.out.println("Looking for project with ID: " + id);
+            Project project = projectRepository.findById(id)
+                    .orElseThrow(() -> {
+                        System.out.println("ERROR: Project not found with ID: " + id);
+                        return new RuntimeException("Project not found");
+                    });
+
+            System.out.println("Project found: " + project.getName());
+            System.out.println("Skill requirements count: " +
+                    (project.getSkillRequirements() != null ? project.getSkillRequirements().size() : 0));
+
+            // Check ownership
+            if (!project.getCreatedBy().equals(username)) {
+                System.out.println("ERROR: User " + username + " is not owner. Owner is: " + project.getCreatedBy());
+                redirectAttributes.addFlashAttribute("errorMessage",
+                        "Unauthorized to COMPLETED this project");
+                return "redirect:/ui/projects/dashboard";
+            }
+
+            // Check if project is already cancelled
+            if (project.getStatus() == ProjectStatus.COMPLETED) {
+                System.out.println("WARNING: Project already complete");
+                redirectAttributes.addFlashAttribute("errorMessage",
+                        "Project is already complete");
+                return "redirect:/ui/projects/dashboard";
+            }
+
+            // Get all assignments for this project
+            System.out.println("Finding assignments for project...");
+            List<Assignment> assignments = assignmentRepository.findAll().stream()
+                    .filter(a -> a.getProject().getId().equals(id))
+                    .collect(Collectors.toList());
+            System.out.println("Found " + assignments.size() + " assignments");
+
+            // Release all assigned employees
+            for (Assignment assignment : assignments) {
+                Employee employee = assignment.getEmployee();
+                if (employee != null) {
+                    System.out.println("Releasing employee: " + employee.getName());
+                    employee.setAvailable(true);
+                    employeeRepository.save(employee);
+
+                    // Notify employee
+                    Notification notification = new Notification(
+                            employee.getId(),
+                            "Project Cancelled",
+                            "Project '" + project.getName() + "' has been COMPLETED.",
+                            NotificationType.ASSIGNMENT_PROPOSED
+                    );
+                    notification.setProjectId(project.getId());
+                    notification.setProjectName(project.getName());
+                    notificationRepository.save(notification);
+                }
+            }
+
+            // IMPORTANT: Clear skill requirements first (set to null)
+            System.out.println("Clearing skill requirements...");
+            if (project.getSkillRequirements() != null) {
+                // Clear the list and set project reference to null for each requirement
+                for (ProjectSkillRequirement requirement : new ArrayList<>(project.getSkillRequirements())) {
+                    requirement.setProject(null);
+                }
+                project.getSkillRequirements().clear();
+            }
+
+            // Save project to clear skill requirements
+            projectRepository.save(project);
+
+            // Now delete assignments
+            System.out.println("Deleting assignments...");
+            if (!assignments.isEmpty()) {
+                assignmentRepository.deleteAll(assignments);
+            }
+
+            // Get all applications for this project
+            System.out.println("Finding applications for project...");
+            List<Application> applications = applicationRepository.findAll().stream()
+                    .filter(app -> app.getProject().getId().equals(id))
+                    .collect(Collectors.toList());
+            System.out.println("Found " + applications.size() + " applications");
+
+            if (!applications.isEmpty()) {
+                applicationRepository.deleteAll(applications);
+            }
+
+            // Update project status
+            System.out.println("Updating project status to CANCELLED...");
+            project.setStatus(ProjectStatus.COMPLETED);
+            project.setWorkflowStatus("COMPLETED");
+            project.setPublished(false);
+            project.setVisibleToAll(false);
+            projectRepository.save(project);
+
+            // Notify Resource Planner
+            Notification rpNotification = new Notification(
+                    "planner",
+                    "Project COMPLETED: " + project.getName(),
+                    "Project Manager " + username + " has COMPLETED project.",
+                    NotificationType.ASSIGNMENT_PROPOSED
+            );
+            rpNotification.setProjectId(project.getId());
+            rpNotification.setProjectName(project.getName());
+            notificationRepository.save(rpNotification);
+
+            redirectAttributes.addFlashAttribute("successMessage",
+                    "✅ Project '" + project.getName() + "' COMPLETED successfully!");
+
+            System.out.println("=== COMPLETED PROJECT SUCCESS ===");
+
+        } catch (Exception e) {
+            System.out.println("=== COMPLETED PROJECT ERROR ===");
+            System.out.println("Error type: " + e.getClass().getName());
+            System.out.println("Error message: " + e.getMessage());
+            e.printStackTrace();
+
+            redirectAttributes.addFlashAttribute("errorMessage",
+                    "❌ Failed to COMPLETED project: " + e.getMessage());
+        }
+
+        return "redirect:/ui/projects/dashboard";
+    }
+
+
     // ==================== UNPUBLISH PROJECT ====================
 
     @PostMapping("/{id}/unpublish")
@@ -570,63 +1024,6 @@ public class ProjectUiController {
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("errorMessage",
                     "❌ Failed to unpublish project: " + e.getMessage());
-        }
-
-        return "redirect:/ui/projects/dashboard";
-    }
-
-
-    // ==================== CANCEL PROJECT ====================
-    @PostMapping("/{id}/cancel")
-    public String cancelProject(
-            @PathVariable("id") Long id,
-            Principal principal,
-            RedirectAttributes redirectAttributes) {
-
-        String username = principal != null ? principal.getName() : "Guest";
-
-        try {
-            Project project = projectRepository.findById(id)
-                    .orElseThrow(() -> new RuntimeException("Project not found"));
-
-            // Check ownership
-            if (!project.getCreatedBy().equals(username)) {
-                redirectAttributes.addFlashAttribute("errorMessage",
-                        "Unauthorized to cancel this project");
-                return "redirect:/ui/projects/dashboard";
-            }
-
-            // Check if project can be cancelled
-            if (project.getStatus() == ProjectStatus.COMPLETED) {
-                redirectAttributes.addFlashAttribute("errorMessage",
-                        "Cannot cancel a completed project");
-                return "redirect:/ui/projects/" + id;
-            }
-
-            // Cancel the project
-            project.setStatus(ProjectStatus.CANCELLED);
-            project.setPublished(false);
-            project.setVisibleToAll(false);
-            projectRepository.save(project);
-
-            // Free all assigned employees
-            List<Assignment> assignments = assignmentRepository.findAll().stream()
-                    .filter(a -> a.getProject().getId().equals(id))
-                    .toList();
-
-            for (Assignment assignment : assignments) {
-                Employee employee = assignment.getEmployee();
-                employee.setAvailable(true);
-                employeeRepository.save(employee);
-            }
-
-            redirectAttributes.addFlashAttribute("successMessage",
-                    "✅ Project '" + project.getName() + "' cancelled successfully! " +
-                            "All employees freed.");
-
-        } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("errorMessage",
-                    "❌ Failed to cancel project: " + e.getMessage());
         }
 
         return "redirect:/ui/projects/dashboard";
@@ -954,6 +1351,39 @@ public class ProjectUiController {
         return "projects/external-search-status";
     }
 
+    // ==================== CHECK IF PROJECT CAN BE CONFIRMED ====================
+    private boolean canConfirmProject(Project project, List<Assignment> assignments) {
+        // Check if required employee count is met
+        long confirmedCount = assignments.stream()
+                .filter(a -> a.getStatus() == AssignmentStatus.CONFIRMED)
+                .count();
+
+        if (confirmedCount < project.getTotalEmployeesRequired()) {
+            return false;
+        }
+
+        // Check if all skill requirements are satisfied
+        if (project.getSkillRequirements() != null && !project.getSkillRequirements().isEmpty()) {
+            for (ProjectSkillRequirement requirement : project.getSkillRequirements()) {
+                String skill = requirement.getSkill();
+                int requiredCount = requirement.getRequiredCount();
+
+                // Count how many confirmed employees have this skill
+                long employeesWithSkill = assignments.stream()
+                        .filter(a -> a.getStatus() == AssignmentStatus.CONFIRMED)
+                        .filter(a -> a.getEmployee().getSkills() != null &&
+                                a.getEmployee().getSkills().contains(skill))
+                        .count();
+
+                if (employeesWithSkill < requiredCount) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
     // ==================== PROJECT MANAGER DASHBOARD ====================
     @GetMapping("/dashboard")
     public String projectManagerDashboard(Model model, Principal principal) {
@@ -973,6 +1403,8 @@ public class ProjectUiController {
                 .filter(p -> p.getStatus() == ProjectStatus.IN_PROGRESS)
                 .count();
 
+
+
         long totalCount = myProjects.size();
         long pendingCount = myProjects.stream().filter(p -> p.getStatus() == ProjectStatus.PENDING_APPROVAL).count();
         long approvedCount = myProjects.stream().filter(p -> p.getStatus() == ProjectStatus.APPROVED).count();
@@ -980,6 +1412,12 @@ public class ProjectUiController {
         long draftCount = myProjects.stream().filter(p -> p.getStatus() == ProjectStatus.DRAFT).count();
         long rejectCount = myProjects.stream().filter(p -> p.getStatus() == ProjectStatus.REJECTED).count();
         long staffingCount = myProjects.stream().filter(p -> p.getStatus() == ProjectStatus.STAFFING).count();
+
+        long confirmedProjects = myProjects.stream()
+                .filter(p -> p.getStatus() == ProjectStatus.IN_PROGRESS)
+                .count();
+
+        model.addAttribute("confirmedProjects", confirmedProjects);
 
         // Get published projects for department head
         List<Project> publishedProjects = projectRepository.findAll().stream()
