@@ -60,14 +60,13 @@ public class ResourcePlannerUIController {
     @GetMapping("/dashboard")
     public String dashboard(Model model,
                             @RequestParam(value = "view", required = false) String view, Principal principal) {
-                            @RequestParam(value = "view", required = false) String view,
-                            Principal principal) {
+
 
         // Default view
         String activeView = (view != null) ? view : "projects";
 
         // Get username from principal
-        String username = principal != null ? principal.getName() : "planner";
+        //String username = principal != null ? principal.getName() : "planner";
 
         try {
             // ==================== FIX 1: FILTER PROJECTS NEEDING STAFF ====================
