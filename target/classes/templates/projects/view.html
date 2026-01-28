@@ -890,6 +890,29 @@
                     </button>
                 </form>
 
+                <!-- Start Project Button -->
+                <form th:action="@{'/ui/projects/' + ${project.id} + '/start'}"
+                      method="post"
+                      style="display: inline;"
+                      th:if="${project.status.name() == 'ACTIVE'}">
+                    <button type="submit" class="action-btn"
+                            style="background: #10b981; color: white;">
+                        <i class="fas fa-play"></i> Start Project
+                    </button>
+                </form>
+
+                <!-- End Project Button -->
+                <form th:action="@{'/ui/projects/' + ${project.id} + '/end'}"
+                      method="post"
+                      style="display: inline;"
+                      th:if="${project.status.name() == 'STARTED'}">
+                    <button type="submit" class="action-btn"
+                            style="background: #ef4444; color: white;"
+                            onclick="return confirm('Are you sure you want to end this project? All assigned employees will be released.')">
+                        <i class="fas fa-stop"></i> End Project
+                    </button>
+                </form>
+
                 <form th:action="@{'/ui/projects/' + ${project.id} + '/confirm'}"
                       method="post"
                       style="display: inline;"

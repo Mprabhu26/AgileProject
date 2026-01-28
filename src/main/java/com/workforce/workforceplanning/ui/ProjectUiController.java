@@ -1,5 +1,5 @@
 package com.workforce.workforceplanning.ui;
-
+import org.springframework.transaction.annotation.Transactional;
 import com.workforce.workforceplanning.dto.CreateProjectForm;
 import com.workforce.workforceplanning.dto.SkillRequirementDto;
 import com.workforce.workforceplanning.model.*;
@@ -14,10 +14,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import com.workforce.workforceplanning.workflow.ExternalSearchApprovalDelegate;
 import java.security.Principal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 import com.workforce.workforceplanning.repository.NotificationRepository;
 
@@ -778,7 +775,7 @@ public class ProjectUiController {
             }
 
             // Update project status
-            project.setStatus(ProjectStatus.IN_PROGRESS);
+            project.setStatus(ProjectStatus.STARTED);
             project.setWorkflowStatus("PROJECT_STARTED");
             projectRepository.save(project);
 
@@ -833,7 +830,6 @@ public class ProjectUiController {
         return "redirect:/ui/projects/" + id;
     }
 
-    // ==================== END PROJECT ====================
     @PostMapping("/{id}/end")
     public String endProject(
             @PathVariable("id") Long id,
@@ -842,27 +838,47 @@ public class ProjectUiController {
 
         String username = principal != null ? principal.getName() : "Guest";
 
-        System.out.println("=== END PROJECT START ===");
+        System.out.println("=== End PROJECT  ===");
         System.out.println("Project ID: " + id);
         System.out.println("Username: " + username);
 
         try {
+            // Find the project WITH its skill requirements
+            System.out.println("Looking for project with ID: " + id);
             Project project = projectRepository.findById(id)
-                    .orElseThrow(() -> new RuntimeException("Project not found"));
+                    .orElseThrow(() -> {
+                        System.out.println("ERROR: Project not found with ID: " + id);
+                        return new RuntimeException("Project not found");
+                    });
 
-            // Check if project can be ended
-            if (project.getStatus() != ProjectStatus.IN_PROGRESS) {
+            System.out.println("Project found: " + project.getName());
+            System.out.println("Skill requirements count: " +
+                    (project.getSkillRequirements() != null ? project.getSkillRequirements().size() : 0));
+
+            // Check ownership
+            if (!project.getCreatedBy().equals(username)) {
+                System.out.println("ERROR: User " + username + " is not owner. Owner is: " + project.getCreatedBy());
                 redirectAttributes.addFlashAttribute("errorMessage",
-                        "Only projects in IN_PROGRESS status can be ended");
-                return "redirect:/ui/projects/" + id;
+                        "Unauthorized to COMPLETED this project");
+                return "redirect:/ui/projects/dashboard";
+            }
+
+            // Check if project is already cancelled
+            if (project.getStatus() == ProjectStatus.COMPLETED) {
+                System.out.println("WARNING: Project already complete");
+                redirectAttributes.addFlashAttribute("errorMessage",
+                        "Project is already complete");
+                return "redirect:/ui/projects/dashboard";
             }
 
             // Get all assignments for this project
+            System.out.println("Finding assignments for project...");
             List<Assignment> assignments = assignmentRepository.findAll().stream()
                     .filter(a -> a.getProject().getId().equals(id))
                     .collect(Collectors.toList());
+            System.out.println("Found " + assignments.size() + " assignments");
 
-            // Release all assigned employees (set available = true)
+            // Release all assigned employees
             for (Assignment assignment : assignments) {
                 Employee employee = assignment.getEmployee();
                 if (employee != null) {
@@ -870,12 +886,12 @@ public class ProjectUiController {
                     employee.setAvailable(true);
                     employeeRepository.save(employee);
 
-                    // Notify employee about project completion
+                    // Notify employee
                     Notification notification = new Notification(
                             employee.getId(),
-                            "Project Completed: " + project.getName(),
-                            "Project '" + project.getName() + "' has been completed. You are now available for new assignments.",
-                            NotificationType.PROJECT_COMPLETED
+                            "Project Cancelled",
+                            "Project '" + project.getName() + "' has been COMPLETED.",
+                            NotificationType.ASSIGNMENT_PROPOSED
                     );
                     notification.setProjectId(project.getId());
                     notification.setProjectName(project.getName());
@@ -883,45 +899,73 @@ public class ProjectUiController {
                 }
             }
 
-            // Update all assignments to COMPLETED
-            for (Assignment assignment : assignments) {
-                assignment.setStatus(AssignmentStatus.COMPLETED);
-                assignmentRepository.save(assignment);
+            // IMPORTANT: Clear skill requirements first (set to null)
+            System.out.println("Clearing skill requirements...");
+            if (project.getSkillRequirements() != null) {
+                // Clear the list and set project reference to null for each requirement
+                for (ProjectSkillRequirement requirement : new ArrayList<>(project.getSkillRequirements())) {
+                    requirement.setProject(null);
+                }
+                project.getSkillRequirements().clear();
+            }
+
+            // Save project to clear skill requirements
+            projectRepository.save(project);
+
+            // Now delete assignments
+            System.out.println("Deleting assignments...");
+            if (!assignments.isEmpty()) {
+                assignmentRepository.deleteAll(assignments);
+            }
+
+            // Get all applications for this project
+            System.out.println("Finding applications for project...");
+            List<Application> applications = applicationRepository.findAll().stream()
+                    .filter(app -> app.getProject().getId().equals(id))
+                    .collect(Collectors.toList());
+            System.out.println("Found " + applications.size() + " applications");
+
+            if (!applications.isEmpty()) {
+                applicationRepository.deleteAll(applications);
             }
 
             // Update project status
+            System.out.println("Updating project status to CANCELLED...");
             project.setStatus(ProjectStatus.COMPLETED);
-            project.setWorkflowStatus("PROJECT_COMPLETED");
+            project.setWorkflowStatus("COMPLETED");
+            project.setPublished(false);
+            project.setVisibleToAll(false);
             projectRepository.save(project);
 
             // Notify Resource Planner
             Notification rpNotification = new Notification(
                     "planner",
-                    "Project Completed: " + project.getName(),
-                    "Project Manager " + username + " has marked project '" + project.getName() + "' as completed.",
-                    NotificationType.PROJECT_COMPLETED
+                    "Project COMPLETED: " + project.getName(),
+                    "Project Manager " + username + " has COMPLETED project.",
+                    NotificationType.ASSIGNMENT_PROPOSED
             );
             rpNotification.setProjectId(project.getId());
             rpNotification.setProjectName(project.getName());
             notificationRepository.save(rpNotification);
 
             redirectAttributes.addFlashAttribute("successMessage",
-                    "✅ Project '" + project.getName() + "' completed successfully! " +
-                            "All employees have been released and are now available.");
+                    "✅ Project '" + project.getName() + "' COMPLETED successfully!");
 
-            System.out.println("=== END PROJECT SUCCESS ===");
+            System.out.println("=== COMPLETED PROJECT SUCCESS ===");
 
         } catch (Exception e) {
-            System.out.println("=== END PROJECT ERROR ===");
-            System.out.println("Error: " + e.getMessage());
+            System.out.println("=== COMPLETED PROJECT ERROR ===");
+            System.out.println("Error type: " + e.getClass().getName());
+            System.out.println("Error message: " + e.getMessage());
             e.printStackTrace();
 
             redirectAttributes.addFlashAttribute("errorMessage",
-                    "❌ Failed to end project: " + e.getMessage());
+                    "❌ Failed to COMPLETED project: " + e.getMessage());
         }
 
-        return "redirect:/ui/projects/" + id;
+        return "redirect:/ui/projects/dashboard";
     }
+
 
     // ==================== UNPUBLISH PROJECT ====================
 
