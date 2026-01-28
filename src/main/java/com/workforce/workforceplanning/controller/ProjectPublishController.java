@@ -54,7 +54,10 @@ public class ProjectPublishController {
                     if (project.getStatus() == ProjectStatus.PENDING
                             || project.getStatus() == ProjectStatus.APPROVED
                             || project.getStatus() == ProjectStatus.REJECTED
-                            || project.getStatus() == ProjectStatus.DRAFT) {
+                            || project.getStatus() == ProjectStatus.DRAFT
+                            || project.getStatus() == ProjectStatus.CANCELLED
+                            || project.getStatus() == ProjectStatus.IN_PROGRESS
+                            || project.getStatus() == ProjectStatus.ASSIGNED) {
                         project.setStatus(ProjectStatus.PENDING_APPROVAL);
                     }
 

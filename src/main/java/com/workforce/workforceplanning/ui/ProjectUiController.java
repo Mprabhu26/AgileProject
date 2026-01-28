@@ -1403,6 +1403,8 @@ public class ProjectUiController {
                 .filter(p -> p.getStatus() == ProjectStatus.IN_PROGRESS)
                 .count();
 
+
+
         long totalCount = myProjects.size();
         long pendingCount = myProjects.stream().filter(p -> p.getStatus() == ProjectStatus.PENDING_APPROVAL).count();
         long approvedCount = myProjects.stream().filter(p -> p.getStatus() == ProjectStatus.APPROVED).count();

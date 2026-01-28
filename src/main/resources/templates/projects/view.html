@@ -510,7 +510,7 @@
         <div class="header-buttons">
             <a th:href="@{'/ui/projects/' + ${project.id} + '/edit'}"
                class="btn btn-edit"
-               th:unless="${project.published}">
+               th:if="${project.status.name() == 'REJECTED' or project.status.name() == 'DRAFT' or (not project.published and project.status.name() != 'COMPLETED' and project.status.name() != 'CANCELLED')}">
                 <i class="fas fa-edit"></i> Edit Project
             </a>
             <a th:href="@{/ui/projects}" class="btn btn-back">
@@ -852,21 +852,28 @@
             <div class="action-buttons">
                 <!-- Publish/Unpublish -->
                 <form th:action="@{/projects/{id}/publish(id=${project.id})}"
-                      method="post" style="display: inline;" th:if="${!project.published}">
+                      method="post" style="display: inline;" th:if="${!project.published and project.status.name() != 'COMPLETED' and project.status.name() != 'CANCELLED'}">
                     <button type="submit" class="action-btn btn-success">
                         <i class="fas fa-globe"></i> Publish Project
                     </button>
                 </form>
 
                 <form th:action="@{/projects/{id}/unpublish(id=${project.id})}"
-                      method="post" style="display: inline;" th:if="${project.published}">
+                      method="post" style="display: inline;" th:if="${project.published }">
                     <button type="submit" class="action-btn btn-warning">
                         <i class="fas fa-eye-slash"></i> Unpublish Project
                     </button>
                 </form>
 
                 <!-- External Search -->
-
+                <div th:if="${workflowStatus == 'EXTERNAL_SEARCH_APPROVED'}">
+                    <a href="https://service-manage-frontend-production.up.railway.app/"
+                       target="_blank"
+                       class="action-btn btn-primary">
+                        <i class="fas fa-external-link-alt"></i>
+                        Start External Search
+                    </a>
+                </div>
 
                 <!-- Delete Project -->
                 <form th:action="@{'/ui/projects/' + ${project.id} + '/delete'}"
@@ -881,7 +888,7 @@
 
                 <!-- Add this form in the Project Actions section -->
                 <form th:action="@{'/ui/projects/' + ${project.id} + '/cancel'}"
-                      method="post" th:if="${project.status.name() != 'CANCELLED'}"
+                      method="post" th:if="${project.status.name() != 'CANCELLED' and project.status.name() != 'COMPLETED' }"
                       style="display: inline;">
                     <button type="submit"
                             class="action-btn delete-btn"
