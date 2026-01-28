@@ -623,10 +623,7 @@
                         <div class="user-name" th:text="${#authentication?.name ?: 'Resource Planner'}">Resource Planner</div>
                         <div class="user-role">Resource Planner</div>
                     </div>
-                    <a href="/ui/resource-planner/notifications" class="header-btn btn-notification">
-                        🔔 Notifications
-                        <span th:if="${unreadNotifications > 0}" class="badge" th:text="${unreadNotifications}">0</span>
-                    </a>
+
                     <a href="/ui/employees" class="btn btn-view-employees">
                         <i class="fas fa-users"></i> View All Employees
                         <a href="/ui/resource-planner/staffing-tracker" class="header-btn btn-secondary">
