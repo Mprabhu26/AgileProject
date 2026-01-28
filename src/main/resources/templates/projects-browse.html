@@ -598,6 +598,13 @@
 
     <!-- Main Content -->
     <div class="content">
+        <div th:if="${success}" class="alert alert-success" style="margin: 20px; padding: 15px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 5px; color: #155724;">
+            <i class="fas fa-check-circle"></i> <span th:text="${success}"></span>
+        </div>
+
+        <div th:if="${error}" class="alert alert-danger" style="margin: 20px; padding: 15px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 5px; color: #721c24;">
+            <i class="fas fa-exclamation-triangle"></i> <span th:text="${error}"></span>
+        </div>
         <!-- Stats Bar -->
         <div class="stats-bar">
             <div class="stat-item">
@@ -727,6 +734,9 @@
                         <!-- Show Apply button only if not assigned and not applied -->
                         <div th:if="${appliedProjectIds == null or !appliedProjectIds.contains(project.id)}">
                             <form th:action="@{/ui/employee/projects/{id}/apply(id=${project.id})}" method="post" style="display: inline; margin: 0;">
+
+                                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+
                                 <button type="submit" class="apply-btn" style="border: none; cursor: pointer;">
                                     <i class="fas fa-paper-plane"></i> Apply
                                 </button>
