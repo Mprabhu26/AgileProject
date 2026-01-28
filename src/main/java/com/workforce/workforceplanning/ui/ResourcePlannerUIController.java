@@ -885,6 +885,189 @@ public class ResourcePlannerUIController {
         return "redirect:/ui/resource-planner/project/" + projectId;
     }
 
+    // ========================================
+// ADD THESE METHODS TO ResourcePlannerUIController.java
+// Add after the proposeEmployee method (around line 750)
+// ========================================
+
+    /**
+     * ✅ ACCEPT APPLICATION - Employee applied and RP accepts
+     */
+    @PostMapping("/applications/{applicationId}/accept")
+    public String acceptApplication(
+            @PathVariable Long applicationId,
+            RedirectAttributes redirectAttributes) {
+
+        try {
+            // Get the application
+            Application application = applicationRepository.findById(applicationId)
+                    .orElseThrow(() -> new RuntimeException("Application not found"));
+
+            Project project = application.getProject();
+            Employee employee = application.getEmployee();
+
+            // Check if employee is still available
+            if (!Boolean.TRUE.equals(employee.getAvailable())) {
+                redirectAttributes.addFlashAttribute("error",
+                        "❌ " + employee.getName() + " is no longer available");
+                return "redirect:/ui/resource-planner/project/" + project.getId();
+            }
+
+            // Check if project still needs employees
+            long confirmedCount = assignmentRepository.findAll().stream()
+                    .filter(a -> a.getProject().getId().equals(project.getId()))
+                    .filter(a -> a.getStatus() == AssignmentStatus.CONFIRMED ||
+                            a.getStatus() == AssignmentStatus.IN_PROGRESS)
+                    .count();
+
+            if (confirmedCount >= project.getTotalEmployeesRequired()) {
+                redirectAttributes.addFlashAttribute("warning",
+                        "⚠️ Project is already fully staffed");
+                return "redirect:/ui/resource-planner/project/" + project.getId();
+            }
+
+            // ✅ ACCEPT THE APPLICATION
+            application.setStatus(ApplicationStatus.APPROVED);
+            application.setReviewedAt(java.time.LocalDateTime.now());
+            applicationRepository.save(application);
+
+            // ✅ CREATE PENDING ASSIGNMENT (employee needs to confirm)
+            Assignment pendingAssignment = new Assignment(project, employee, AssignmentStatus.PENDING);
+            pendingAssignment.setAssignedAt(java.time.LocalDateTime.now());
+            assignmentRepository.save(pendingAssignment);
+
+            // ✅ NOTIFY EMPLOYEE ABOUT ACCEPTANCE
+            notifyEmployeeOfAcceptance(application, pendingAssignment);
+
+            System.out.println("✅ Application accepted: " + employee.getName() +
+                    " for project " + project.getName());
+
+            redirectAttributes.addFlashAttribute("success",
+                    "✅ Application accepted! " + employee.getName() +
+                            " has been notified and must confirm the assignment.");
+
+        } catch (Exception e) {
+            System.err.println("❌ Error accepting application: " + e.getMessage());
+            e.printStackTrace();
+            redirectAttributes.addFlashAttribute("error",
+                    "❌ Failed to accept application: " + e.getMessage());
+        }
+
+        // Redirect back to project page
+        Application app = applicationRepository.findById(applicationId).orElse(null);
+        Long projectId = app != null ? app.getProject().getId() : null;
+        return "redirect:/ui/resource-planner/project/" + (projectId != null ? projectId : "");
+    }
+
+    /**
+     * ❌ DECLINE APPLICATION - Employee applied but RP declines
+     */
+    @PostMapping("/applications/{applicationId}/decline")
+    public String declineApplication(
+            @PathVariable Long applicationId,
+            RedirectAttributes redirectAttributes) {
+
+        try {
+            // Get the application
+            Application application = applicationRepository.findById(applicationId)
+                    .orElseThrow(() -> new RuntimeException("Application not found"));
+
+            Project project = application.getProject();
+            Employee employee = application.getEmployee();
+
+            // ❌ DECLINE THE APPLICATION
+            application.setStatus(ApplicationStatus.REJECTED);
+            application.setReviewedAt(java.time.LocalDateTime.now());
+            application.setFeedback("Application declined by Resource Planner");
+            applicationRepository.save(application);
+
+            // ✅ NOTIFY EMPLOYEE ABOUT DECLINE
+            notifyEmployeeOfDecline(application);
+
+            System.out.println("❌ Application declined: " + employee.getName() +
+                    " for project " + project.getName());
+
+            redirectAttributes.addFlashAttribute("success",
+                    "Application declined. " + employee.getName() + " has been notified.");
+
+        } catch (Exception e) {
+            System.err.println("❌ Error declining application: " + e.getMessage());
+            e.printStackTrace();
+            redirectAttributes.addFlashAttribute("error",
+                    "❌ Failed to decline application: " + e.getMessage());
+        }
+
+        // Redirect back to project page
+        Application app = applicationRepository.findById(applicationId).orElse(null);
+        Long projectId = app != null ? app.getProject().getId() : null;
+        return "redirect:/ui/resource-planner/project/" + (projectId != null ? projectId : "");
+    }
+
+    /**
+     * Notify employee when their application is ACCEPTED
+     */
+    private void notifyEmployeeOfAcceptance(Application application, Assignment assignment) {
+        try {
+            Employee employee = application.getEmployee();
+            Project project = application.getProject();
+
+            // Create notification
+            Notification notification = new Notification();
+            notification.setEmployeeId(employee.getId());
+            notification.setType(NotificationType.ASSIGNMENT_PROPOSED); // Or ASSIGNMENT_APPROVED
+            notification.setIsRead(false);
+            notification.setTitle("Application Accepted");
+
+            String message = String.format(
+                    "✅ Great news! Your application to '%s' was accepted. " +
+                            "Please go to your Assignments page to confirm or decline this assignment.",
+                    project.getName()
+            );
+            notification.setMessage(message);
+            notification.setRelatedAssignmentId(assignment.getId());
+
+            notificationRepository.save(notification);
+
+            System.out.println("✅ Acceptance notification sent to employee: " + employee.getName());
+
+        } catch (Exception e) {
+            System.err.println("❌ Failed to notify employee of acceptance: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Notify employee when their application is DECLINED
+     */
+    private void notifyEmployeeOfDecline(Application application) {
+        try {
+            Employee employee = application.getEmployee();
+            Project project = application.getProject();
+
+            // Create notification
+            Notification notification = new Notification();
+            notification.setEmployeeId(employee.getId());
+            notification.setType(NotificationType.ASSIGNMENT_REJECTED);
+            notification.setIsRead(false);
+            notification.setTitle("Application Declined");
+
+            String message = String.format(
+                    "❌ Your application to '%s' was declined. " +
+                            "You can continue browsing other available projects.",
+                    project.getName()
+            );
+            notification.setMessage(message);
+
+            notificationRepository.save(notification);
+
+            System.out.println("✅ Decline notification sent to employee: " + employee.getName());
+
+        } catch (Exception e) {
+            System.err.println("❌ Failed to notify employee of decline: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
     @GetMapping("/search")
     public String searchEmployees(
             @RequestParam(value = "skills", required = false) String skills,

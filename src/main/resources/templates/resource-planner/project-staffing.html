@@ -96,6 +96,71 @@
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
             border: 1px solid #e2e8f0;
         }
+
+            /* ===== Accept/Decline Button Styles ===== */
+        .btn-success {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-success:active {
+            transform: translateY(0);
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-danger:active {
+            transform: translateY(0);
+        }
+
+        .btn-success:disabled,
+        .btn-danger:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Button container for proper spacing */
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
         .card-title {
             font-size: 18px;
             color: #1e293b;
@@ -784,12 +849,26 @@
                               style="color: #94a3b8; font-style: italic;">No skills</span>
                     </td>
                     <td>
-                        <button class="btn btn-success propose-btn"
-                                th:data-employee-id="${app.employee.id}"
-                                th:data-employee-name="${app.employee.name}"
-                                th:disabled="${!app.employee.available}">
-                            <i class="fas fa-check"></i> Propose
-                        </button>
+                        <!-- ✅ Accept & Decline Buttons with CSS -->
+                        <div class="action-buttons">
+                            <form th:action="@{/ui/resource-planner/applications/{id}/accept(id=${app.id})}"
+                                  method="post"
+                                  style="margin: 0;"
+                                  onsubmit="return confirm('✅ Accept this application?\n\nThe employee will be notified and asked to confirm the assignment.');">
+                                <button type="submit" class="btn-success">
+                                    <i class="fas fa-check"></i> Accept
+                                </button>
+                            </form>
+
+                            <form th:action="@{/ui/resource-planner/applications/{id}/decline(id=${app.id})}"
+                                  method="post"
+                                  style="margin: 0;"
+                                  onsubmit="return confirm('❌ Decline this application?\n\nThe employee will be notified that their application was not accepted.');">
+                                <button type="submit" class="btn-danger">
+                                    <i class="fas fa-times"></i> Decline
+                                </button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
                 </tbody>
