@@ -290,6 +290,36 @@ public class ProjectUiController {
             }
         }
 
+        // ==================== CHECK IF PROJECT CAN BE CONFIRMED ====================
+        boolean canConfirmProject = false;
+        if (assignments != null && !assignments.isEmpty()) {
+            canConfirmProject = canConfirmProject(project, assignments);
+        }
+
+// Calculate skill coverage percentage
+        int totalSkillsNeeded = project.getSkillRequirements() != null ?
+                project.getSkillRequirements().stream()
+                        .mapToInt(ProjectSkillRequirement::getRequiredCount)
+                        .sum() : 0;
+        int skillsCovered = 0;
+
+        if (assignments != null && !assignments.isEmpty()) {
+            for (Assignment assignment : assignments) {
+                if (assignment.getStatus() == AssignmentStatus.CONFIRMED &&
+                        assignment.getEmployee().getSkills() != null) {
+                    skillsCovered += assignment.getEmployee().getSkills().size();
+                }
+            }
+        }
+
+        double skillCoverage = 0.0;
+        if (totalSkillsNeeded > 0) {
+            skillCoverage = (skillsCovered * 100.0) / totalSkillsNeeded;
+        }
+
+        model.addAttribute("canConfirmProject", canConfirmProject);
+        model.addAttribute("skillCoverage", Math.min(skillCoverage, 100.0));
+
         model.addAttribute("username", username);
         model.addAttribute("project", project);
         model.addAttribute("assignments", assignments);
@@ -511,6 +541,84 @@ public class ProjectUiController {
         }
 
         return "redirect:/ui/projects/dashboard";
+    }
+
+    // ==================== CONFIRM PROJECT (START PROJECT) ====================
+    @PostMapping("/{id}/confirm")
+    public String confirmProject(
+            @PathVariable("id") Long id,
+            Principal principal,
+            RedirectAttributes redirectAttributes) {
+
+        String username = principal != null ? principal.getName() : "Guest";
+
+        try {
+            Project project = projectRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+
+            // Get all assignments for this project
+            List<Assignment> assignments = assignmentRepository.findAll().stream()
+                    .filter(a -> a.getProject().getId().equals(id))
+                    .collect(Collectors.toList());
+
+            // Verify project can be confirmed
+            if (!canConfirmProject(project, assignments)) {
+                redirectAttributes.addFlashAttribute("errorMessage",
+                        "Cannot confirm project. Ensure all required skills and employees are confirmed.");
+                return "redirect:/ui/projects/" + id;
+            }
+
+            // Update project status
+            project.setStatus(ProjectStatus.IN_PROGRESS);
+            project.setWorkflowStatus("PROJECT_CONFIRMED");
+            projectRepository.save(project);
+
+            // Update all confirmed assignments to IN_PROGRESS
+            for (Assignment assignment : assignments) {
+                if (assignment.getStatus() == AssignmentStatus.CONFIRMED) {
+                    assignment.setStatus(AssignmentStatus.IN_PROGRESS);
+                    assignmentRepository.save(assignment);
+                }
+            }
+
+            // Notify Resource Planner
+            String messagerp = "Project '" + project.getName() +
+                    "' has been confirmed and can now start. All staffing requirements are satisfied.";
+            Notification rpNotification = new Notification(
+                    "planner",  // planner username
+                    "Project Ready to Start: " + project.getName(),
+                    messagerp,
+                    NotificationType.PROJECT_STARTED
+            );
+            rpNotification.setProjectId(project.getId());
+            rpNotification.setProjectName(project.getName());
+            notificationRepository.save(rpNotification);
+
+            // Notify all assigned employees
+            for (Assignment assignment : assignments) {
+                if (assignment.getStatus() == AssignmentStatus.IN_PROGRESS) {
+                    Notification empNotification = new Notification(
+                            assignment.getEmployee().getId(),
+                            "Project Starting: " + project.getName(),
+                            "Project '" + project.getName() + "' is now starting. Please begin your assigned tasks.",
+                            NotificationType.PROJECT_STARTED
+                    );
+                    empNotification.setProjectId(project.getId());
+                    empNotification.setProjectName(project.getName());
+                    notificationRepository.save(empNotification);
+                }
+            }
+
+            redirectAttributes.addFlashAttribute("successMessage",
+                    "✅ Project '" + project.getName() + "' confirmed and started successfully! " +
+                            "Resource Planner has been notified.");
+
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage",
+                    "❌ Failed to confirm project: " + e.getMessage());
+        }
+
+        return "redirect:/ui/projects/" + id;
     }
 
     // ==================== UNPUBLISH PROJECT ====================
@@ -954,6 +1062,39 @@ public class ProjectUiController {
         return "projects/external-search-status";
     }
 
+    // ==================== CHECK IF PROJECT CAN BE CONFIRMED ====================
+    private boolean canConfirmProject(Project project, List<Assignment> assignments) {
+        // Check if required employee count is met
+        long confirmedCount = assignments.stream()
+                .filter(a -> a.getStatus() == AssignmentStatus.CONFIRMED)
+                .count();
+
+        if (confirmedCount < project.getTotalEmployeesRequired()) {
+            return false;
+        }
+
+        // Check if all skill requirements are satisfied
+        if (project.getSkillRequirements() != null && !project.getSkillRequirements().isEmpty()) {
+            for (ProjectSkillRequirement requirement : project.getSkillRequirements()) {
+                String skill = requirement.getSkill();
+                int requiredCount = requirement.getRequiredCount();
+
+                // Count how many confirmed employees have this skill
+                long employeesWithSkill = assignments.stream()
+                        .filter(a -> a.getStatus() == AssignmentStatus.CONFIRMED)
+                        .filter(a -> a.getEmployee().getSkills() != null &&
+                                a.getEmployee().getSkills().contains(skill))
+                        .count();
+
+                if (employeesWithSkill < requiredCount) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
     // ==================== PROJECT MANAGER DASHBOARD ====================
     @GetMapping("/dashboard")
     public String projectManagerDashboard(Model model, Principal principal) {
@@ -980,6 +1121,12 @@ public class ProjectUiController {
         long draftCount = myProjects.stream().filter(p -> p.getStatus() == ProjectStatus.DRAFT).count();
         long rejectCount = myProjects.stream().filter(p -> p.getStatus() == ProjectStatus.REJECTED).count();
         long staffingCount = myProjects.stream().filter(p -> p.getStatus() == ProjectStatus.STAFFING).count();
+
+        long confirmedProjects = myProjects.stream()
+                .filter(p -> p.getStatus() == ProjectStatus.IN_PROGRESS)
+                .count();
+
+        model.addAttribute("confirmedProjects", confirmedProjects);
 
         // Get published projects for department head
         List<Project> publishedProjects = projectRepository.findAll().stream()

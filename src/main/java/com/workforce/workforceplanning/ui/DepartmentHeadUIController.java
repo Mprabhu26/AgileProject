@@ -1,9 +1,7 @@
 package com.workforce.workforceplanning.ui;
 
-import com.workforce.workforceplanning.model.Notification;
-import com.workforce.workforceplanning.model.NotificationType;
-import com.workforce.workforceplanning.model.Project;
-import com.workforce.workforceplanning.model.ProjectStatus;
+import com.workforce.workforceplanning.model.*;
+import com.workforce.workforceplanning.repository.AssignmentRepository;
 import com.workforce.workforceplanning.repository.NotificationRepository;
 import com.workforce.workforceplanning.repository.ProjectRepository;
 import com.workforce.workforceplanning.service.UserRoleService;
@@ -34,17 +32,19 @@ public class DepartmentHeadUIController {
     private final NotificationRepository notificationRepository;
     private final ProjectRepository projectRepository;
     private final UserRoleService userRoleService;
+    private final AssignmentRepository assignmentRepository;
 
     public DepartmentHeadUIController(TaskService taskService,
                                       RuntimeService runtimeService,
                                       HistoryService historyService, NotificationRepository notificationRepository,
-                                      ProjectRepository projectRepository, UserRoleService userRoleService) {
+                                      ProjectRepository projectRepository, UserRoleService userRoleService, AssignmentRepository assignmentRepository) {
         this.taskService = taskService;
         this.runtimeService = runtimeService;
         this.historyService = historyService;
         this.notificationRepository = notificationRepository;
         this.projectRepository = projectRepository;
         this.userRoleService = userRoleService;
+        this.assignmentRepository = assignmentRepository;
     }
 
     // ==================== DASHBOARD ====================
@@ -103,8 +103,8 @@ public class DepartmentHeadUIController {
         // Get published projects for department head
         List<Project> publishedProjects = projectRepository.findAll().stream()
                 .filter(p -> Boolean.TRUE.equals(p.getPublished()))  // Only include published projects
-                .filter(p -> p.getStatus() == ProjectStatus.PENDING_APPROVAL)  // Only projects that are pending approval
-                .filter(p -> "RUNNING".equals(p.getWorkflowStatus())) // Awaiting approval
+                .filter(p -> p.getStatus() == ProjectStatus.PENDING_APPROVAL || p.getStatus() == ProjectStatus.IN_PROGRESS)  // Only projects that are pending approval
+                .filter(p -> "RUNNING".equals(p.getWorkflowStatus()) ||"AWAITING_FINAL_APPROVAL".equals(p.getWorkflowStatus())) // Awaiting approval
                 .collect(Collectors.toList());
 
         List<Project> externalSearchProjects  = projectRepository.findAll().stream()
@@ -185,6 +185,30 @@ public class DepartmentHeadUIController {
               //      !"RUNNING".equals(project.getWorkflowStatus())) {
                 //return "redirect:/ui/department-head/dashboard?error=Project+not+accessible";
            // }
+            if (project.getStatus() == ProjectStatus.IN_PROGRESS ||
+                    project.getStatus() == ProjectStatus.STAFFING) {
+
+                List<Assignment> assignments = assignmentRepository.findByProjectId(projectId);
+                model.addAttribute("assignments", assignments);
+
+                // Calculate staffing completion percentage
+                int requiredCount = project.getSkillRequirements() != null ?
+                        project.getSkillRequirements().stream()
+                                .mapToInt(sr -> sr.getRequiredCount())
+                                .sum() : 0;
+
+                int assignedCount = assignments != null ? assignments.size() : 0;
+
+                double staffingPercentage = 0.0;
+                if (requiredCount > 0) {
+                    staffingPercentage = (assignedCount * 100.0) / requiredCount;
+                }
+
+                model.addAttribute("requiredCount", requiredCount);
+                model.addAttribute("assignedCount", assignedCount);
+                model.addAttribute("staffingPercentage", staffingPercentage);
+            }
+
             model.addAttribute("project", project);
             model.addAttribute("username", username);
 
@@ -210,58 +234,104 @@ public class DepartmentHeadUIController {
                     .orElseThrow(() -> new RuntimeException("Project not found"));
 
             // Validate project state
-            if (!"RUNNING".equals(project.getWorkflowStatus())) {
+//            if (!"RUNNING".equals(project.getWorkflowStatus()) || !"IN_PROGRESS".equals(project.getStatus())) {
+//                redirectAttributes.addFlashAttribute("errorMessage",
+//                        " Project is not awaiting approval");
+//                return "redirect:/ui/department-head/dashboard";
+//            }
+
+            if (project.getStatus() == ProjectStatus.IN_PROGRESS) {
+                // For IN_PROGRESS projects (already staffed), transition to ACTIVE
+                project.setWorkflowStatus("FINAL_APPROVED"); // Fixed typo from "Final_APPROVED"
+                project.setApprovedAt(LocalDateTime.now());
+                project.setApprovedBy(username);
+                project.setStatus(ProjectStatus.ACTIVE); // Set to ACTIVE
+
+                if (approvalNotes != null && !approvalNotes.isEmpty()) {
+                    project.setApprovalComments(approvalNotes);
+                }
+
+                projectRepository.save(project);
+
+                String pmUsername = project.getCreatedBy();
+
+                // Create notification for PM
+                String message = "Check the status";
+                Notification pmNotification = new Notification(
+                        pmUsername,
+                        "Decision for " + project.getName(),
+                        "Department head has approved the Staffed Project - " + project.getName() +
+                                (message != null ? ". Good to Initiate the Project" + message : ""),
+                        NotificationType.ASSIGNMENT_PROPOSED
+                );
+                pmNotification.setProjectId(projectId);
+                pmNotification.setProjectName(project.getName());
+                notificationRepository.save(pmNotification);
+
+                // Create notification for Resource Planner
+                String messagerp = "Check the status";
+                Notification rpNotification = new Notification(
+                        "planner",
+                        "Decision for " + project.getName(),
+                        "Department head has approved the Staffed Project - " + project.getName() +
+                                (messagerp != null ? ". Good to proceed with staffing of project. " + messagerp : ""),
+                        NotificationType.ASSIGNMENT_PROPOSED
+                );
+                rpNotification.setProjectId(projectId);
+                rpNotification.setProjectName(project.getName());
+                notificationRepository.save(rpNotification);
+
+            } else if (project.getStatus() == ProjectStatus.STAFFING ||
+                    project.getStatus() == ProjectStatus.PENDING_APPROVAL) {
+                // For STAFFING or PENDING_APPROVAL projects, transition to APPROVED
+                project.setStatus(ProjectStatus.APPROVED);
+                project.setWorkflowStatus("DEPARTMENT_HEAD_APPROVED");
+                project.setApprovedAt(LocalDateTime.now());
+                project.setApprovedBy(username);
+
+                if (approvalNotes != null && !approvalNotes.isEmpty()) {
+                    project.setApprovalComments(approvalNotes);
+                }
+
+                projectRepository.save(project);
+
+                String pmUsername = project.getCreatedBy();
+
+                // Create notification for PM
+                String message = "Check the status";
+                Notification pmNotification = new Notification(
+                        pmUsername,
+                        "Decision for " + project.getName(),
+                        "Department head has approved the Published Project - " + project.getName() +
+                                (message != null ? ". Good to start the staffing of project" + message : ""),
+                        NotificationType.ASSIGNMENT_PROPOSED
+                );
+                pmNotification.setProjectId(projectId);
+                pmNotification.setProjectName(project.getName());
+                notificationRepository.save(pmNotification);
+
+                // Create notification for Resource Planner
+                String messagerp = "Check the status";
+                Notification rpNotification = new Notification(
+                        "planner",
+                        "Decision for " + project.getName(),
+                        "Department head has approved the Published Project - " + project.getName() +
+                                (messagerp != null ? ". Good to proceed with staffing of project. " + messagerp : ""),
+                        NotificationType.ASSIGNMENT_PROPOSED
+                );
+                rpNotification.setProjectId(projectId);
+                rpNotification.setProjectName(project.getName());
+                notificationRepository.save(rpNotification);
+
+            } else {
+                // For any other status, handle appropriately
                 redirectAttributes.addFlashAttribute("errorMessage",
-                        " Project is not awaiting approval");
+                        "Cannot approve project with current status: " + project.getStatus());
                 return "redirect:/ui/department-head/dashboard";
             }
 
-            // Approve the project
-            project.setStatus(ProjectStatus.APPROVED);
-            project.setWorkflowStatus("DEPARTMENT_HEAD_APPROVED");
-            project.setApprovedAt(LocalDateTime.now());
-            project.setApprovedBy(username);
-
-            if (approvalNotes != null && !approvalNotes.isEmpty()) {
-                project.setApprovalComments(approvalNotes);
-            }
-
-            projectRepository.save(project);
-
-            String pmUsername = project.getCreatedBy();
-
-            // Create notification for PM using username constructor
-            String message = "Check the status";
-            Notification pmNotification = new Notification(
-                    pmUsername,  // PM's username (String)
-                    "Decision for " + project.getName(),
-                    "Department head has approved the Published Project-" +project.getName() +
-                            (message != null ? ". Good to start the staffing of project" + message : ""),
-                    NotificationType.ASSIGNMENT_PROPOSED
-            );
-
-            pmNotification.setProjectId(projectId);
-            pmNotification.setProjectName(project.getName());
-
-            notificationRepository.save(pmNotification);
-
-
-            // Create notification for Resource Planner using username constructor
-            String messagerp = "Check the status";
-            Notification rpNotification = new Notification(
-                    "planner",  // planner username (String)
-                    "Decision for " + project.getName(),
-                    "Department head has approved the Published Project-" +project.getName() +
-                            (messagerp != null ? ". Good to proceed with staffing of project. " + messagerp : ""),
-                    NotificationType.ASSIGNMENT_PROPOSED
-            );
-            rpNotification.setProjectId(projectId);
-            rpNotification.setProjectName(project.getName());
-
-            notificationRepository.save(rpNotification);
-
             redirectAttributes.addFlashAttribute("successMessage",
-                    " Project '" + project.getName() + "' approved successfully! Now available for staffing.");
+                    " Project '" + project.getName() + "' approved successfully!.");
 
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("errorMessage",
@@ -286,11 +356,11 @@ public class DepartmentHeadUIController {
                     .orElseThrow(() -> new RuntimeException("Project not found"));
 
             // Validate project state
-            if (!"RUNNING".equals(project.getWorkflowStatus())) {
-                redirectAttributes.addFlashAttribute("errorMessage",
-                        " Project is not awaiting approval");
-                return "redirect:/ui/department-head/dashboard";
-            }
+//            if (!"RUNNING".equals(project.getWorkflowStatus())) {
+//                redirectAttributes.addFlashAttribute("errorMessage",
+//                        " Project is not awaiting approval");
+//                return "redirect:/ui/department-head/dashboard";
+//            }
 
             // Reject the project
             project.setStatus(ProjectStatus.REJECTED);
