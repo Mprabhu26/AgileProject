@@ -108,6 +108,9 @@ public class EmployeePortalController {
             List<Assignment> myAssignments = assignmentRepository.findByEmployeeId(employee.getId());
 
             Set<Long> assignedProjectIds = myAssignments.stream()
+                    .filter(a -> a.getStatus() == AssignmentStatus.CONFIRMED ||
+                            a.getStatus() == AssignmentStatus.IN_PROGRESS ||
+                            a.getStatus() == AssignmentStatus.COMPLETED)
                     .map(a -> a.getProject().getId())
                     .collect(Collectors.toSet());
 
@@ -115,6 +118,7 @@ public class EmployeePortalController {
                     .findByEmployeeIdOrderByAppliedAtDesc(employee.getId());
 
             Set<Long> appliedProjectIds = myApplications.stream()
+                    .filter(a -> a.getStatus() == ApplicationStatus.PENDING)  // Only PENDING
                     .map(a -> a.getProject().getId())
                     .collect(Collectors.toSet());
 
@@ -463,25 +467,40 @@ public class EmployeePortalController {
             Project project = projectRepository.findById(projectId)
                     .orElseThrow(() -> new RuntimeException("Project not found"));
 
-            // Check if already applied
-            boolean alreadyApplied = applicationRepository
-                    .existsByProjectIdAndEmployeeId(projectId, employee.getId());
+            // Allow re-application if previous was REJECTED
+            List<Application> existingApplications = applicationRepository.findAll().stream()
+                    .filter(a -> a.getEmployee().getId().equals(employee.getId()))
+                    .filter(a -> a.getProject().getId().equals(projectId))
+                    .collect(Collectors.toList());
 
-            if (alreadyApplied) {
+            boolean hasPendingApplication = applicationRepository.findAll().stream()
+                    .anyMatch(a -> a.getEmployee().getId().equals(employee.getId()) &&
+                            a.getProject().getId().equals(projectId) &&
+                            a.getStatus() == ApplicationStatus.PENDING);
+
+            if (hasPendingApplication) {
                 redirectAttributes.addFlashAttribute("error",
-                        "❌ You have already applied to this project");
+                        "❌ You have already applied to this project and it's pending review");
                 return "redirect:/ui/employee/projects";
             }
 
-            // Check if already assigned
-            boolean alreadyAssigned = assignmentRepository
-                    .existsByProjectIdAndEmployeeId(projectId, employee.getId());
+            // If previous application was REJECTED, user can apply again
 
-            if (alreadyAssigned) {
+            List<Assignment> employeeAssignments = assignmentRepository.findByEmployeeId(employee.getId());
+
+            boolean hasActiveAssignment = employeeAssignments.stream()
+                    .anyMatch(a -> a.getProject().getId().equals(projectId) &&
+                            (a.getStatus() == AssignmentStatus.CONFIRMED ||
+                                    a.getStatus() == AssignmentStatus.IN_PROGRESS));
+
+            if (hasActiveAssignment) {
                 redirectAttributes.addFlashAttribute("error",
-                        "❌ You are already assigned to this project");
+                        "You are already assigned to this project");
                 return "redirect:/ui/employee/projects";
             }
+
+            // ✅ ADD DEBUG LOGGING
+            System.out.println("✅ Creating application for employee " + employee.getId() + " to project " + projectId);
 
             // Create application
             Application application = new Application();
