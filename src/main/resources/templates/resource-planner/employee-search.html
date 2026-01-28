@@ -345,9 +345,9 @@
     <div class="results-count">
         <i class="fas fa-users"></i>
         Found <strong th:text="${employees != null ? employees.size() : 0}">0</strong> employees
-        <span th:if="${searchSkills or searchDepartment or searchAvailable != null}">
-                matching your criteria
-            </span>
+        <span th:if="${(searchSkills != null and !searchSkills.isEmpty()) or (searchDepartment != null and !searchDepartment.isEmpty()) or searchAvailable != null}">
+        matching your search criteria
+    </span>
     </div>
 
     <!-- Employee Cards -->
