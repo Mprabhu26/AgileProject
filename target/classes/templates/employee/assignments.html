@@ -266,6 +266,7 @@
         <h2>Reject Assignment</h2>
         <p>Please provide a reason for rejecting this assignment:</p>
         <form id="rejectForm" method="post">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
             <textarea name="reason" rows="4" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; margin-top: 10px;" placeholder="Enter your reason..."></textarea>
             <div class="modal-buttons">
                 <button type="button" class="btn" style="background: #6b7280; color: white;" onclick="closeRejectModal()">Cancel</button>
