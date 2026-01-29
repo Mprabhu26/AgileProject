@@ -259,6 +259,7 @@
         </div>
 
         <!-- Summary -->
+        <!-- Summary -->
         <div th:if="${applications != null && !applications.isEmpty()}" class="mt-4 pt-3 border-top">
             <div class="d-flex justify-content-between text-muted">
                 <small>
@@ -266,18 +267,18 @@
                     Total Applications: <strong th:text="${applications.size()}">0</strong>
                 </small>
                 <small>
-                        <span class="status-badge status-pending me-2">
-                            <i class="fas fa-clock me-1"></i>
-                            Pending: <strong th:text="${applications.stream().filter(a -> a.status.toString() == 'PENDING').count()}">0</strong>
-                        </span>
+            <span class="status-badge status-pending me-2">
+                <i class="fas fa-clock me-1"></i>
+                Pending: <strong th:text="${#lists.size(applications.?[status.name() == 'PENDING'])}">0</strong>
+            </span>
                     <span class="status-badge status-approved me-2">
-                            <i class="fas fa-check me-1"></i>
-                            Approved: <strong th:text="${applications.stream().filter(a -> a.status.toString() == 'APPROVED').count()}">0</strong>
-                        </span>
+                <i class="fas fa-check me-1"></i>
+                Approved: <strong th:text="${#lists.size(applications.?[status.name() == 'APPROVED'])}">0</strong>
+            </span>
                     <span class="status-badge status-rejected">
-                            <i class="fas fa-times me-1"></i>
-                            Rejected: <strong th:text="${applications.stream().filter(a -> a.status.toString() == 'REJECTED').count()}">0</strong>
-                        </span>
+                <i class="fas fa-times me-1"></i>
+                Rejected: <strong th:text="${#lists.size(applications.?[status.name() == 'REJECTED'])}">0</strong>
+            </span>
                 </small>
             </div>
         </div>
