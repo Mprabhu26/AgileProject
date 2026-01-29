@@ -8,12 +8,9 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.LocalDateTime;
-import java.util.Set;
+import java.util.*;
 import java.security.Principal;
-import java.util.List;
 import java.util.stream.Collectors;
-import java.util.Arrays;
-import java.util.Collections;
 
 @Controller
 @RequestMapping("/ui/employee")
@@ -565,35 +562,59 @@ public class EmployeePortalController {
     // ==================== 📄 VIEW MY APPLICATIONS ====================
     @GetMapping("/applications")
     public String showApplications(Model model, Principal principal) {
-        String username = principal.getName();
-        Employee employee = getEmployeeByUsername(username);
+        try {
+            String username = principal.getName();
+            Employee employee = getEmployeeByUsername(username);
 
-        if (employee == null) {
-            return "redirect:/ui/employee/projects?error=profile_not_found";
+            if (employee == null) {
+                return "redirect:/ui/employee/projects?error=profile_not_found";
+            }
+
+            List<Application> applications = applicationRepository
+                    .findByEmployeeIdOrderByAppliedAtDesc(employee.getId());
+
+            model.addAttribute("username", username);
+            model.addAttribute("employee", employee);
+            model.addAttribute("applications", applications != null ? applications : new ArrayList<>());
+
+            // Get unread notifications count
+            long unreadCount = notificationRepository
+                    .countByEmployeeIdAndIsReadFalse(employee.getId());
+            model.addAttribute("unreadNotifications", unreadCount);
+
+            return "employee/applications";
+
+        } catch (Exception e) {
+            // Log the error
+            System.err.println("Error in showApplications: " + e.getMessage());
+            e.printStackTrace();
+
+            // Redirect with error
+            return "redirect:/ui/employee/projects?error=unable_to_load_applications";
         }
-
-        List<Application> applications = applicationRepository
-                .findByEmployeeIdOrderByAppliedAtDesc(employee.getId());
-
-        model.addAttribute("username", username);
-        model.addAttribute("employee", employee);
-        model.addAttribute("applications", applications);
-
-        // Get unread notifications count
-        long unreadCount = notificationRepository
-                .countByEmployeeIdAndIsReadFalse(employee.getId());
-        model.addAttribute("unreadNotifications", unreadCount);
-
-        return "employee/applications";
     }
 
-    // ==================== HELPER METHOD ====================
+    // ==================== HELPER METHOD - FIXED ====================
     private Employee getEmployeeByUsername(String username) {
+        if (username == null || username.isEmpty()) {
+            return null;
+        }
+
         return employeeRepository.findAll().stream()
-                .filter(e -> username.equals(e.getEmail().split("@")[0]))
+                .filter(e -> e.getEmail() != null && !e.getEmail().isEmpty())  // ← NULL CHECK
+                .filter(e -> {
+                    try {
+                        String emailPrefix = e.getEmail().split("@")[0];
+                        return username.equals(emailPrefix);
+                    } catch (Exception ex) {
+                        // If split fails for any reason, skip this employee
+                        return false;
+                    }
+                })
                 .findFirst()
                 .orElse(null);
     }
+
 
     // ==================== 🔔 NOTIFICATION METHODS ====================
 
